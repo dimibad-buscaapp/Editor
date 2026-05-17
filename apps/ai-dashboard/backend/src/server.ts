@@ -8,6 +8,7 @@ import Fastify from 'fastify';
 import { ZodError } from 'zod';
 import { config } from './config.js';
 import { prisma } from './prisma.js';
+import { registerAgentRoutes } from './agentRoutes.js';
 import { registerRoutes } from './routes.js';
 
 const app = Fastify({
@@ -38,6 +39,7 @@ app.setErrorHandler((error, _request, reply) => {
 });
 
 await registerRoutes(app);
+await registerAgentRoutes(app);
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const frontendDist = path.resolve(currentDir, '../frontend');

@@ -8,7 +8,7 @@ Para abrir uma interface parecida com VS Code no navegador, use o deploy princip
 
 - Repositorio: `https://github.com/dimibad-buscaapp/Editor.git`
 - VPS: `108.181.169.40`
-- Porta da aplicacao no VPS: `3200`
+- Porta do backend/dashboard no VPS: `3210`
 - Caminho do projeto no VPS: `C:\Apps\editor`
 - Dominio principal: `princyai.com`
 - Nome publico: `Princy Ai`
@@ -23,13 +23,13 @@ A     @     108.181.169.40
 A     www   108.181.169.40
 ```
 
-DNS nao usa porta. O acesso web publico deve usar `443` com HTTPS, e o proxy deve encaminhar para a aplicacao em `127.0.0.1:3200`.
+DNS nao usa porta. O deploy principal do Code-OSS Web usa `127.0.0.1:3200`; este dashboard/agent backend usa `127.0.0.1:3210`.
 
 ## Portas Recomendadas
 
 - Publicas: `443` e, opcionalmente, `80` apenas para redirecionar para HTTPS.
-- Aplicacao: `3200`, preferencialmente restrita ao localhost quando usar Caddy.
-- Internas: `5434`, `11434`.
+- Dashboard/agent backend: `3210`, restrito ao localhost.
+- Internas: `5432`, `11434`.
 
 ## Instalar o Projeto
 
@@ -86,7 +86,7 @@ Use Caddy para simplificar HTTPS automatico. Copie `deploy/windows/Caddyfile` pa
 Fluxo esperado:
 
 ```text
-https://princyai.com -> Caddy :443 -> 127.0.0.1:3200 -> Princy Ai
+dashboard.princyai.com -> Caddy :443 -> 127.0.0.1:3210 -> Princy Ai Dashboard
 ```
 
-Nao exponha `5434` nem `11434` diretamente na internet. Se estiver usando Caddy, mantenha a aplicacao em `127.0.0.1:3200`.
+Nao exponha `3210`, `5432` nem `11434` diretamente na internet. Se estiver usando Caddy, mantenha o dashboard/agent backend em `127.0.0.1:3210`.

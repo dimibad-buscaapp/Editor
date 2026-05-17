@@ -89,7 +89,7 @@ OPENAI_EMBEDDING_MODEL="text-embedding-3-small"
 npm run dev
 ```
 
-O frontend fica em `http://localhost:5173` e o backend em `http://localhost:3200`.
+O frontend fica em `http://localhost:5173` e o backend/agent API em `http://localhost:3210`.
 
 ## Funcionalidades Implementadas
 
@@ -131,7 +131,8 @@ Ambiente alvo:
 
 - Repositorio: `https://github.com/dimibad-buscaapp/Editor.git`
 - VPS: `108.181.169.40`
-- Porta da aplicacao no VPS: `3200`
+- Porta do Code-OSS Web no VPS: `3200`
+- Porta do backend de IA/dashboard no VPS: `3210`
 - Caminho no VPS: `C:\Apps\editor`
 - Dominio: `princyai.com`
 
@@ -143,8 +144,8 @@ Recomendacao para o primeiro ambiente online:
 4. Rode `npm run prisma:deploy` para aplicar migrations sem exigir permissao de criar shadow database.
 5. Rode o app Node.js como servico com PM2, NSSM ou Windows Service.
 6. Mantenha apenas a porta `443` publica.
-7. Use Caddy para encaminhar `443` para `127.0.0.1:3200`.
-8. Deixe `5432`, `11434` e demais portas internas bloqueadas no firewall.
+7. Use Caddy para encaminhar `443` para o Code-OSS Web em `127.0.0.1:3200`.
+8. Deixe `3210`, `5432`, `11434` e demais portas internas bloqueadas no firewall.
 9. Quando houver execucao de codigo por workspace, isole com WSL2 ou containers por usuario/projeto.
 
 Veja o guia especifico em `deploy/windows/README.md`.

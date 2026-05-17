@@ -1,0 +1,149 @@
+{
+  "name": "princy-ai",
+  "displayName": "Princy Ai",
+  "description": "AI coding agent for Princy Ai Code-OSS Web.",
+  "version": "0.0.1",
+  "publisher": "princyai",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "main": "./out/extension",
+  "browser": "./dist/browser/extension",
+  "categories": [
+    "AI",
+    "Other"
+  ],
+  "extensionKind": [
+    "ui",
+    "workspace"
+  ],
+  "activationEvents": [
+    "onCommand:princyai.inlineEdit",
+    "onCommand:princyai.chat.focus",
+    "onCommand:princyai.indexActiveFile",
+    "onView:princyai.chat"
+  ],
+  "capabilities": {
+    "virtualWorkspaces": true,
+    "untrustedWorkspaces": {
+      "supported": true
+    }
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "princyai.inlineEdit",
+        "title": "Inline Edit",
+        "category": "Princy Ai",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "princyai.chat.focus",
+        "title": "Focus Chat",
+        "category": "Princy Ai",
+        "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "princyai.indexActiveFile",
+        "title": "Index Active File",
+        "category": "Princy Ai",
+        "icon": "$(database)"
+      },
+      {
+        "command": "princyai.runSuggestedCommand",
+        "title": "Run Suggested Command",
+        "category": "Princy Ai",
+        "icon": "$(terminal)"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "princyai.inlineEdit",
+        "key": "ctrl+k ctrl+i",
+        "mac": "cmd+k cmd+i",
+        "when": "editorTextFocus && editorHasSelection && !editorReadonly"
+      },
+      {
+        "command": "princyai.chat.focus",
+        "key": "ctrl+l",
+        "mac": "cmd+l"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "princyai.inlineEdit",
+          "when": "editorHasSelection && !editorReadonly",
+          "group": "princyai@1"
+        },
+        {
+          "command": "princyai.indexActiveFile",
+          "when": "editorTextFocus",
+          "group": "princyai@2"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "princyai.inlineEdit"
+        },
+        {
+          "command": "princyai.chat.focus"
+        },
+        {
+          "command": "princyai.indexActiveFile"
+        },
+        {
+          "command": "princyai.runSuggestedCommand"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "princyai",
+          "title": "Princy Ai",
+          "icon": "$(sparkle)"
+        }
+      ]
+    },
+    "views": {
+      "princyai": [
+        {
+          "id": "princyai.chat",
+          "name": "Chat"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Princy Ai",
+      "properties": {
+        "princyai.agentEndpoint": {
+          "type": "string",
+          "default": "http://127.0.0.1:3210",
+          "description": "Fastify endpoint for the Princy Ai agent backend."
+        },
+        "princyai.apiToken": {
+          "type": "string",
+          "default": "",
+          "description": "Optional API token sent to the Princy Ai agent backend."
+        },
+        "princyai.autoIndexOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Re-index files in the AI backend when they are saved."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "gulp compile-extension:princy-ai",
+    "watch": "gulp watch-extension:princy-ai",
+    "compile-web": "npm-run-all2 -lp bundle-web typecheck-web",
+    "bundle-web": "node ./esbuild.browser.mts",
+    "typecheck-web": "tsgo --project ./tsconfig.json --noEmit",
+    "watch-web": "npm-run-all2 -lp watch-bundle-web watch-typecheck-web",
+    "watch-bundle-web": "node ./esbuild.browser.mts --watch",
+    "watch-typecheck-web": "tsgo --project ./tsconfig.json --noEmit --watch"
+  }
+}

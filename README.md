@@ -11,7 +11,9 @@ powershell -ExecutionPolicy Bypass -File .\deploy\windows\code-web\start-princy-
 
 O app principal deve responder em `http://127.0.0.1:3200`, com `princyai.com` apontando via Caddy para essa porta. Veja [`deploy/windows/code-web/README.md`](deploy/windows/code-web/README.md).
 
-O MVP em [`apps/ai-dashboard`](apps/ai-dashboard) fica preservado como experimento separado e não é mais a página principal do deploy.
+O backend de IA/RAG usado pela extensão roda separado em `http://127.0.0.1:3210`. Veja [`deploy/windows/agent-backend/README.md`](deploy/windows/agent-backend/README.md).
+
+O MVP em [`apps/ai-dashboard`](apps/ai-dashboard) fica preservado como dashboard/laboratório do backend de IA e não é mais a página principal do deploy.
 
 # Visual Studio Code - Open Source ("Code - OSS")
 [![Feature Requests](https://img.shields.io/github/issues/microsoft/vscode/feature-request.svg)](https://github.com/microsoft/vscode/issues?q=is%3Aopen+is%3Aissue+label%3Afeature-request+sort%3Areactions-%2B1-desc)

@@ -66,3 +66,12 @@ npm run start
 ```
 
 Nao use `npm run prisma:migrate` no VPS, porque ele chama `migrate dev` e precisa criar shadow database.
+
+## Portas no Deploy Atual
+
+- `3200`: Code-OSS Web, interface principal.
+- `3210`: backend Fastify do dashboard e da API do agente.
+- `5432`: PostgreSQL local.
+- `11434`: Ollama local.
+
+A extensão embutida `princy-ai` chama o backend em `princyai.agentEndpoint`, com padrão `http://127.0.0.1:3210`.

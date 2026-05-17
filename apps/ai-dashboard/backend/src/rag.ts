@@ -21,6 +21,32 @@ export type RetrievedChunk = {
 	distance: number;
 };
 
+export async function indexAgentFile(input: { workspaceName: string; filePath: string; content: string }): Promise<IndexedFile> {
+	const workspace = await prisma.workspace.upsert({
+		where: {
+			id: 'agent-workspace'
+		},
+		create: {
+			id: 'agent-workspace',
+			userId: await ensureAgentUser(),
+			name: input.workspaceName,
+			rootPath: ''
+		},
+		update: {
+			name: input.workspaceName
+		},
+		select: {
+			id: true
+		}
+	});
+	const chunks = chunkContent(input.content, config.ragChunkSize);
+	await indexChunks(workspace.id, input.filePath, chunks);
+	return {
+		path: input.filePath,
+		chunkCount: chunks.length
+	};
+}
+
 export async function indexWorkspaceFiles(workspace: { id: string; rootPath: string }, files: FileIndexInput[]): Promise<IndexedFile[]> {
 	const indexedFiles: IndexedFile[] = [];
 
@@ -29,46 +55,7 @@ export async function indexWorkspaceFiles(workspace: { id: string; rootPath: str
 		const chunks = file.chunks && file.chunks.length > 0
 			? file.chunks
 			: chunkContent(await readWorkspaceFile(workspace.rootPath, normalizedPath), config.ragChunkSize);
-		const content = chunks.join('\n');
-		const contentHash = createHash('sha256').update(content).digest('hex');
-		const embeddings: number[][] = [];
-
-		for (const chunk of chunks) {
-			embeddings.push(await createEmbedding(buildEmbeddingInput(normalizedPath, chunk)));
-		}
-
-		await prisma.$transaction(async tx => {
-			await tx.fileChunk.deleteMany({
-				where: {
-					workspaceId: workspace.id,
-					filePath: normalizedPath
-				}
-			});
-
-			for (let index = 0; index < chunks.length; index++) {
-				await tx.fileChunk.create({
-					data: {
-						workspaceId: workspace.id,
-						filePath: normalizedPath,
-						chunkIndex: index,
-						content: chunks[index],
-						contentHash,
-						embedding: embeddings[index]
-					}
-				});
-			}
-
-			await tx.fileEmbeddingJob.create({
-				data: {
-					workspaceId: workspace.id,
-					filePath: normalizedPath,
-					chunkCount: chunks.length,
-					status: 'completed'
-				}
-			});
-		}, {
-			timeout: 120000
-		});
+		await indexChunks(workspace.id, normalizedPath, chunks);
 
 		indexedFiles.push({
 			path: normalizedPath,
@@ -77,6 +64,10 @@ export async function indexWorkspaceFiles(workspace: { id: string; rootPath: str
 	}
 
 	return indexedFiles;
+}
+
+export async function retrieveAgentRelevantChunks(query: string): Promise<RetrievedChunk[]> {
+	return retrieveRelevantChunks('agent-workspace', query);
 }
 
 export async function retrieveRelevantChunks(workspaceId: string, query: string): Promise<RetrievedChunk[]> {
@@ -139,6 +130,68 @@ function chunkContent(content: string, chunkSize: number): string[] {
 
 function buildEmbeddingInput(filePath: string, content: string): string {
 	return `Arquivo: ${filePath}\n\n${content}`;
+}
+
+async function indexChunks(workspaceId: string, filePath: string, chunks: string[]): Promise<void> {
+	const content = chunks.join('\n');
+	const contentHash = createHash('sha256').update(content).digest('hex');
+	const embeddings: number[][] = [];
+
+	for (const chunk of chunks) {
+		embeddings.push(await createEmbedding(buildEmbeddingInput(filePath, chunk)));
+	}
+
+	await prisma.$transaction(async tx => {
+		await tx.fileChunk.deleteMany({
+			where: {
+				workspaceId,
+				filePath
+			}
+		});
+
+		for (let index = 0; index < chunks.length; index++) {
+			await tx.fileChunk.create({
+				data: {
+					workspaceId,
+					filePath,
+					chunkIndex: index,
+					content: chunks[index],
+					contentHash,
+					embedding: embeddings[index]
+				}
+			});
+		}
+
+		await tx.fileEmbeddingJob.create({
+			data: {
+				workspaceId,
+				filePath,
+				chunkCount: chunks.length,
+				status: 'completed'
+			}
+		});
+	}, {
+		timeout: 120000
+	});
+}
+
+async function ensureAgentUser(): Promise<string> {
+	const user = await prisma.user.upsert({
+		where: {
+			email: 'agent@princyai.local'
+		},
+		create: {
+			email: 'agent@princyai.local',
+			name: 'Princy Ai Agent',
+			passwordHash: 'agent-managed'
+		},
+		update: {},
+		select: {
+			id: true
+		}
+	});
+
+	return user.id;
 }
 
 function parseEmbedding(value: unknown): number[] {

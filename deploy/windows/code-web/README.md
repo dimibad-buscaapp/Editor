@@ -22,6 +22,8 @@ npm install
 
 O primeiro start pode baixar extensoes built-in e dependencias usadas pelo script do Code-OSS.
 
+Se `npm install` falhar em pacotes nativos, instale o Visual Studio Build Tools com C++ e use Node LTS compatível.
+
 ## Rodar Manualmente
 
 Pare qualquer processo que esteja usando a porta `3200`, incluindo `apps/ai-dashboard`.
@@ -36,6 +38,19 @@ Teste no navegador do VPS:
 ```text
 http://127.0.0.1:3200
 ```
+
+## Backend de IA
+
+A extensão embutida `Princy Ai` chama o backend Fastify separado em `http://127.0.0.1:3210`.
+
+Rode também:
+
+```powershell
+Set-Location C:\Apps\Editor
+powershell -ExecutionPolicy Bypass -File .\deploy\windows\agent-backend\start-princy-agent-backend.ps1
+```
+
+Veja [`../agent-backend/README.md`](../agent-backend/README.md).
 
 ## Rodar Como Servico
 
