@@ -1,6 +1,8 @@
-# Princy Ai Deploy no Windows Server
+# Princy Ai Dashboard Deploy no Windows Server
 
-Este guia prepara o deploy do Princy Ai no VPS Windows Server.
+Este guia prepara o deploy do MVP dashboard. Ele nao e mais a experiencia principal do Princy Ai.
+
+Para abrir uma interface parecida com VS Code no navegador, use o deploy principal em `deploy/windows/code-web/README.md`.
 
 ## Dados Oficiais
 
@@ -54,8 +56,10 @@ No Windows Server, use o PostgreSQL 17 instalado no sistema. O Princy Ai nao exi
 
 ```powershell
 npm run prisma:generate
-npm run prisma:migrate
+npm run prisma:deploy
 ```
+
+Use `prisma:deploy` no VPS. O comando `prisma:migrate` usa `migrate dev` e tenta criar shadow database, o que exige permissao extra no PostgreSQL.
 
 ## Ollama Local
 

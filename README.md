@@ -1,3 +1,18 @@
+# Princy Ai Code-OSS Web
+
+Este repositório é o fork/base Code-OSS usado pelo Princy Ai. O deploy principal atual é a experiência Code-OSS/VS Code Web no navegador.
+
+Para rodar no VPS Windows em `C:\Apps\Editor`, use:
+
+```powershell
+Set-Location C:\Apps\Editor
+powershell -ExecutionPolicy Bypass -File .\deploy\windows\code-web\start-princy-code-web.ps1
+```
+
+O app principal deve responder em `http://127.0.0.1:3200`, com `princyai.com` apontando via Caddy para essa porta. Veja [`deploy/windows/code-web/README.md`](deploy/windows/code-web/README.md).
+
+O MVP em [`apps/ai-dashboard`](apps/ai-dashboard) fica preservado como experimento separado e não é mais a página principal do deploy.
+
 # Visual Studio Code - Open Source ("Code - OSS")
 [![Feature Requests](https://img.shields.io/github/issues/microsoft/vscode/feature-request.svg)](https://github.com/microsoft/vscode/issues?q=is%3Aopen+is%3Aissue+label%3Afeature-request+sort%3Areactions-%2B1-desc)
 [![Bugs](https://img.shields.io/github/issues/microsoft/vscode/bug.svg)](https://github.com/microsoft/vscode/issues?utf8=✓&q=is%3Aissue+is%3Aopen+label%3Abug)

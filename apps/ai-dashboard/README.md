@@ -28,17 +28,34 @@ Copy-Item .env.example .env
 npm install
 ```
 
-3. Suba o PostgreSQL:
+3. Use PostgreSQL 17 local no Windows ou suba um PostgreSQL opcional por Docker.
+
+Para Windows Server/local sem Docker, confirme que o `.env` aponta para:
+
+```text
+DATABASE_URL="postgresql://ai_dashboard:ai_dashboard@localhost:5432/ai_dashboard?schema=public"
+```
+
+Opcionalmente, em ambiente de desenvolvimento com Docker:
 
 ```powershell
 docker compose up -d postgres
 ```
 
-4. Gere o client Prisma e aplique as migrations:
+4. Gere o client Prisma e aplique as migrations.
+
+Em desenvolvimento:
 
 ```powershell
 npm run prisma:generate
 npm run prisma:migrate
+```
+
+No VPS/producao:
+
+```powershell
+npm run prisma:generate
+npm run prisma:deploy
 ```
 
 5. Configure o provider de IA no `.env`.
@@ -123,11 +140,12 @@ Recomendacao para o primeiro ambiente online:
 1. Aponte `princyai.com` e `www.princyai.com` para `108.181.169.40`.
 2. Use HTTPS com Caddy, Nginx, IIS ARR ou Cloudflare Tunnel.
 3. Rode PostgreSQL 17 no Windows ou em container.
-4. Rode o app Node.js como servico com PM2, NSSM ou Windows Service.
-5. Mantenha apenas a porta `443` publica.
-6. Use Caddy para encaminhar `443` para `127.0.0.1:3200`.
-7. Deixe `5434`, `11434` e demais portas internas bloqueadas no firewall.
-8. Quando houver execucao de codigo por workspace, isole com WSL2 ou containers por usuario/projeto.
+4. Rode `npm run prisma:deploy` para aplicar migrations sem exigir permissao de criar shadow database.
+5. Rode o app Node.js como servico com PM2, NSSM ou Windows Service.
+6. Mantenha apenas a porta `443` publica.
+7. Use Caddy para encaminhar `443` para `127.0.0.1:3200`.
+8. Deixe `5432`, `11434` e demais portas internas bloqueadas no firewall.
+9. Quando houver execucao de codigo por workspace, isole com WSL2 ou containers por usuario/projeto.
 
 Veja o guia especifico em `deploy/windows/README.md`.
 
