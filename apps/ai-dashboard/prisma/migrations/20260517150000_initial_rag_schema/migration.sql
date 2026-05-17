@@ -1,5 +1,3 @@
-CREATE EXTENSION IF NOT EXISTS vector;
-
 CREATE TYPE "ChatRole" AS ENUM ('user', 'assistant', 'system');
 CREATE TYPE "EmbeddingJobStatus" AS ENUM ('queued', 'processing', 'completed', 'failed');
 
@@ -87,7 +85,7 @@ CREATE TABLE "FileChunk" (
 	"chunkIndex" INTEGER NOT NULL,
 	"content" TEXT NOT NULL,
 	"contentHash" TEXT NOT NULL,
-	"embedding" vector NOT NULL,
+	"embedding" JSONB NOT NULL,
 	"createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	"updatedAt" TIMESTAMP(3) NOT NULL,
 

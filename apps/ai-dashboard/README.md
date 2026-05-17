@@ -9,7 +9,7 @@ MVP web isolado para validar dashboard autenticado, workspaces, Monaco Editor, c
 - React, Vite e TypeScript no frontend.
 - Fastify e TypeScript no backend.
 - Prisma e PostgreSQL para dados persistentes.
-- pgvector para busca semantica de chunks.
+- Embeddings em JSONB com busca semantica calculada no backend.
 - Monaco Editor para edicao de arquivos.
 - Web Worker para preparar chunks de arquivos sem travar a interface.
 - OpenAI ou Ollama para embeddings e resposta da LLM.
@@ -82,9 +82,9 @@ O frontend fica em `http://localhost:5173` e o backend em `http://localhost:3200
 - Armazenamento de arquivos por usuario/workspace em `workspace-storage`.
 - Listagem, leitura e salvamento de arquivos com validacao de paths.
 - Monaco Editor integrado ao workspace.
-- Chat IA mockado com persistencia de mensagens.
+- Chat IA com persistencia de mensagens.
 - Web Worker para gerar chunks de arquivos.
-- RAG real: embeddings gravados em `FileChunk`, busca semantica com pgvector e resposta via OpenAI/Ollama.
+- RAG real: embeddings gravados em `FileChunk`, busca semantica no backend e resposta via OpenAI/Ollama.
 
 ## Modelo de Dados
 
@@ -122,7 +122,7 @@ Recomendacao para o primeiro ambiente online:
 
 1. Aponte `princyai.com` e `www.princyai.com` para `108.181.169.40`.
 2. Use HTTPS com Caddy, Nginx, IIS ARR ou Cloudflare Tunnel.
-3. Rode PostgreSQL com pgvector em container ou servico gerenciado compativel.
+3. Rode PostgreSQL 17 no Windows ou em container.
 4. Rode o app Node.js como servico com PM2, NSSM ou Windows Service.
 5. Mantenha apenas a porta `443` publica.
 6. Use Caddy para encaminhar `443` para `127.0.0.1:3200`.
@@ -137,8 +137,8 @@ Veja o guia especifico em `deploy/windows/README.md`.
 2. O frontend le os arquivos do workspace pela API autenticada.
 3. Um Web Worker quebra os arquivos em chunks.
 4. O backend gera embeddings com OpenAI ou Ollama.
-5. Os chunks e embeddings sao persistidos no PostgreSQL com pgvector.
-6. Ao enviar uma pergunta, o backend gera embedding da pergunta, recupera os chunks mais proximos e envia esse contexto para a LLM.
+5. Os chunks e embeddings sao persistidos no PostgreSQL como JSONB.
+6. Ao enviar uma pergunta, o backend gera embedding da pergunta, calcula similaridade dos chunks e envia esse contexto para a LLM.
 
 ## Build de Producao
 

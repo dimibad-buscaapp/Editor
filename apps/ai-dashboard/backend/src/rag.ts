@@ -1,5 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto';
-import { Prisma } from './generated/prisma/client.js';
+import { createHash } from 'node:crypto';
 import { createEmbedding } from './ai.js';
 import { config } from './config.js';
 import { prisma } from './prisma.js';
@@ -39,17 +38,24 @@ export async function indexWorkspaceFiles(workspace: { id: string; rootPath: str
 		}
 
 		await prisma.$transaction(async tx => {
-			await tx.$executeRaw`
-				DELETE FROM "FileChunk"
-				WHERE "workspaceId" = ${workspace.id}
-					AND "filePath" = ${normalizedPath}
-			`;
+			await tx.fileChunk.deleteMany({
+				where: {
+					workspaceId: workspace.id,
+					filePath: normalizedPath
+				}
+			});
 
 			for (let index = 0; index < chunks.length; index++) {
-				await tx.$executeRaw`
-					INSERT INTO "FileChunk" ("id", "workspaceId", "filePath", "chunkIndex", "content", "contentHash", "embedding", "createdAt", "updatedAt")
-					VALUES (${randomUUID()}, ${workspace.id}, ${normalizedPath}, ${index}, ${chunks[index]}, ${contentHash}, ${vectorLiteral(embeddings[index])}::vector, NOW(), NOW())
-				`;
+				await tx.fileChunk.create({
+					data: {
+						workspaceId: workspace.id,
+						filePath: normalizedPath,
+						chunkIndex: index,
+						content: chunks[index],
+						contentHash,
+						embedding: embeddings[index]
+					}
+				});
 			}
 
 			await tx.fileEmbeddingJob.create({
@@ -75,19 +81,27 @@ export async function indexWorkspaceFiles(workspace: { id: string; rootPath: str
 
 export async function retrieveRelevantChunks(workspaceId: string, query: string): Promise<RetrievedChunk[]> {
 	const embedding = await createEmbedding(query);
-	const rows = await prisma.$queryRaw<RetrievedChunk[]>`
-		SELECT
-			"filePath",
-			"chunkIndex",
-			"content",
-			"embedding" <=> ${vectorLiteral(embedding)}::vector AS "distance"
-		FROM "FileChunk"
-		WHERE "workspaceId" = ${workspaceId}
-		ORDER BY "embedding" <=> ${vectorLiteral(embedding)}::vector
-		LIMIT ${config.ragMaxChunks}
-	`;
+	const chunks = await prisma.fileChunk.findMany({
+		where: {
+			workspaceId
+		},
+		select: {
+			filePath: true,
+			chunkIndex: true,
+			content: true,
+			embedding: true
+		}
+	});
 
-	return rows;
+	return chunks
+		.map(chunk => ({
+			filePath: chunk.filePath,
+			chunkIndex: chunk.chunkIndex,
+			content: chunk.content,
+			distance: cosineDistance(embedding, parseEmbedding(chunk.embedding))
+		}))
+		.sort((a, b) => a.distance - b.distance)
+		.slice(0, config.ragMaxChunks);
 }
 
 export function buildRagSystemPrompt(chunks: RetrievedChunk[]): string {
@@ -127,6 +141,32 @@ function buildEmbeddingInput(filePath: string, content: string): string {
 	return `Arquivo: ${filePath}\n\n${content}`;
 }
 
-function vectorLiteral(embedding: number[]): Prisma.Sql {
-	return Prisma.raw(`'[${embedding.map(value => Number.isFinite(value) ? value : 0).join(',')}]'`);
+function parseEmbedding(value: unknown): number[] {
+	if (!Array.isArray(value)) {
+		return [];
+	}
+
+	return value.map(item => typeof item === 'number' && Number.isFinite(item) ? item : 0);
+}
+
+function cosineDistance(left: number[], right: number[]): number {
+	if (left.length === 0 || left.length !== right.length) {
+		return Number.POSITIVE_INFINITY;
+	}
+
+	let dot = 0;
+	let leftMagnitude = 0;
+	let rightMagnitude = 0;
+
+	for (let index = 0; index < left.length; index++) {
+		dot += left[index] * right[index];
+		leftMagnitude += left[index] * left[index];
+		rightMagnitude += right[index] * right[index];
+	}
+
+	if (leftMagnitude === 0 || rightMagnitude === 0) {
+		return Number.POSITIVE_INFINITY;
+	}
+
+	return 1 - dot / (Math.sqrt(leftMagnitude) * Math.sqrt(rightMagnitude));
 }

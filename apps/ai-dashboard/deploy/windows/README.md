@@ -50,10 +50,9 @@ Edite `.env` e troque:
 
 ## Banco de Dados
 
-O `docker-compose.yml` usa PostgreSQL com pgvector.
+No Windows Server, use o PostgreSQL 17 instalado no sistema. O Princy Ai nao exige `pgvector`; os embeddings sao salvos como JSONB e a similaridade e calculada no backend.
 
 ```powershell
-docker compose up -d postgres
 npm run prisma:generate
 npm run prisma:migrate
 ```
