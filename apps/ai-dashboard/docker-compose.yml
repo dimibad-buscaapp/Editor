@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ai_dashboard
+      POSTGRES_PASSWORD: ai_dashboard
+      POSTGRES_DB: ai_dashboard
+    ports:
+      - "5434:5432"
+    volumes:
+      - ai_dashboard_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ai_dashboard -d ai_dashboard"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  ai_dashboard_postgres:

@@ -1,0 +1,45 @@
+{
+	"name": "ai-dashboard",
+	"private": true,
+	"version": "0.1.0",
+	"type": "module",
+	"scripts": {
+		"dev": "concurrently \"npm:dev:backend\" \"npm:dev:frontend\"",
+		"dev:backend": "tsx watch backend/src/server.ts",
+		"dev:frontend": "vite --host 0.0.0.0",
+		"build": "npm run build:backend && npm run build:frontend",
+		"build:backend": "tsc -p backend/tsconfig.json",
+		"build:frontend": "tsc -p frontend/tsconfig.json && vite build",
+		"start": "node dist/backend/server.js",
+		"prisma:generate": "prisma generate",
+		"prisma:migrate": "prisma migrate dev",
+		"prisma:studio": "prisma studio",
+		"typecheck": "tsc -p backend/tsconfig.json --noEmit && tsc -p frontend/tsconfig.json --noEmit"
+	},
+	"dependencies": {
+		"@fastify/cookie": "latest",
+		"@fastify/cors": "latest",
+		"@fastify/static": "latest",
+		"@monaco-editor/react": "latest",
+		"@prisma/adapter-pg": "^7.8.0",
+		"@prisma/client": "latest",
+		"dotenv": "latest",
+		"fastify": "latest",
+		"pg": "^8.20.0",
+		"react": "latest",
+		"react-dom": "latest",
+		"zod": "latest"
+	},
+	"devDependencies": {
+		"@types/node": "latest",
+		"@types/pg": "^8.20.0",
+		"@types/react": "latest",
+		"@types/react-dom": "latest",
+		"@vitejs/plugin-react": "latest",
+		"concurrently": "latest",
+		"prisma": "latest",
+		"tsx": "latest",
+		"typescript": "latest",
+		"vite": "latest"
+	}
+}

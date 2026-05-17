@@ -1,0 +1,226 @@
+:root {
+	color: #e5edf7;
+	background: #0c111d;
+	font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	min-width: 1024px;
+	min-height: 100vh;
+	background: #0c111d;
+}
+
+button,
+input,
+textarea {
+	font: inherit;
+}
+
+button {
+	border: 0;
+	border-radius: 10px;
+	background: #4f7cff;
+	color: white;
+	cursor: pointer;
+	font-weight: 700;
+	padding: 10px 14px;
+}
+
+button:disabled {
+	cursor: not-allowed;
+	opacity: 0.5;
+}
+
+input,
+textarea {
+	border: 1px solid #2a3446;
+	border-radius: 10px;
+	background: #121a29;
+	color: #e5edf7;
+	padding: 10px 12px;
+}
+
+textarea {
+	min-height: 90px;
+	resize: vertical;
+}
+
+.centered,
+.auth-shell {
+	align-items: center;
+	display: flex;
+	justify-content: center;
+	min-height: 100vh;
+}
+
+.auth-card {
+	background: #111827;
+	border: 1px solid #243044;
+	border-radius: 20px;
+	box-shadow: 0 24px 80px rgb(0 0 0 / 0.35);
+	padding: 32px;
+	width: 420px;
+}
+
+.form,
+.workspace-form,
+.chat-form {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.form label {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.app-shell {
+	display: grid;
+	grid-template-columns: 280px 1fr;
+	min-height: 100vh;
+}
+
+.sidebar {
+	background: #0f1724;
+	border-right: 1px solid #243044;
+	display: flex;
+	flex-direction: column;
+	gap: 24px;
+	padding: 24px;
+}
+
+.workspace-list {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: 8px;
+	overflow: auto;
+}
+
+.workspace-list button,
+.secondary-button,
+.link-button,
+.file {
+	background: transparent;
+	border: 1px solid #2a3446;
+	color: #cdd8ea;
+	text-align: left;
+}
+
+.workspace-list button.selected,
+.file.selected {
+	background: #1c2d52;
+	border-color: #4f7cff;
+	color: white;
+}
+
+.main-panel {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.topbar {
+	align-items: center;
+	border-bottom: 1px solid #243044;
+	display: flex;
+	justify-content: space-between;
+	min-height: 86px;
+	padding: 18px 24px;
+}
+
+.workspace-grid {
+	display: grid;
+	grid-template-columns: 250px minmax(480px, 1fr) 360px;
+	min-height: calc(100vh - 86px);
+}
+
+.file-panel,
+.editor-panel,
+.chat-panel {
+	border-right: 1px solid #243044;
+	min-width: 0;
+	padding: 18px;
+}
+
+.chat-panel {
+	border-right: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.panel-header {
+	align-items: center;
+	display: flex;
+	gap: 12px;
+	justify-content: space-between;
+	margin-bottom: 12px;
+}
+
+.file {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	margin-bottom: 8px;
+	overflow-wrap: anywhere;
+	width: 100%;
+}
+
+.messages {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: 12px;
+	overflow: auto;
+}
+
+.message {
+	border: 1px solid #2a3446;
+	border-radius: 12px;
+	padding: 12px;
+}
+
+.message.assistant {
+	background: #13233d;
+}
+
+.message.user {
+	background: #171f2f;
+}
+
+.eyebrow {
+	color: #7ea0ff;
+	font-size: 12px;
+	font-weight: 800;
+	letter-spacing: 0.08em;
+	margin: 0 0 6px;
+	text-transform: uppercase;
+}
+
+.muted,
+small {
+	color: #8c9bb2;
+}
+
+.error {
+	color: #ff8f8f;
+}
+
+.status {
+	color: #9ab7ff;
+	margin: 0;
+}
+
+h1,
+h2,
+p {
+	margin-top: 0;
+}

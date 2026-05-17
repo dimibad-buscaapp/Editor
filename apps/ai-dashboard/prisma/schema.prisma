@@ -1,0 +1,132 @@
+generator client {
+	provider = "prisma-client"
+	output   = "../backend/src/generated/prisma"
+}
+
+datasource db {
+	provider = "postgresql"
+}
+
+enum ChatRole {
+	user
+	assistant
+	system
+}
+
+enum EmbeddingJobStatus {
+	queued
+	processing
+	completed
+	failed
+}
+
+model User {
+	id           String        @id @default(cuid())
+	email        String        @unique
+	name         String
+	passwordHash String
+	createdAt    DateTime      @default(now())
+	updatedAt    DateTime      @updatedAt
+	sessions     Session[]
+	workspaces   Workspace[]
+	chatSessions ChatSession[]
+}
+
+model Session {
+	tokenHash String   @id
+	userId    String
+	expiresAt DateTime
+	createdAt DateTime @default(now())
+	user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+	@@index([userId])
+	@@index([expiresAt])
+}
+
+model Workspace {
+	id            String             @id @default(cuid())
+	userId        String
+	name          String
+	rootPath      String
+	createdAt     DateTime           @default(now())
+	updatedAt     DateTime           @updatedAt
+	user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+	files         WorkspaceFile[]
+	chatSessions  ChatSession[]
+	embeddingJobs FileEmbeddingJob[]
+	chunks        FileChunk[]
+
+	@@index([userId])
+}
+
+model WorkspaceFile {
+	id          String    @id @default(cuid())
+	workspaceId String
+	path        String
+	contentHash String?
+	size        Int       @default(0)
+	createdAt   DateTime  @default(now())
+	updatedAt   DateTime  @updatedAt
+	workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+	@@unique([workspaceId, path])
+	@@index([workspaceId])
+}
+
+model ChatSession {
+	id          String        @id @default(cuid())
+	userId      String
+	workspaceId String?
+	title       String
+	createdAt   DateTime      @default(now())
+	updatedAt   DateTime      @updatedAt
+	user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+	workspace   Workspace?    @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+	messages    ChatMessage[]
+
+	@@index([userId])
+	@@index([workspaceId])
+}
+
+model ChatMessage {
+	id        String      @id @default(cuid())
+	sessionId String
+	role      ChatRole
+	content   String
+	createdAt DateTime    @default(now())
+	session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+	@@index([sessionId])
+}
+
+model FileEmbeddingJob {
+	id          String             @id @default(cuid())
+	workspaceId String
+	filePath    String
+	chunkCount  Int                @default(0)
+	status      EmbeddingJobStatus @default(queued)
+	error       String?
+	createdAt   DateTime           @default(now())
+	updatedAt   DateTime           @updatedAt
+	workspace   Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+	@@index([workspaceId])
+	@@index([status])
+}
+
+model FileChunk {
+	id          String                 @id @default(cuid())
+	workspaceId String
+	filePath    String
+	chunkIndex  Int
+	content     String
+	contentHash String
+	embedding   Unsupported("vector")
+	createdAt   DateTime               @default(now())
+	updatedAt   DateTime               @updatedAt
+	workspace   Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+	@@unique([workspaceId, filePath, chunkIndex])
+	@@index([workspaceId])
+	@@index([workspaceId, filePath])
+}
