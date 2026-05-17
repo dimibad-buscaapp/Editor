@@ -10,9 +10,9 @@ $ErrorActionPreference = "Stop"
 Set-Location $ProjectRoot
 New-Item -ItemType Directory -Force $WorkspacePath | Out-Null
 
-$scriptPath = Join-Path $ProjectRoot "scripts\code-web.bat"
+$scriptPath = Join-Path $ProjectRoot "scripts\code-server.bat"
 if (-not (Test-Path $scriptPath)) {
-	throw "Code Web script not found at $scriptPath"
+	throw "Code Server script not found at $scriptPath"
 }
 
 Write-Host "Starting Princy Ai Code-OSS Web"
@@ -20,4 +20,4 @@ Write-Host "Project: $ProjectRoot"
 Write-Host "Workspace: $WorkspacePath"
 Write-Host "URL: http://$HostName`:$Port"
 
-& $scriptPath $WorkspacePath --host $HostName --port $Port --browserType none
+& $scriptPath $WorkspacePath --host $HostName --port $Port --without-connection-token

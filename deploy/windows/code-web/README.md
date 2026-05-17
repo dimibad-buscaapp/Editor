@@ -24,6 +24,13 @@ O primeiro start pode baixar extensoes built-in e dependencias usadas pelo scrip
 
 Se `npm install` falhar em pacotes nativos, instale o Visual Studio Build Tools com C++ e use Node LTS compatível.
 
+Antes do primeiro start, compile o servidor e as extensoes web:
+
+```powershell
+npm run compile
+npm run compile-web
+```
+
 ## Rodar Manualmente
 
 Pare qualquer processo que esteja usando a porta `3200`, incluindo `apps/ai-dashboard`.
@@ -38,6 +45,8 @@ Teste no navegador do VPS:
 ```text
 http://127.0.0.1:3200
 ```
+
+Use este script, e nao `scripts\code-web.js`, para o deploy. `code-web.js` usa `@vscode/test-web` e monta um filesystem de teste; `code-server.bat` abre o Code-OSS Web real com acesso ao workspace em disco.
 
 ## Backend de IA
 
