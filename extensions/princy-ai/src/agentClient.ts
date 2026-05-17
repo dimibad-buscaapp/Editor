@@ -5,6 +5,14 @@
 
 import * as vscode from 'vscode';
 
+interface FetchResponse {
+	readonly ok: boolean;
+	text(): Promise<string>;
+	json(): Promise<unknown>;
+}
+
+declare const fetch: (input: string, init?: { readonly method?: string; readonly headers?: Record<string, string>; readonly body?: string }) => Promise<FetchResponse>;
+
 export interface InlineEditRequest {
 	readonly instruction: string;
 	readonly selectedText: string;
