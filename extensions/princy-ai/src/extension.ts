@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { AgentClient } from './agentClient';
+import { AgentClient, AgentModel } from './agentClient';
 import { PrincyChatViewProvider } from './chatView';
 
 const output = vscode.window.createOutputChannel('Princy Ai');
@@ -66,6 +66,10 @@ async function inlineEdit(client: AgentClient): Promise<void> {
 
 	const selection = editor.selection;
 	const selectedText = editor.document.getText(selection);
+	const agent = await pickAgent();
+	if (!agent) {
+		return;
+	}
 
 	await vscode.window.withProgress({
 		location: vscode.ProgressLocation.Notification,
@@ -73,6 +77,7 @@ async function inlineEdit(client: AgentClient): Promise<void> {
 		cancellable: false
 	}, async () => {
 		const response = await client.inlineEdit({
+			agent,
 			instruction,
 			selectedText,
 			languageId: editor.document.languageId,
@@ -161,4 +166,20 @@ async function runSuggestedCommand(command?: string): Promise<void> {
 
 function formatError(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
+}
+
+async function pickAgent(): Promise<AgentModel | undefined> {
+	const selected = await vscode.window.showQuickPick([
+		{ label: 'Princy Ai', description: 'Recomendado, local via Ollama', value: 'princy' },
+		{ label: 'DeepSeek Coder', description: 'Codigo eficiente, local via Ollama', value: 'deepseek' },
+		{ label: 'Qwen Coder', description: 'Contexto complexo, local via Ollama', value: 'qwen' },
+		{ label: 'CodeLlama', description: 'Programacao pratica, local via Ollama', value: 'codellama' },
+		{ label: 'Llama 3.1', description: 'Uso geral, local via Ollama', value: 'llama3' },
+		{ label: 'Mistral', description: 'Rapido e conciso, local via Ollama', value: 'mistral' },
+		{ label: 'OpenAI', description: 'Opcional, requer chave de API', value: 'openai' },
+	] satisfies Array<vscode.QuickPickItem & { value: AgentModel }>, {
+		title: 'Escolha o agente IA'
+	});
+
+	return selected?.value;
 }

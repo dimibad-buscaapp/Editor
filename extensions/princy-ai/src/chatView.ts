@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { AgentClient } from './agentClient';
+import { AgentClient, AgentModel } from './agentClient';
 
 type WebviewMessage =
-	| { readonly type: 'sendMessage'; readonly text: string }
+	| { readonly type: 'sendMessage'; readonly text: string; readonly agent: AgentModel }
 	| { readonly type: 'indexActiveFile' }
 	| { readonly type: 'runCommand'; readonly command: string };
 
@@ -40,7 +40,7 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 	private async handleMessage(message: WebviewMessage): Promise<void> {
 		switch (message.type) {
 			case 'sendMessage':
-				await this.sendChatMessage(message.text);
+				await this.sendChatMessage(message.text, message.agent);
 				break;
 			case 'indexActiveFile':
 				await this.indexActiveFile();
@@ -52,7 +52,7 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 		}
 	}
 
-	private async sendChatMessage(text: string): Promise<void> {
+	private async sendChatMessage(text: string, agent: AgentModel): Promise<void> {
 		if (!text.trim()) {
 			return;
 		}
@@ -64,6 +64,7 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 
 		try {
 			const response = await this.client.chat({
+				agent,
 				message: text,
 				filePath: editor?.document.uri.toString(),
 				selectedText
@@ -96,13 +97,25 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 		.user { background: var(--vscode-input-background); }
 		.assistant { background: var(--vscode-editor-background); }
 		textarea { box-sizing: border-box; width: 100%; min-height: 90px; resize: vertical; }
+		select { box-sizing: border-box; width: 100%; margin-bottom: 8px; }
 		button { margin-top: 8px; margin-right: 6px; }
 		.status { color: var(--vscode-descriptionForeground); min-height: 18px; }
+		.label { color: var(--vscode-descriptionForeground); display: block; margin-bottom: 4px; }
 	</style>
 </head>
 <body>
 	<div class="messages" id="messages"></div>
 	<div class="status" id="status"></div>
+	<label class="label" for="agent">Agente IA</label>
+	<select id="agent">
+		<option value="princy">Princy Ai (recomendado)</option>
+		<option value="deepseek">DeepSeek Coder local</option>
+		<option value="qwen">Qwen Coder local</option>
+		<option value="codellama">CodeLlama local</option>
+		<option value="llama3">Llama 3.1 local</option>
+		<option value="mistral">Mistral local</option>
+		<option value="openai">OpenAI (requer chave)</option>
+	</select>
 	<textarea id="input" placeholder="Pergunte sobre o workspace ou use @arquivo..."></textarea>
 	<div>
 		<button id="send">Enviar</button>
@@ -111,11 +124,12 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 	<script nonce="${nonce}">
 		const vscode = acquireVsCodeApi();
 		const input = document.getElementById('input');
+		const agent = document.getElementById('agent');
 		const messages = document.getElementById('messages');
 		const status = document.getElementById('status');
 
 		document.getElementById('send').addEventListener('click', () => {
-			vscode.postMessage({ type: 'sendMessage', text: input.value });
+			vscode.postMessage({ type: 'sendMessage', text: input.value, agent: agent.value });
 			input.value = '';
 		});
 		document.getElementById('index').addEventListener('click', () => {
@@ -123,7 +137,7 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 		});
 		input.addEventListener('keydown', event => {
 			if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
-				vscode.postMessage({ type: 'sendMessage', text: input.value });
+				vscode.postMessage({ type: 'sendMessage', text: input.value, agent: agent.value });
 				input.value = '';
 			}
 		});

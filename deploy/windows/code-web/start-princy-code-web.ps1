@@ -20,4 +20,4 @@ Write-Host "Project: $ProjectRoot"
 Write-Host "Workspace: $WorkspacePath"
 Write-Host "URL: http://$HostName`:$Port"
 
-& $scriptPath $WorkspacePath --host $HostName --port $Port --without-connection-token --disable-extension GitHub.copilot-chat
+& $scriptPath $WorkspacePath --host $HostName --port $Port --without-connection-token --disable-extension GitHub.copilot-chat --disable-extension GitHub.copilot

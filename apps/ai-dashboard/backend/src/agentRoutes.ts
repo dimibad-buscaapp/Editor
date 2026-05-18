@@ -1,10 +1,13 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { createChatCompletion } from './ai.js';
+import { agentConfigs, createChatCompletion } from './ai.js';
 import { config } from './config.js';
 import { buildRagSystemPrompt, indexAgentFile, retrieveAgentRelevantChunks } from './rag.js';
 
+const agentModelSchema = z.enum(['princy', 'deepseek', 'qwen', 'codellama', 'llama3', 'mistral', 'openai']);
+
 const inlineEditSchema = z.object({
+	agent: agentModelSchema.default('princy'),
 	instruction: z.string().min(1).max(4000),
 	selectedText: z.string().min(1),
 	languageId: z.string().min(1).max(80),
@@ -12,6 +15,7 @@ const inlineEditSchema = z.object({
 });
 
 const chatSchema = z.object({
+	agent: agentModelSchema.default('princy'),
 	message: z.string().min(1).max(12000),
 	filePath: z.string().optional(),
 	selectedText: z.string().optional()
@@ -28,6 +32,17 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 		if (request.url.startsWith('/api/agent/')) {
 			authorizeAgentRequest(request, reply);
 		}
+	});
+
+	app.get('/api/agent/models', async () => {
+		return {
+			models: Object.values(agentConfigs).map(agent => ({
+				id: agent.id,
+				label: agent.label,
+				modelName: agent.modelName,
+				isLocal: agent.isLocal
+			}))
+		};
 	});
 
 	app.post('/api/agent/inline-edit', async request => {
@@ -51,7 +66,7 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 					body.selectedText
 				].join('\n\n')
 			}
-		]);
+		], body.agent);
 
 		return {
 			replacement: stripCodeFence(replacement),
@@ -66,13 +81,13 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 		const message = await createChatCompletion([
 			{
 				role: 'system',
-				content: `${buildRagSystemPrompt(chunks)}\n\nSe sugerir comandos de terminal, coloque cada comando em uma linha começando com COMMAND:.`
+				content: `${buildRagSystemPrompt(chunks)}\n\nAgente selecionado: ${agentConfigs[body.agent].label}.\nSe sugerir comandos de terminal, coloque cada comando em uma linha começando com COMMAND:.`
 			},
 			{
 				role: 'user',
 				content: `${body.filePath ? `Arquivo atual: ${body.filePath}\n\n` : ''}${body.message}${selectedContext}`
 			}
-		]);
+		], body.agent);
 
 		return {
 			message,
@@ -86,13 +101,13 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 		const message = await createChatCompletion([
 			{
 				role: 'system',
-				content: buildRagSystemPrompt(chunks)
+				content: `${buildRagSystemPrompt(chunks)}\n\nAgente selecionado: ${agentConfigs[body.agent].label}.`
 			},
 			{
 				role: 'user',
 				content: body.message
 			}
-		]);
+		], body.agent);
 
 		reply.raw.writeHead(200, {
 			'Content-Type': 'text/event-stream',

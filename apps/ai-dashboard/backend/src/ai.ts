@@ -5,6 +5,68 @@ export type ChatMessage = {
 	content: string;
 };
 
+export type AgentModel = 'princy' | 'deepseek' | 'qwen' | 'codellama' | 'llama3' | 'mistral' | 'openai';
+
+export type AgentConfig = {
+	id: AgentModel;
+	label: string;
+	modelName: string;
+	isLocal: boolean;
+	systemPrompt: string;
+};
+
+export const agentConfigs: Record<AgentModel, AgentConfig> = {
+	princy: {
+		id: 'princy',
+		label: 'Princy Ai',
+		modelName: config.ollamaChatModel,
+		isLocal: true,
+		systemPrompt: 'Voce e o Princy Ai, o agente principal deste editor. Responda de forma direta, usando o contexto do projeto e priorizando codigo limpo, arquitetura simples e passos executaveis.'
+	},
+	deepseek: {
+		id: 'deepseek',
+		label: 'DeepSeek Coder',
+		modelName: 'deepseek-coder',
+		isLocal: true,
+		systemPrompt: 'Voce e um especialista em algoritmos e codificacao eficiente. Priorize solucoes objetivas, performance e codigo direto.'
+	},
+	qwen: {
+		id: 'qwen',
+		label: 'Qwen Coder',
+		modelName: 'qwen2.5-coder',
+		isLocal: true,
+		systemPrompt: 'Voce e um especialista em raciocinio de codigo, contexto longo, seguranca e analise cuidadosa de bugs.'
+	},
+	codellama: {
+		id: 'codellama',
+		label: 'CodeLlama',
+		modelName: 'codellama',
+		isLocal: true,
+		systemPrompt: 'Voce e um agente focado em programacao pratica. Gere codigo simples, compatibilidade ampla e explicacoes curtas.'
+	},
+	llama3: {
+		id: 'llama3',
+		label: 'Llama 3.1',
+		modelName: 'llama3.1',
+		isLocal: true,
+		systemPrompt: 'Voce e um assistente geral de engenharia de software. Ajude com planejamento, explicacao e implementacao.'
+	},
+	mistral: {
+		id: 'mistral',
+		label: 'Mistral',
+		modelName: 'mistral',
+		isLocal: true,
+		systemPrompt: 'Voce e um agente rapido e conciso para tarefas simples, revisoes curtas e respostas objetivas.'
+	},
+	openai: {
+		id: 'openai',
+		label: 'OpenAI',
+		modelName: config.openAiChatModel,
+		isLocal: false,
+		systemPrompt: 'Voce e um assistente avancado de programacao. Use o contexto fornecido e responda com precisao.'
+	}
+};
+
 type OpenAiEmbeddingResponse = {
 	data: Array<{
 		embedding: number[];
@@ -39,12 +101,15 @@ export async function createEmbedding(input: string): Promise<number[]> {
 	return createOllamaEmbedding(input);
 }
 
-export async function createChatCompletion(messages: ChatMessage[]): Promise<string> {
-	if (config.aiProvider === 'openai') {
-		return createOpenAiChatCompletion(messages);
+export async function createChatCompletion(messages: ChatMessage[], agent: AgentModel = 'princy'): Promise<string> {
+	const agentConfig = agentConfigs[agent] ?? agentConfigs.princy;
+	const preparedMessages = withAgentSystemPrompt(messages, agentConfig.systemPrompt);
+
+	if (!agentConfig.isLocal || config.aiProvider === 'openai') {
+		return createOpenAiChatCompletion(preparedMessages, agentConfig.modelName);
 	}
 
-	return createOllamaChatCompletion(messages);
+	return createOllamaChatCompletion(preparedMessages, agentConfig.modelName);
 }
 
 async function createOpenAiEmbedding(input: string): Promise<number[]> {
@@ -77,7 +142,7 @@ async function createOpenAiEmbedding(input: string): Promise<number[]> {
 	return embedding;
 }
 
-async function createOpenAiChatCompletion(messages: ChatMessage[]): Promise<string> {
+async function createOpenAiChatCompletion(messages: ChatMessage[], modelName: string): Promise<string> {
 	if (!config.openAiApiKey) {
 		throw new Error('OPENAI_API_KEY is required when AI_PROVIDER=openai');
 	}
@@ -89,7 +154,7 @@ async function createOpenAiChatCompletion(messages: ChatMessage[]): Promise<stri
 			'Content-Type': 'application/json'
 		},
 		body: JSON.stringify({
-			model: config.openAiChatModel,
+			model: modelName,
 			messages,
 			temperature: 0.2
 		})
@@ -128,14 +193,14 @@ async function createOllamaEmbedding(input: string): Promise<number[]> {
 	return embedding;
 }
 
-async function createOllamaChatCompletion(messages: ChatMessage[]): Promise<string> {
+async function createOllamaChatCompletion(messages: ChatMessage[], modelName: string): Promise<string> {
 	const response = await fetch(`${config.ollamaBaseUrl}/api/chat`, {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json'
 		},
 		body: JSON.stringify({
-			model: config.ollamaChatModel,
+			model: modelName,
 			messages,
 			stream: false,
 			options: {
@@ -150,4 +215,25 @@ async function createOllamaChatCompletion(messages: ChatMessage[]): Promise<stri
 
 	const payload = await response.json() as OllamaChatResponse;
 	return payload.message?.content ?? payload.response ?? 'A LLM local nao retornou conteudo.';
+}
+
+function withAgentSystemPrompt(messages: ChatMessage[], systemPrompt: string): ChatMessage[] {
+	const [first, ...rest] = messages;
+	if (first?.role === 'system') {
+		return [
+			{
+				role: 'system',
+				content: `${systemPrompt}\n\n${first.content}`
+			},
+			...rest
+		];
+	}
+
+	return [
+		{
+			role: 'system',
+			content: systemPrompt
+		},
+		...messages
+	];
 }

@@ -57,5 +57,31 @@ Start-Service PrincyAiAgentBackend
 - `POST /api/agent/chat`
 - `POST /api/agent/chat/stream`
 - `POST /api/agent/index-file`
+- `GET /api/agent/models`
 
 Se `AGENT_API_TOKEN` estiver definido no `.env`, configure o mesmo valor em `princyai.apiToken` no Code-OSS Web.
+
+## Agentes Locais Gratuitos
+
+O seletor da extensão `Princy Ai` suporta estes agentes:
+
+- `princy`: usa `OLLAMA_CHAT_MODEL`, por padrão `llama3.1`.
+- `deepseek`: usa `deepseek-coder`.
+- `qwen`: usa `qwen2.5-coder`.
+- `codellama`: usa `codellama`.
+- `llama3`: usa `llama3.1`.
+- `mistral`: usa `mistral`.
+- `openai`: opcional e pago, requer `OPENAI_API_KEY`.
+
+Para usar os agentes locais sem cobrança por requisição, instale os modelos no Ollama:
+
+```powershell
+ollama pull llama3.1
+ollama pull nomic-embed-text
+ollama pull deepseek-coder
+ollama pull qwen2.5-coder
+ollama pull codellama
+ollama pull mistral
+```
+
+Eles sao "ilimitados" no sentido de nao dependerem de cota externa, mas ficam limitados pela CPU/RAM/GPU do VPS.

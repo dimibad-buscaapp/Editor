@@ -13,7 +13,10 @@ interface FetchResponse {
 
 declare const fetch: (input: string, init?: { readonly method?: string; readonly headers?: Record<string, string>; readonly body?: string }) => Promise<FetchResponse>;
 
+export type AgentModel = 'princy' | 'deepseek' | 'qwen' | 'codellama' | 'llama3' | 'mistral' | 'openai';
+
 export interface InlineEditRequest {
+	readonly agent: AgentModel;
 	readonly instruction: string;
 	readonly selectedText: string;
 	readonly languageId: string;
@@ -26,6 +29,7 @@ export interface InlineEditResponse {
 }
 
 export interface ChatRequest {
+	readonly agent: AgentModel;
 	readonly message: string;
 	readonly filePath?: string;
 	readonly selectedText?: string;
