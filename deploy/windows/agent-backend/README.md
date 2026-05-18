@@ -57,6 +57,8 @@ Start-Service PrincyAiAgentBackend
 - `POST /api/agent/chat`
 - `POST /api/agent/chat/stream`
 - `POST /api/agent/index-file`
+- `POST /api/agent/composer-plan`
+- `POST /api/agent/repair-after-command`
 - `GET /api/agent/models`
 
 Se `AGENT_API_TOKEN` estiver definido no `.env`, configure o mesmo valor em `princyai.apiToken` no Code-OSS Web.
@@ -85,3 +87,17 @@ ollama pull mistral
 ```
 
 Eles sao "ilimitados" no sentido de nao dependerem de cota externa, mas ficam limitados pela CPU/RAM/GPU do VPS.
+
+## Composer, Shadow Context e Terminal
+
+A extensao `Princy Ai` agora envia contexto silencioso junto das perguntas:
+
+- arquivo ativo e linguagem;
+- abas abertas;
+- diagnosticos atuais do editor;
+- ultimo resultado de terminal controlado pela Princy Ai;
+- simbolos, definicoes e referencias coletadas via LSP.
+
+O Composer retorna um plano JSON com operacoes multi-arquivo. A extensao mostra as operacoes para revisao e so aplica arquivos/comandos depois da aprovacao do usuario. Se um comando de verificacao falhar e o terminal oferecer Shell Integration, a saida capturada pode ser enviada para `/api/agent/repair-after-command` para gerar um plano de correcao.
+
+Na UI, o chat da Princy Ai funciona como painel de processo: exibe checkpoints de raciocinio, blocos de codigo com acoes `Copy`, `Insert at Cursor` e `Apply to File`, e pre-visualizacao diff-like para operacoes Composer. Linhas de erro detectadas no terminal integrado ficam clicaveis via `Fix with Princy AI`, abrindo o Composer com o erro como contexto.

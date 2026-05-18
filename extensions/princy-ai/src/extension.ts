@@ -4,31 +4,69 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { AgentClient, AgentModel } from './agentClient';
+import { AgentClient, AgentModel, ComposerPlan, TerminalCommandResult } from './agentClient';
 import { PrincyChatViewProvider } from './chatView';
+import { collectCodeGraphContext } from './codeGraph';
+import { ComposerApplier } from './composerApplier';
+import { ShadowContextManager } from './shadowContext';
+import { PrincyTerminalLinkProvider } from './terminalFixLinkProvider';
+import { TerminalRunner } from './terminalRunner';
 
 const output = vscode.window.createOutputChannel('Princy Ai');
 
 export function activate(context: vscode.ExtensionContext): void {
 	const client = new AgentClient();
+	const shadowContext = new ShadowContextManager();
+	const terminalRunner = new TerminalRunner();
+	const composerApplier = new ComposerApplier(terminalRunner);
 	const provider = new PrincyChatViewProvider(
 		context.extensionUri,
 		client,
 		() => indexActiveFile(client),
-		command => runSuggestedCommand(command)
+		command => runSuggestedCommand(terminalRunner, shadowContext, command),
+		() => shadowContext.getSnapshot(),
+		() => collectCodeGraphContext(),
+		async (plan, operationIds, instruction, agent) => {
+			const selectedOperations = plan.operations.filter(operation => operationIds.includes(operation.id));
+			const result = await composerApplier.apply(selectedOperations);
+			for (const commandResult of result.commandResults) {
+				shadowContext.setLastTerminalResult(commandResult);
+			}
+			const failedCommand = result.commandResults.find(commandResult => commandResult.exitCode !== undefined && commandResult.exitCode !== 0);
+			const repairPlan = failedCommand
+				? await client.repairAfterCommand({
+					agent,
+					originalInstruction: instruction,
+					previousPlan: plan,
+					commandResult: failedCommand,
+					shadowContext: shadowContext.getSnapshot(),
+					codeGraph: await collectCodeGraphContext()
+				})
+				: undefined;
+			return {
+				appliedFiles: result.appliedFiles,
+				commandResults: result.commandResults,
+				repairPlan
+			};
+		},
+		code => insertCodeAtCursor(code),
+		code => applyCodeToFile(code)
 	);
 
 	context.subscriptions.push(
 		output,
+		shadowContext,
 		vscode.window.registerWebviewViewProvider(PrincyChatViewProvider.viewType, provider, {
 			webviewOptions: {
 				retainContextWhenHidden: true
 			}
 		}),
 		vscode.commands.registerCommand('princyai.inlineEdit', () => inlineEdit(client)),
+		vscode.commands.registerCommand('princyai.composer', () => provider.focusComposer()),
 		vscode.commands.registerCommand('princyai.chat.focus', () => provider.focus()),
 		vscode.commands.registerCommand('princyai.indexActiveFile', () => indexActiveFile(client)),
-		vscode.commands.registerCommand('princyai.runSuggestedCommand', command => runSuggestedCommand(command)),
+		vscode.commands.registerCommand('princyai.runSuggestedCommand', command => runSuggestedCommand(terminalRunner, shadowContext, command)),
+		vscode.window.registerTerminalLinkProvider(new PrincyTerminalLinkProvider(errorText => provider.fixTerminalError(errorText))),
 		vscode.workspace.onDidSaveTextDocument(document => {
 			const autoIndex = vscode.workspace.getConfiguration('princyai').get<boolean>('autoIndexOnSave', true);
 			if (autoIndex) {
@@ -81,7 +119,15 @@ async function inlineEdit(client: AgentClient): Promise<void> {
 			instruction,
 			selectedText,
 			languageId: editor.document.languageId,
-			filePath: editor.document.uri.toString()
+			filePath: editor.document.uri.toString(),
+			shadowContext: {
+				activeFilePath: editor.document.uri.toString(),
+				activeLanguageId: editor.document.languageId,
+				activeContent: editor.document.getText(),
+				openTabs: [],
+				diagnostics: []
+			},
+			codeGraph: await collectCodeGraphContext()
 		});
 
 		const action = await vscode.window.showInformationMessage(
@@ -143,7 +189,7 @@ async function indexDocument(client: AgentClient, document: vscode.TextDocument)
 	});
 }
 
-async function runSuggestedCommand(command?: string): Promise<void> {
+async function runSuggestedCommand(terminalRunner: TerminalRunner, shadowContext: ShadowContextManager, command?: string): Promise<void> {
 	const value = command ?? await vscode.window.showInputBox({
 		title: 'Princy Ai Run Command',
 		placeHolder: 'npm install pacote',
@@ -154,18 +200,57 @@ async function runSuggestedCommand(command?: string): Promise<void> {
 		return;
 	}
 
-	const action = await vscode.window.showWarningMessage(`Executar comando no terminal?\n\n${value}`, { modal: true }, 'Run', 'Cancelar');
-	if (action !== 'Run') {
+	const result = await terminalRunner.run(value);
+	shadowContext.setLastTerminalResult(result);
+}
+
+async function insertCodeAtCursor(code: string): Promise<void> {
+	const editor = vscode.window.activeTextEditor;
+	if (!editor) {
+		vscode.window.showWarningMessage('Abra um arquivo antes de inserir codigo.');
 		return;
 	}
 
-	const terminal = vscode.window.createTerminal({ name: 'Princy Ai' });
-	terminal.show();
-	terminal.sendText(value);
+	await editor.edit(editBuilder => {
+		editBuilder.insert(editor.selection.active, code);
+	});
+}
+
+async function applyCodeToFile(code: string): Promise<void> {
+	const editor = vscode.window.activeTextEditor;
+	if (!editor) {
+		vscode.window.showWarningMessage('Abra o arquivo de destino antes de aplicar codigo.');
+		return;
+	}
+
+	const action = await vscode.window.showWarningMessage(
+		`Substituir todo o conteudo de ${editor.document.uri.toString()} pelo bloco sugerido?`,
+		{ modal: true },
+		'Apply',
+		'Cancelar'
+	);
+	if (action !== 'Apply') {
+		return;
+	}
+
+	const fullRange = new vscode.Range(
+		editor.document.positionAt(0),
+		editor.document.positionAt(editor.document.getText().length)
+	);
+	await editor.edit(editBuilder => {
+		editBuilder.replace(fullRange, code);
+	});
+	await editor.document.save();
 }
 
 function formatError(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
+}
+
+export interface ComposerApplyResponse {
+	readonly appliedFiles: readonly string[];
+	readonly commandResults: readonly TerminalCommandResult[];
+	readonly repairPlan?: ComposerPlan;
 }
 
 async function pickAgent(): Promise<AgentModel | undefined> {

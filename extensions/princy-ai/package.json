@@ -23,6 +23,7 @@
     "onStartupFinished",
     "onCommand:princyai.inlineEdit",
     "onCommand:princyai.chat.focus",
+    "onCommand:princyai.composer",
     "onCommand:princyai.indexActiveFile",
     "onView:princyai.chat"
   ],
@@ -45,6 +46,12 @@
         "title": "Focus Chat",
         "category": "Princy Ai",
         "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "princyai.composer",
+        "title": "Open Composer",
+        "category": "Princy Ai",
+        "icon": "$(diff-multiple)"
       },
       {
         "command": "princyai.indexActiveFile",
@@ -91,6 +98,9 @@
         },
         {
           "command": "princyai.chat.focus"
+        },
+        {
+          "command": "princyai.composer"
         },
         {
           "command": "princyai.indexActiveFile"

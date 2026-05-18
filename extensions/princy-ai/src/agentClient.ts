@@ -15,12 +15,48 @@ declare const fetch: (input: string, init?: { readonly method?: string; readonly
 
 export type AgentModel = 'princy' | 'deepseek' | 'qwen' | 'codellama' | 'llama3' | 'mistral' | 'openai';
 
+export interface ShadowContext {
+	readonly activeFilePath?: string;
+	readonly activeLanguageId?: string;
+	readonly activeContent?: string;
+	readonly openTabs: readonly string[];
+	readonly diagnostics: readonly string[];
+	readonly lastTerminalResult?: TerminalCommandResult;
+}
+
+export interface CodeGraphContext {
+	readonly symbols: readonly string[];
+	readonly definitions: readonly string[];
+	readonly references: readonly string[];
+}
+
+export interface TerminalCommandResult {
+	readonly command: string;
+	readonly exitCode?: number;
+	readonly output: string;
+}
+
+export type ComposerOperation =
+	| { readonly id: string; readonly type: 'create'; readonly filePath: string; readonly content: string; readonly rationale?: string }
+	| { readonly id: string; readonly type: 'modify'; readonly filePath: string; readonly search?: string; readonly replace?: string; readonly content?: string; readonly rationale?: string }
+	| { readonly id: string; readonly type: 'delete'; readonly filePath: string; readonly rationale?: string }
+	| { readonly id: string; readonly type: 'runCommand'; readonly command: string; readonly rationale?: string };
+
+export interface ComposerPlan {
+	readonly summary: string;
+	readonly warnings: readonly string[];
+	readonly affectedFiles: readonly string[];
+	readonly operations: readonly ComposerOperation[];
+}
+
 export interface InlineEditRequest {
 	readonly agent: AgentModel;
 	readonly instruction: string;
 	readonly selectedText: string;
 	readonly languageId: string;
 	readonly filePath: string;
+	readonly shadowContext?: ShadowContext;
+	readonly codeGraph?: CodeGraphContext;
 }
 
 export interface InlineEditResponse {
@@ -33,6 +69,8 @@ export interface ChatRequest {
 	readonly message: string;
 	readonly filePath?: string;
 	readonly selectedText?: string;
+	readonly shadowContext?: ShadowContext;
+	readonly codeGraph?: CodeGraphContext;
 }
 
 export interface ChatResponse {
@@ -46,6 +84,22 @@ export interface IndexFileRequest {
 	readonly content: string;
 }
 
+export interface ComposerPlanRequest {
+	readonly agent: AgentModel;
+	readonly instruction: string;
+	readonly shadowContext?: ShadowContext;
+	readonly codeGraph?: CodeGraphContext;
+}
+
+export interface RepairAfterCommandRequest {
+	readonly agent: AgentModel;
+	readonly originalInstruction: string;
+	readonly previousPlan: ComposerPlan;
+	readonly commandResult: TerminalCommandResult;
+	readonly shadowContext?: ShadowContext;
+	readonly codeGraph?: CodeGraphContext;
+}
+
 export class AgentClient {
 	public async inlineEdit(request: InlineEditRequest): Promise<InlineEditResponse> {
 		return this.post<InlineEditResponse>('/api/agent/inline-edit', request);
@@ -57,6 +111,14 @@ export class AgentClient {
 
 	public async indexFile(request: IndexFileRequest): Promise<void> {
 		await this.post<{ ok: boolean }>('/api/agent/index-file', request);
+	}
+
+	public async composerPlan(request: ComposerPlanRequest): Promise<ComposerPlan> {
+		return this.post<ComposerPlan>('/api/agent/composer-plan', request);
+	}
+
+	public async repairAfterCommand(request: RepairAfterCommandRequest): Promise<ComposerPlan> {
+		return this.post<ComposerPlan>('/api/agent/repair-after-command', request);
 	}
 
 	private async post<T>(path: string, body: unknown): Promise<T> {
