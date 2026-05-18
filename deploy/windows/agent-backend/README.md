@@ -75,8 +75,8 @@ http://127.0.0.1:3210/v1
 
 Modelos aceitos:
 
-- `princy`: agente principal Princy Ai.
-- `deepseek`: DeepSeek Coder local via Ollama.
+- `deepseek`: agente principal Princy Ai DeepSeek.
+- `princy`: alias da marca Princy Ai usando DeepSeek Coder local via Ollama.
 - `qwen`: Qwen Coder local via Ollama.
 - `codellama`: CodeLlama local via Ollama.
 - `llama3`: Llama 3.1 local via Ollama.

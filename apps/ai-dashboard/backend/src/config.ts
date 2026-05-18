@@ -14,7 +14,7 @@ export const config = {
 	openAiChatModel: process.env.OPENAI_CHAT_MODEL ?? 'gpt-4o-mini',
 	openAiEmbeddingModel: process.env.OPENAI_EMBEDDING_MODEL ?? 'text-embedding-3-small',
 	ollamaBaseUrl: process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434',
-	ollamaChatModel: process.env.OLLAMA_CHAT_MODEL ?? 'llama3.1',
+	ollamaChatModel: process.env.OLLAMA_CHAT_MODEL ?? 'deepseek-coder',
 	ollamaEmbeddingModel: process.env.OLLAMA_EMBEDDING_MODEL ?? 'nomic-embed-text',
 	agentApiToken: process.env.AGENT_API_TOKEN ?? '',
 	agentWorkspaceName: process.env.AGENT_WORKSPACE_NAME ?? 'Code-OSS Web',

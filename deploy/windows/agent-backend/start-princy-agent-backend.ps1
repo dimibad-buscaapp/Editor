@@ -13,6 +13,7 @@ if (-not (Test-Path ".env")) {
 }
 
 $env:API_PORT = "$Port"
+$env:NODE_OPTIONS = "--max-old-space-size=8192"
 
 Write-Host "Starting Princy Ai agent backend"
 Write-Host "Project: $appRoot"
@@ -20,5 +21,5 @@ Write-Host "URL: http://127.0.0.1:$Port"
 
 npm run prisma:generate
 npm run prisma:deploy
-npm run build
+npm run build:backend
 npm run start

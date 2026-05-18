@@ -7,7 +7,7 @@ import { buildRagSystemPrompt, indexAgentFile, retrieveAgentRelevantChunks } fro
 const agentModelSchema = z.enum(['princy', 'deepseek', 'qwen', 'codellama', 'llama3', 'mistral', 'openai']);
 
 const inlineEditSchema = z.object({
-	agent: agentModelSchema.default('princy'),
+	agent: agentModelSchema.default('deepseek'),
 	instruction: z.string().min(1).max(4000),
 	selectedText: z.string().min(1),
 	languageId: z.string().min(1).max(80),
@@ -17,7 +17,7 @@ const inlineEditSchema = z.object({
 });
 
 const chatSchema = z.object({
-	agent: agentModelSchema.default('princy'),
+	agent: agentModelSchema.default('deepseek'),
 	message: z.string().min(1).max(12000),
 	filePath: z.string().optional(),
 	selectedText: z.string().optional(),
@@ -70,14 +70,14 @@ const composerPlanSchema = z.object({
 });
 
 const composerPlanRequestSchema = z.object({
-	agent: agentModelSchema.default('princy'),
+	agent: agentModelSchema.default('deepseek'),
 	instruction: z.string().min(1).max(12000),
 	shadowContext: z.unknown().optional(),
 	codeGraph: z.unknown().optional()
 });
 
 const repairAfterCommandSchema = z.object({
-	agent: agentModelSchema.default('princy'),
+	agent: agentModelSchema.default('deepseek'),
 	originalInstruction: z.string().min(1).max(12000),
 	previousPlan: composerPlanSchema,
 	commandResult: z.object({
@@ -101,7 +101,7 @@ const openAiChatMessageSchema = z.object({
 });
 
 const openAiChatCompletionSchema = z.object({
-	model: z.string().min(1).default('princy'),
+	model: z.string().min(1).default('deepseek'),
 	messages: z.array(openAiChatMessageSchema).min(1),
 	stream: z.boolean().optional()
 });
@@ -414,7 +414,7 @@ function resolveAgentModel(model: string): AgentModel {
 		return 'openai';
 	}
 
-	return 'princy';
+	return 'deepseek';
 }
 
 function toChatMessage(message: z.infer<typeof openAiChatMessageSchema>): ChatMessage {

@@ -279,8 +279,8 @@ export interface ComposerApplyResponse {
 
 async function pickAgent(): Promise<AgentModel | undefined> {
 	const selected = await vscode.window.showQuickPick([
-		{ label: 'Princy Ai', description: 'Recomendado, local via Ollama', value: 'princy' },
-		{ label: 'DeepSeek Coder', description: 'Codigo eficiente, local via Ollama', value: 'deepseek' },
+		{ label: 'Princy Ai DeepSeek', description: 'Principal, codigo eficiente, local via Ollama', value: 'deepseek' },
+		{ label: 'Princy Ai', description: 'Marca principal usando DeepSeek Coder', value: 'princy' },
 		{ label: 'Qwen Coder', description: 'Contexto complexo, local via Ollama', value: 'qwen' },
 		{ label: 'CodeLlama', description: 'Programacao pratica, local via Ollama', value: 'codellama' },
 		{ label: 'Llama 3.1', description: 'Uso geral, local via Ollama', value: 'llama3' },

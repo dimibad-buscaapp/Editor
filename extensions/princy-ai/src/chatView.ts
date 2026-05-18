@@ -71,7 +71,7 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 			'Analise o contexto atual, encontre a causa provavel e gere uma correcao imediata.'
 		].join('\n\n');
 		this.view?.webview.postMessage({ type: 'prefillComposer', text: prompt });
-		await this.requestComposerPlan(prompt, 'princy');
+		await this.requestComposerPlan(prompt, 'deepseek');
 	}
 
 	private async handleMessage(message: WebviewMessage): Promise<void> {
@@ -266,8 +266,8 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 	<div class="status" id="status"></div>
 	<label class="label" for="agent">Agente IA</label>
 	<select id="agent">
-		<option value="princy">Princy Ai (recomendado)</option>
-		<option value="deepseek">DeepSeek Coder local</option>
+		<option value="deepseek" selected>Princy Ai DeepSeek (principal)</option>
+		<option value="princy">Princy Ai</option>
 		<option value="qwen">Qwen Coder local</option>
 		<option value="codellama">CodeLlama local</option>
 		<option value="llama3">Llama 3.1 local</option>
@@ -347,7 +347,7 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 		});
 
 		function renderAgents(models) {
-			const selected = agent.value || 'princy';
+			const selected = agent.value || 'deepseek';
 			agent.innerHTML = '';
 			for (const model of models) {
 				const option = document.createElement('option');
@@ -498,8 +498,8 @@ function getNonce(): string {
 }
 
 const defaultAgents: readonly AgentDefinition[] = [
-	{ id: 'princy', label: 'Princy Ai', modelName: 'llama3.1', isLocal: true },
-	{ id: 'deepseek', label: 'DeepSeek Coder', modelName: 'deepseek-coder', isLocal: true },
+	{ id: 'deepseek', label: 'Princy Ai DeepSeek', modelName: 'deepseek-coder', isLocal: true },
+	{ id: 'princy', label: 'Princy Ai', modelName: 'deepseek-coder', isLocal: true },
 	{ id: 'qwen', label: 'Qwen Coder', modelName: 'qwen2.5-coder', isLocal: true },
 	{ id: 'codellama', label: 'CodeLlama', modelName: 'codellama', isLocal: true },
 	{ id: 'llama3', label: 'Llama 3.1', modelName: 'llama3.1', isLocal: true },

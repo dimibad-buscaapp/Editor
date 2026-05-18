@@ -18,10 +18,10 @@ export type AgentConfig = {
 export const agentConfigs: Record<AgentModel, AgentConfig> = {
 	princy: {
 		id: 'princy',
-		label: 'Princy Ai',
+		label: 'Princy Ai DeepSeek',
 		modelName: config.ollamaChatModel,
 		isLocal: true,
-		systemPrompt: 'Voce e o Princy Ai, o agente principal deste editor. Responda de forma direta, usando o contexto do projeto e priorizando codigo limpo, arquitetura simples e passos executaveis.'
+		systemPrompt: 'Voce e o Princy Ai, o agente principal deste editor, rodando sobre DeepSeek Coder local. Responda de forma direta, usando o contexto do projeto, priorizando codigo limpo, edicoes aplicaveis, arquitetura simples e passos executaveis.'
 	},
 	deepseek: {
 		id: 'deepseek',
