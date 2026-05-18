@@ -382,7 +382,8 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 		}
 
 		function renderRichText(container, text) {
-			const parts = String(text || '').split(/```/);
+			const fence = String.fromCharCode(96, 96, 96);
+			const parts = String(text || '').split(fence);
 			for (let index = 0; index < parts.length; index++) {
 				if (index % 2 === 0) {
 					container.appendChild(document.createTextNode(parts[index]));
