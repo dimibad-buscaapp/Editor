@@ -737,6 +737,49 @@
 		"fullLicenseTextUri": "https://raw.githubusercontent.com/jridgewell/sourcemaps/refs/heads/main/packages/trace-mapping/LICENSE"
 	},
 	{
+		// Reason: required for Code-OSS agentHost compilation; runtime Copilot remains disabled by product config.
+		"name": "@github/copilot",
+		"prependLicenseText": [
+			"Copyright (c) GitHub, Inc."
+		]
+	},
+	{
+		"name": "@github/copilot-darwin-arm64",
+		"prependLicenseText": [
+			"Copyright (c) GitHub, Inc."
+		]
+	},
+	{
+		"name": "@github/copilot-darwin-x64",
+		"prependLicenseText": [
+			"Copyright (c) GitHub, Inc."
+		]
+	},
+	{
+		"name": "@github/copilot-linux-arm64",
+		"prependLicenseText": [
+			"Copyright (c) GitHub, Inc."
+		]
+	},
+	{
+		"name": "@github/copilot-linux-x64",
+		"prependLicenseText": [
+			"Copyright (c) GitHub, Inc."
+		]
+	},
+	{
+		"name": "@github/copilot-win32-arm64",
+		"prependLicenseText": [
+			"Copyright (c) GitHub, Inc."
+		]
+	},
+	{
+		"name": "@github/copilot-win32-x64",
+		"prependLicenseText": [
+			"Copyright (c) GitHub, Inc."
+		]
+	},
+	{
 		// Reason: Unlicense. Does not include a clear Copyright statement.
 		// The Unlicense is a public domain dedication with no copyright holder.
 		// Copyright attributed to the primary author per the npm package.json and repository commits.
