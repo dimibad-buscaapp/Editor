@@ -19,6 +19,8 @@
     "workspace"
   ],
   "activationEvents": [
+    "*",
+    "onStartupFinished",
     "onCommand:princyai.inlineEdit",
     "onCommand:princyai.chat.focus",
     "onCommand:princyai.indexActiveFile",
