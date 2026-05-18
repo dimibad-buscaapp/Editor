@@ -11,7 +11,6 @@ import { collectCodeGraphContext } from './codeGraph';
 import { ComposerApplier } from './composerApplier';
 import { collectNativeContext } from './nativeContext';
 import { ShadowContextManager } from './shadowContext';
-import { PrincyTerminalLinkProvider } from './terminalFixLinkProvider';
 import { TerminalRunner } from './terminalRunner';
 
 const output = vscode.window.createOutputChannel('Princy Ai');
@@ -81,9 +80,7 @@ export function activate(context: vscode.ExtensionContext): void {
 		})
 	);
 
-	if (vscode.window.registerTerminalLinkProvider) {
-		context.subscriptions.push(vscode.window.registerTerminalLinkProvider(new PrincyTerminalLinkProvider(errorText => provider.fixTerminalError(errorText))));
-	}
+	registerTerminalFixLinks(context, provider);
 
 	output.appendLine('Princy Ai view provider registered.');
 }
@@ -258,6 +255,20 @@ async function applyCodeToFile(code: string): Promise<void> {
 
 function formatError(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
+}
+
+function registerTerminalFixLinks(context: vscode.ExtensionContext, provider: PrincyChatViewProvider): void {
+	if (!vscode.window.registerTerminalLinkProvider) {
+		output.appendLine('Terminal link provider unavailable in this host.');
+		return;
+	}
+
+	import('./terminalFixLinkProvider')
+		.then(({ PrincyTerminalLinkProvider }) => {
+			context.subscriptions.push(vscode.window.registerTerminalLinkProvider(new PrincyTerminalLinkProvider(errorText => provider.fixTerminalError(errorText))));
+			output.appendLine('Princy terminal fix links registered.');
+		})
+		.then(undefined, error => output.appendLine(`Terminal fix links disabled: ${formatError(error)}`));
 }
 
 export interface ComposerApplyResponse {

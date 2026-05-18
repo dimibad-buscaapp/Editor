@@ -8,6 +8,8 @@
 	},
 	"github.copilot.chat.enabled": false,
 	"github.copilot.nextEditSuggestions.enabled": false,
+	"chat.disableAIFeatures": true,
+	"chat.titleBarSignIn.enabled": false,
 	"editor.inlineSuggest.enabled": false,
 	"editor.suggestOnTriggerCharacters": false,
 	// --- Chat ---
