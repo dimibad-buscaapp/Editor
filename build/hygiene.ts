@@ -28,6 +28,14 @@ interface VinylFileWithLines extends VinylFile {
 }
 
 /**
+ * Kept as a compatibility no-op after the Princy Ai Copilot lockdown.
+ * Some build entrypoints can still import this symbol from cached or older task graphs.
+ */
+export function checkCopilotEnginesVersion(_repoRoot: string): string | undefined {
+	return undefined;
+}
+
+/**
  * Main hygiene function that runs checks on files
  */
 export function hygiene(some: NodeJS.ReadWriteStream | string[] | undefined, runEslint = true): NodeJS.ReadWriteStream {
