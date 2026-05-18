@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { AgentClient, AgentModel, ComposerPlan, TerminalCommandResult } from './agentClient';
+import { AgentClient } from './agentClient';
+import type { AgentModel, ComposerPlan, TerminalCommandResult } from './agentClient';
 import { PrincyChatViewProvider } from './chatView';
 import { collectCodeGraphContext } from './codeGraph';
 import { ComposerApplier } from './composerApplier';
@@ -16,6 +17,7 @@ import { TerminalRunner } from './terminalRunner';
 const output = vscode.window.createOutputChannel('Princy Ai');
 
 export function activate(context: vscode.ExtensionContext): void {
+	output.appendLine('Activating Princy Ai extension.');
 	const client = new AgentClient();
 	const shadowContext = new ShadowContextManager();
 	const terminalRunner = new TerminalRunner();
@@ -60,14 +62,17 @@ export function activate(context: vscode.ExtensionContext): void {
 			webviewOptions: {
 				retainContextWhenHidden: true
 			}
-		}),
+		})
+	);
+
+	context.subscriptions.push(
 		vscode.commands.registerCommand('princyai.inlineEdit', () => inlineEdit(client, shadowContext)),
 		vscode.commands.registerCommand('princyai.composer', () => provider.focusComposer()),
+		vscode.commands.registerCommand('princyai.open', () => provider.focus()),
 		vscode.commands.registerCommand('princyai.chat.focus', () => provider.focus()),
 		vscode.commands.registerCommand('princyai.native.collectContext', () => collectNativeContext(shadowContext.getSnapshot())),
 		vscode.commands.registerCommand('princyai.indexActiveFile', () => indexActiveFile(client)),
 		vscode.commands.registerCommand('princyai.runSuggestedCommand', command => runSuggestedCommand(terminalRunner, shadowContext, command)),
-		vscode.window.registerTerminalLinkProvider(new PrincyTerminalLinkProvider(errorText => provider.fixTerminalError(errorText))),
 		vscode.workspace.onDidSaveTextDocument(document => {
 			const autoIndex = vscode.workspace.getConfiguration('princyai').get<boolean>('autoIndexOnSave', true);
 			if (autoIndex) {
@@ -75,6 +80,12 @@ export function activate(context: vscode.ExtensionContext): void {
 			}
 		})
 	);
+
+	if (vscode.window.registerTerminalLinkProvider) {
+		context.subscriptions.push(vscode.window.registerTerminalLinkProvider(new PrincyTerminalLinkProvider(errorText => provider.fixTerminalError(errorText))));
+	}
+
+	output.appendLine('Princy Ai view provider registered.');
 }
 
 export function deactivate(): void {

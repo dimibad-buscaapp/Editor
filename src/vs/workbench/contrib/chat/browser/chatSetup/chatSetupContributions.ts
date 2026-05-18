@@ -245,7 +245,7 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 				configurationService.updateValue(ChatConfiguration.AIDisabled, false);
 
 				try {
-					await commandService.executeCommand('princyai.chat.focus');
+					await commandService.executeCommand('princyai.open');
 				} catch {
 					await commandService.executeCommand('workbench.view.extension.princyai');
 				}
@@ -386,8 +386,8 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 			constructor() {
 				super(
 					ChatConfiguration.TitleBarSignInEnabled,
-					localize('toggle.chatSignIn', 'Copilot Sign In'),
-					localize('toggle.chatSignInDescription', "Toggle visibility of the Copilot Sign In button in title bar"),
+					localize('toggle.chatSignIn', 'Princy Ai Sign In'),
+					localize('toggle.chatSignInDescription', "Toggle visibility of the AI sign-in button in title bar"),
 					3,
 					ContextKeyExpr.and(
 						IsWebContext.negate(),
@@ -404,7 +404,7 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 			constructor() {
 				super({
 					id: 'workbench.action.chat.upgradePlan',
-					title: localize2('managePlan', "Upgrade to GitHub Copilot Pro"),
+					title: localize2('managePlan', "Open Princy Ai"),
 					category: localize2('chat.category', 'Chat'),
 					f1: true,
 					precondition: ContextKeyExpr.and(
@@ -463,7 +463,7 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 			constructor() {
 				super({
 					id: 'workbench.action.chat.manageAdditionalSpend',
-					title: localize2('manageAdditionalSpend', "Manage GitHub Copilot Budget"),
+					title: localize2('manageAdditionalSpend', "Manage Princy Ai"),
 					category: localize2('chat.category', 'Chat'),
 					f1: true,
 					precondition: ContextKeyExpr.and(

@@ -15,12 +15,12 @@
     "Other"
   ],
   "extensionKind": [
-    "ui",
-    "workspace"
+    "ui"
   ],
   "activationEvents": [
     "*",
     "onStartupFinished",
+    "onCommand:princyai.open",
     "onCommand:princyai.inlineEdit",
     "onCommand:princyai.chat.focus",
     "onCommand:princyai.composer",
@@ -49,6 +49,12 @@
         "icon": "$(comment-discussion)"
       },
       {
+        "command": "princyai.open",
+        "title": "Open Princy Ai",
+        "category": "Princy Ai",
+        "icon": "$(sparkle)"
+      },
+      {
         "command": "princyai.composer",
         "title": "Open Composer",
         "category": "Princy Ai",
@@ -74,6 +80,11 @@
       }
     ],
     "keybindings": [
+      {
+        "command": "princyai.open",
+        "key": "ctrl+shift+l",
+        "mac": "cmd+shift+l"
+      },
       {
         "command": "princyai.inlineEdit",
         "key": "ctrl+k ctrl+i",
@@ -105,6 +116,9 @@
         },
         {
           "command": "princyai.chat.focus"
+        },
+        {
+          "command": "princyai.open"
         },
         {
           "command": "princyai.composer"
