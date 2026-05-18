@@ -60,8 +60,39 @@ Start-Service PrincyAiAgentBackend
 - `POST /api/agent/composer-plan`
 - `POST /api/agent/repair-after-command`
 - `GET /api/agent/models`
+- `GET /v1/models`
+- `POST /v1/chat/completions`
 
-Se `AGENT_API_TOKEN` estiver definido no `.env`, configure o mesmo valor em `princyai.apiToken` no Code-OSS Web.
+Se `AGENT_API_TOKEN` estiver definido no `.env`, configure o mesmo valor em `princyai.apiToken` no Princy Ai Web. Clientes OpenAI-compatible devem enviar `Authorization: Bearer <AGENT_API_TOKEN>`.
+
+## Proxy OpenAI-Compatible
+
+Use o backend Princy como Base URL em clientes que aceitam endpoint OpenAI customizado:
+
+```text
+http://127.0.0.1:3210/v1
+```
+
+Modelos aceitos:
+
+- `princy`: agente principal Princy Ai.
+- `deepseek`: DeepSeek Coder local via Ollama.
+- `qwen`: Qwen Coder local via Ollama.
+- `codellama`: CodeLlama local via Ollama.
+- `llama3`: Llama 3.1 local via Ollama.
+- `mistral`: Mistral local via Ollama.
+- `openai`: OpenAI opcional, requer `OPENAI_API_KEY`.
+
+Exemplo:
+
+```powershell
+$headers = @{ Authorization = "Bearer $env:AGENT_API_TOKEN" }
+$body = @{
+  model = "princy"
+  messages = @(@{ role = "user"; content = "Explique este workspace." })
+} | ConvertTo-Json -Depth 5
+Invoke-RestMethod http://127.0.0.1:3210/v1/chat/completions -Method Post -Headers $headers -ContentType "application/json" -Body $body
+```
 
 ## Agentes Locais Gratuitos
 

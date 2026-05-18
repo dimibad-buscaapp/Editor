@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { agentConfigs, createChatCompletion } from './ai.js';
+import { agentConfigs, createChatCompletion, type AgentModel, type ChatMessage } from './ai.js';
 import { config } from './config.js';
 import { buildRagSystemPrompt, indexAgentFile, retrieveAgentRelevantChunks } from './rag.js';
 
@@ -89,9 +89,26 @@ const repairAfterCommandSchema = z.object({
 	codeGraph: z.unknown().optional()
 });
 
+const openAiChatMessageSchema = z.object({
+	role: z.enum(['system', 'user', 'assistant']),
+	content: z.union([
+		z.string(),
+		z.array(z.object({
+			type: z.string(),
+			text: z.string().optional()
+		}))
+	])
+});
+
+const openAiChatCompletionSchema = z.object({
+	model: z.string().min(1).default('princy'),
+	messages: z.array(openAiChatMessageSchema).min(1),
+	stream: z.boolean().optional()
+});
+
 export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 	app.addHook('preHandler', async (request, reply) => {
-		if (request.url.startsWith('/api/agent/')) {
+		if (request.url.startsWith('/api/agent/') || request.url.startsWith('/v1/')) {
 			authorizeAgentRequest(request, reply);
 		}
 	});
@@ -181,6 +198,91 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 		reply.raw.write(`data: ${JSON.stringify({ type: 'message', text: message })}\n\n`);
 		reply.raw.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
 		reply.raw.end();
+	});
+
+	app.get('/v1/models', async () => {
+		return {
+			object: 'list',
+			data: Object.values(agentConfigs).map(agent => ({
+				id: agent.id,
+				object: 'model',
+				created: 0,
+				owned_by: agent.isLocal ? 'princy-ai-local' : 'princy-ai-cloud',
+				label: agent.label,
+				model_name: agent.modelName
+			}))
+		};
+	});
+
+	app.post('/v1/chat/completions', async (request, reply) => {
+		const body = openAiChatCompletionSchema.parse(request.body);
+		const agent = resolveAgentModel(body.model);
+		const messages = body.messages.map(toChatMessage);
+		const content = await createChatCompletion(messages, agent);
+		const id = `chatcmpl-princy-${Date.now()}`;
+		const created = Math.floor(Date.now() / 1000);
+
+		if (body.stream) {
+			reply.raw.writeHead(200, {
+				'Content-Type': 'text/event-stream',
+				'Cache-Control': 'no-cache',
+				Connection: 'keep-alive'
+			});
+			reply.raw.write(`data: ${JSON.stringify({
+				id,
+				object: 'chat.completion.chunk',
+				created,
+				model: agent,
+				choices: [
+					{
+						index: 0,
+						delta: {
+							role: 'assistant',
+							content
+						},
+						finish_reason: null
+					}
+				]
+			})}\n\n`);
+			reply.raw.write(`data: ${JSON.stringify({
+				id,
+				object: 'chat.completion.chunk',
+				created,
+				model: agent,
+				choices: [
+					{
+						index: 0,
+						delta: {},
+						finish_reason: 'stop'
+					}
+				]
+			})}\n\n`);
+			reply.raw.write('data: [DONE]\n\n');
+			reply.raw.end();
+			return;
+		}
+
+		return {
+			id,
+			object: 'chat.completion',
+			created,
+			model: agent,
+			choices: [
+				{
+					index: 0,
+					message: {
+						role: 'assistant',
+						content
+					},
+					finish_reason: 'stop'
+				}
+			],
+			usage: {
+				prompt_tokens: 0,
+				completion_tokens: 0,
+				total_tokens: 0
+			}
+		};
 	});
 
 	app.post('/api/agent/composer-plan', async request => {
@@ -285,6 +387,48 @@ function buildSilentContext(shadowContext: unknown, codeGraph: unknown): string 
 		parts.push(`\n\n[CODE GRAPH]\n${JSON.stringify(codeGraph).slice(0, 20000)}`);
 	}
 	return parts.join('');
+}
+
+function resolveAgentModel(model: string): AgentModel {
+	const normalized = model.toLowerCase();
+	if (normalized in agentConfigs) {
+		return normalized as AgentModel;
+	}
+
+	if (normalized.includes('deepseek')) {
+		return 'deepseek';
+	}
+	if (normalized.includes('qwen')) {
+		return 'qwen';
+	}
+	if (normalized.includes('codellama') || normalized.includes('code-llama')) {
+		return 'codellama';
+	}
+	if (normalized.includes('llama')) {
+		return 'llama3';
+	}
+	if (normalized.includes('mistral')) {
+		return 'mistral';
+	}
+	if (normalized.includes('openai') || normalized.includes('gpt')) {
+		return 'openai';
+	}
+
+	return 'princy';
+}
+
+function toChatMessage(message: z.infer<typeof openAiChatMessageSchema>): ChatMessage {
+	const content = typeof message.content === 'string'
+		? message.content
+		: message.content
+			.map(part => part.text)
+			.filter((text): text is string => Boolean(text))
+			.join('\n');
+
+	return {
+		role: message.role,
+		content
+	};
 }
 
 function parseComposerPlan(value: string): z.infer<typeof composerPlanSchema> {

@@ -1,4 +1,15 @@
 {
+	// --- Princy Ai Lockdown ---
+	"github.copilot.enable": {
+		"*": false
+	},
+	"githubcopilot.enable": {
+		"*": false
+	},
+	"github.copilot.chat.enabled": false,
+	"github.copilot.nextEditSuggestions.enabled": false,
+	"editor.inlineSuggest.enabled": false,
+	"editor.suggestOnTriggerCharacters": false,
 	// --- Chat ---
 	"inlineChat.affordance": "editor",
 	"chat.tools.terminal.autoApprove": {

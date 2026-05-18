@@ -1,6 +1,6 @@
-# Princy Ai Code-OSS Web Deploy
+# Princy Ai Web Deploy
 
-Este é o deploy principal do Princy Ai neste momento. Ele abre o Code-OSS/VS Code Web no navegador, em vez do MVP `apps/ai-dashboard`.
+Este é o deploy principal do Princy Ai neste momento. Ele abre a experiência Princy Ai Web, baseada em Code-OSS, no navegador em vez do MVP `apps/ai-dashboard`.
 
 ## Dados
 
@@ -47,6 +47,14 @@ http://127.0.0.1:3200
 ```
 
 Use este script, e nao `scripts\code-web.js`, para o deploy. `code-web.js` usa `@vscode/test-web` e monta um filesystem de teste; `code-server.bat` abre o Code-OSS Web real com acesso ao workspace em disco.
+
+O script também bloqueia extensões Copilot na inicialização:
+
+```text
+--disable-extension GitHub.copilot-chat --disable-extension GitHub.copilot
+```
+
+O produto não aponta mais para Copilot como agente de chat padrão. A experiência principal de IA é a extensão embutida `Princy Ai`.
 
 ## Backend de IA
 

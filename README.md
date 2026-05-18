@@ -1,6 +1,6 @@
-# Princy Ai Code-OSS Web
+# Princy Ai
 
-Este repositório é o fork/base Code-OSS usado pelo Princy Ai. O deploy principal atual é a experiência Code-OSS/VS Code Web no navegador.
+Este repositório é o fork/base Code-OSS usado pelo Princy Ai. O deploy principal atual é a experiência Princy Ai Web no navegador, baseada em Code-OSS e integrada ao backend de agentes.
 
 Para rodar no VPS Windows em `C:\Apps\Editor`, use:
 
@@ -13,7 +13,13 @@ O app principal deve responder em `http://127.0.0.1:3200`, com `princyai.com` ap
 
 O backend de IA/RAG usado pela extensão roda separado em `http://127.0.0.1:3210`. Veja [`deploy/windows/agent-backend/README.md`](deploy/windows/agent-backend/README.md).
 
-A extensão `Princy Ai` inclui seletor de agentes locais via Ollama: Princy Ai, DeepSeek Coder, Qwen Coder, CodeLlama, Llama 3.1 e Mistral. Ela também oferece Composer multi-arquivo com aprovação, Shadow Context do editor, terminal controlado e Code Graph inicial via LSP. O MVP em [`apps/ai-dashboard`](apps/ai-dashboard) fica preservado como dashboard/laboratório do backend de IA e não é mais a página principal do deploy.
+A extensão `Princy Ai` inclui seletor de agentes locais via Ollama: Princy Ai, DeepSeek Coder, Qwen Coder, CodeLlama, Llama 3.1 e Mistral. Ela também oferece Composer multi-arquivo com aprovação, Shadow Context do editor, terminal controlado, Code Graph inicial via LSP e proxy OpenAI-compatible em `http://127.0.0.1:3210/v1`.
+
+O GitHub Copilot foi removido do fluxo do produto: o launcher inicia com `--disable-extension GitHub.copilot-chat --disable-extension GitHub.copilot`, o `product.json` não define mais Copilot como agente padrão e `.vscode/settings.json` bloqueia sugestões externas no workspace.
+
+Veja [`docs/PRINCY_AI_CHANGES.md`](docs/PRINCY_AI_CHANGES.md) para a lista consolidada das mudanças recentes, uso no VPS e validações Git.
+
+O MVP em [`apps/ai-dashboard`](apps/ai-dashboard) fica preservado como dashboard/laboratório do backend de IA e não é mais a página principal do deploy.
 
 # Visual Studio Code - Open Source ("Code - OSS")
 [![Feature Requests](https://img.shields.io/github/issues/microsoft/vscode/feature-request.svg)](https://github.com/microsoft/vscode/issues?q=is%3Aopen+is%3Aissue+label%3Afeature-request+sort%3Areactions-%2B1-desc)
