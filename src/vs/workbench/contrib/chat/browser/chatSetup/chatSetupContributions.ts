@@ -9,7 +9,6 @@ import { IAction, WorkbenchActionExecutedClassification, WorkbenchActionExecuted
 import { Event } from '../../../../../base/common/event.js';
 import { Lazy } from '../../../../../base/common/lazy.js';
 import { Disposable, DisposableStore, markAsSingleton, MutableDisposable } from '../../../../../base/common/lifecycle.js';
-import Severity from '../../../../../base/common/severity.js';
 import { equalsIgnoreCase } from '../../../../../base/common/strings.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { URI } from '../../../../../base/common/uri.js';
@@ -23,7 +22,6 @@ import { CommandsRegistry, ICommandService } from '../../../../../platform/comma
 import { ConfigurationTarget, IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { ContextKeyExpr, IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { IsWebContext } from '../../../../../platform/contextkey/common/contextkeys.js';
-import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
 import { IEnvironmentService } from '../../../../../platform/environment/common/environment.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
@@ -44,14 +42,13 @@ import { IExtensionService } from '../../../../services/extensions/common/extens
 import { IHostService } from '../../../../services/host/browser/host.js';
 import { IWorkbenchLayoutService, Parts } from '../../../../services/layout/browser/layoutService.js';
 import { InEditorZenModeContext } from '../../../../common/contextkeys.js';
-import { ILifecycleService } from '../../../../services/lifecycle/common/lifecycle.js';
 import { IPreferencesService } from '../../../../services/preferences/common/preferences.js';
 import { IExtension, IExtensionsWorkbenchService } from '../../../extensions/common/extensions.js';
 import { ChatContextKeys } from '../../common/actions/chatContextKeys.js';
 import { IChatSessionsService } from '../../common/chatSessionsService.js';
 import { ChatAgentLocation, ChatConfiguration, ChatModeKind } from '../../common/constants.js';
 import { CHAT_CATEGORY, CHAT_SETUP_ACTION_ID, CHAT_SETUP_SUPPORT_ANONYMOUS_ACTION_ID } from '../actions/chatActions.js';
-import { ChatViewContainerId, IChatWidget, IChatWidgetService } from '../chat.js';
+import { ChatViewContainerId } from '../chat.js';
 import { chatViewsWelcomeRegistry } from '../viewsWelcome/chatViewsWelcome.js';
 import { ChatSetupAnonymous, ChatSetupStrategy } from './chatSetup.js';
 import { ChatSetupController } from './chatSetupController.js';
@@ -222,7 +219,7 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 
 		class ChatSetupTriggerAction extends Action2 {
 
-			static CHAT_SETUP_ACTION_LABEL = localize2('triggerChatSetup', "Use AI Features with Copilot for free...");
+			static CHAT_SETUP_ACTION_LABEL = localize2('triggerChatSetup', "Open Princy Ai...");
 
 			constructor() {
 				super({
@@ -240,61 +237,22 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 				});
 			}
 
-			override async run(accessor: ServicesAccessor, mode?: ChatModeKind | string, options?: { forceSignInDialog?: boolean; additionalScopes?: readonly string[]; forceAnonymous?: ChatSetupAnonymous; inputValue?: string; dialogIcon?: ThemeIcon; dialogTitle?: string; setupStrategy?: ChatSetupStrategy; disableCloseButton?: boolean; onSignInStarted?: () => void }): Promise<boolean> {
-				const widgetService = accessor.get(IChatWidgetService);
-				const instantiationService = accessor.get(IInstantiationService);
-				const dialogService = accessor.get(IDialogService);
+			override async run(accessor: ServicesAccessor, _mode?: ChatModeKind | string, _options?: { forceSignInDialog?: boolean; additionalScopes?: readonly string[]; forceAnonymous?: ChatSetupAnonymous; inputValue?: string; dialogIcon?: ThemeIcon; dialogTitle?: string; setupStrategy?: ChatSetupStrategy; disableCloseButton?: boolean; onSignInStarted?: () => void }): Promise<boolean> {
 				const commandService = accessor.get(ICommandService);
-				const lifecycleService = accessor.get(ILifecycleService);
 				const configurationService = accessor.get(IConfigurationService);
 
 				await context.update({ hidden: false });
 				configurationService.updateValue(ChatConfiguration.AIDisabled, false);
 
-				if (mode) {
-					const chatWidget = await widgetService.revealWidget();
-					if (chatWidget) {
-						const resolvedMode = this.resolveAgentId(mode, chatWidget);
-						if (resolvedMode) {
-							chatWidget.input.setChatMode(resolvedMode);
-						}
-					}
+				try {
+					await commandService.executeCommand('princyai.chat.focus');
+				} catch {
+					await commandService.executeCommand('workbench.view.extension.princyai');
 				}
 
-				if (options?.inputValue) {
-					const chatWidget = await widgetService.revealWidget();
-					chatWidget?.input.showScrollbarUntilAccept();
-					chatWidget?.setInput(options.inputValue);
-				}
-
-				const setup = ChatSetup.getInstance(instantiationService, context, controller);
-				const { success } = await setup.run(options);
-				if (success === false && !lifecycleService.willShutdown) {
-					const { confirmed } = await dialogService.confirm({
-						type: Severity.Error,
-						message: localize('setupErrorDialog', "Chat setup failed. Would you like to try again?"),
-						primaryButton: localize('retry', "Retry"),
-					});
-
-					if (confirmed) {
-						return Boolean(await commandService.executeCommand(CHAT_SETUP_ACTION_ID, mode, options));
-					}
-				}
-
-				return Boolean(success);
+				return true;
 			}
 
-			private resolveAgentId(agentParam: string, chatWidget: IChatWidget): string | undefined {
-				const modes = chatWidget.input.currentChatModesObs.get();
-				const foundAgent = modes.findModeById(agentParam);
-				if (foundAgent) {
-					return foundAgent.id;
-				}
-				const allAgents = [...modes.builtin, ...modes.custom];
-				const nameLower = agentParam.toLowerCase();
-				const agentByName = allAgents.find(agent => agent.name.get().toLowerCase() === nameLower);
-				return agentByName?.id;
-			}
 		}
 
 		class ChatSetupTriggerSupportAnonymousAction extends Action2 {
