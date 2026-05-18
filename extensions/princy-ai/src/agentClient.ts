@@ -19,8 +19,11 @@ export interface ShadowContext {
 	readonly activeFilePath?: string;
 	readonly activeLanguageId?: string;
 	readonly activeContent?: string;
+	readonly activeSelection?: string;
 	readonly openTabs: readonly string[];
 	readonly diagnostics: readonly string[];
+	readonly workspaceFolders?: readonly string[];
+	readonly workspaceTree?: readonly string[];
 	readonly lastTerminalResult?: TerminalCommandResult;
 }
 

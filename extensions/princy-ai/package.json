@@ -24,6 +24,7 @@
     "onCommand:princyai.inlineEdit",
     "onCommand:princyai.chat.focus",
     "onCommand:princyai.composer",
+    "onCommand:princyai.native.collectContext",
     "onCommand:princyai.indexActiveFile",
     "onView:princyai.chat"
   ],
@@ -64,6 +65,12 @@
         "title": "Run Suggested Command",
         "category": "Princy Ai",
         "icon": "$(terminal)"
+      },
+      {
+        "command": "princyai.native.collectContext",
+        "title": "Collect Native Context",
+        "category": "Princy Ai",
+        "icon": "$(symbol-namespace)"
       }
     ],
     "keybindings": [
@@ -107,6 +114,9 @@
         },
         {
           "command": "princyai.runSuggestedCommand"
+        },
+        {
+          "command": "princyai.native.collectContext"
         }
       ]
     },

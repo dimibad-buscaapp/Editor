@@ -8,6 +8,7 @@ import { AgentClient, AgentModel, ComposerPlan, TerminalCommandResult } from './
 import { PrincyChatViewProvider } from './chatView';
 import { collectCodeGraphContext } from './codeGraph';
 import { ComposerApplier } from './composerApplier';
+import { collectNativeContext } from './nativeContext';
 import { ShadowContextManager } from './shadowContext';
 import { PrincyTerminalLinkProvider } from './terminalFixLinkProvider';
 import { TerminalRunner } from './terminalRunner';
@@ -24,8 +25,7 @@ export function activate(context: vscode.ExtensionContext): void {
 		client,
 		() => indexActiveFile(client),
 		command => runSuggestedCommand(terminalRunner, shadowContext, command),
-		() => shadowContext.getSnapshot(),
-		() => collectCodeGraphContext(),
+		() => collectNativeContext(shadowContext.getSnapshot()),
 		async (plan, operationIds, instruction, agent) => {
 			const selectedOperations = plan.operations.filter(operation => operationIds.includes(operation.id));
 			const result = await composerApplier.apply(selectedOperations);
@@ -61,9 +61,10 @@ export function activate(context: vscode.ExtensionContext): void {
 				retainContextWhenHidden: true
 			}
 		}),
-		vscode.commands.registerCommand('princyai.inlineEdit', () => inlineEdit(client)),
+		vscode.commands.registerCommand('princyai.inlineEdit', () => inlineEdit(client, shadowContext)),
 		vscode.commands.registerCommand('princyai.composer', () => provider.focusComposer()),
 		vscode.commands.registerCommand('princyai.chat.focus', () => provider.focus()),
+		vscode.commands.registerCommand('princyai.native.collectContext', () => collectNativeContext(shadowContext.getSnapshot())),
 		vscode.commands.registerCommand('princyai.indexActiveFile', () => indexActiveFile(client)),
 		vscode.commands.registerCommand('princyai.runSuggestedCommand', command => runSuggestedCommand(terminalRunner, shadowContext, command)),
 		vscode.window.registerTerminalLinkProvider(new PrincyTerminalLinkProvider(errorText => provider.fixTerminalError(errorText))),
@@ -80,7 +81,7 @@ export function deactivate(): void {
 	// Noop
 }
 
-async function inlineEdit(client: AgentClient): Promise<void> {
+async function inlineEdit(client: AgentClient, shadowContext: ShadowContextManager): Promise<void> {
 	const editor = vscode.window.activeTextEditor;
 	if (!editor) {
 		vscode.window.showWarningMessage('Abra um arquivo antes de usar o Princy Ai.');
@@ -114,20 +115,21 @@ async function inlineEdit(client: AgentClient): Promise<void> {
 		title: 'Princy Ai gerando edição...',
 		cancellable: false
 	}, async () => {
+		const nativeContext = await collectNativeContext({
+			...shadowContext.getSnapshot(),
+			activeFilePath: editor.document.uri.toString(),
+			activeLanguageId: editor.document.languageId,
+			activeContent: editor.document.getText(),
+			activeSelection: selectedText
+		});
 		const response = await client.inlineEdit({
 			agent,
 			instruction,
 			selectedText,
 			languageId: editor.document.languageId,
 			filePath: editor.document.uri.toString(),
-			shadowContext: {
-				activeFilePath: editor.document.uri.toString(),
-				activeLanguageId: editor.document.languageId,
-				activeContent: editor.document.getText(),
-				openTabs: [],
-				diagnostics: []
-			},
-			codeGraph: await collectCodeGraphContext()
+			shadowContext: nativeContext.shadowContext,
+			codeGraph: nativeContext.codeGraph
 		});
 
 		const action = await vscode.window.showInformationMessage(

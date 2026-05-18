@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { AgentClient, AgentDefinition, AgentModel, CodeGraphContext, ComposerPlan, ShadowContext, TerminalCommandResult } from './agentClient';
+import { AgentClient, AgentDefinition, AgentModel, ComposerPlan, TerminalCommandResult } from './agentClient';
+import type { NativeContextBundle } from './nativeContext';
 
 type WebviewMessage =
 	| { readonly type: 'sendMessage'; readonly text: string; readonly agent: AgentModel }
@@ -35,8 +36,7 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 		private readonly client: AgentClient,
 		private readonly indexActiveFile: () => Promise<void>,
 		private readonly runSuggestedCommand: (command?: string) => Promise<void>,
-		private readonly getShadowContext: () => ShadowContext,
-		private readonly collectCodeGraph: () => Promise<CodeGraphContext>,
+		private readonly collectNativeContext: () => Promise<NativeContextBundle>,
 		private readonly applyComposerPlan: ApplyComposerPlan,
 		private readonly insertCodeAtCursor: (code: string) => Promise<void>,
 		private readonly applyCodeToFile: (code: string) => Promise<void>
@@ -127,11 +127,12 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 			{ label: 'Aguardando aprovacao...', state: 'pending' }
 		] });
 		try {
+			const nativeContext = await this.collectNativeContext();
 			const plan = await this.client.composerPlan({
 				agent,
 				instruction: text,
-				shadowContext: this.getShadowContext(),
-				codeGraph: await this.collectCodeGraph()
+				shadowContext: nativeContext.shadowContext,
+				codeGraph: nativeContext.codeGraph
 			});
 			this.view?.webview.postMessage({ type: 'thinking', steps: [
 				{ label: 'Analisando arquivos...', state: 'done' },
@@ -198,11 +199,14 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 		] });
 
 		try {
+			const nativeContext = await this.collectNativeContext();
 			const response = await this.client.chat({
 				agent,
 				message: text,
 				filePath: editor?.document.uri.toString(),
-				selectedText
+				selectedText,
+				shadowContext: nativeContext.shadowContext,
+				codeGraph: nativeContext.codeGraph
 			});
 			this.view?.webview.postMessage({
 				type: 'append',
