@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { AgentClient, AgentModel, CodeGraphContext, ComposerPlan, ShadowContext, TerminalCommandResult } from './agentClient';
+import { AgentClient, AgentDefinition, AgentModel, CodeGraphContext, ComposerPlan, ShadowContext, TerminalCommandResult } from './agentClient';
 
 type WebviewMessage =
 	| { readonly type: 'sendMessage'; readonly text: string; readonly agent: AgentModel }
@@ -50,6 +50,7 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 		};
 		webviewView.webview.html = this.getHtml(webviewView.webview);
 		webviewView.webview.onDidReceiveMessage(message => this.handleMessage(message as WebviewMessage));
+		this.refreshAgents();
 	}
 
 	public async focus(): Promise<void> {
@@ -97,6 +98,19 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 			case 'runCommand':
 				await this.runSuggestedCommand(message.command);
 				break;
+		}
+	}
+
+	private async refreshAgents(): Promise<void> {
+		try {
+			const models = await this.client.models();
+			this.view?.webview.postMessage({ type: 'agents', models });
+		} catch (error) {
+			this.view?.webview.postMessage({
+				type: 'status',
+				text: `Usando lista local de agentes. Backend nao respondeu /api/agent/models: ${error instanceof Error ? error.message : 'erro desconhecido'}`
+			});
+			this.view?.webview.postMessage({ type: 'agents', models: defaultAgents });
 		}
 	}
 
@@ -300,6 +314,9 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 			if (message.type === 'status') {
 				status.textContent = message.text || '';
 			}
+			if (message.type === 'agents') {
+				renderAgents(message.models || []);
+			}
 			if (message.type === 'thinking') {
 				renderThinking(message.steps || []);
 			}
@@ -324,6 +341,23 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 				renderComposerPlan(message.instruction, message.agent, message.plan);
 			}
 		});
+
+		function renderAgents(models) {
+			const selected = agent.value || 'princy';
+			agent.innerHTML = '';
+			for (const model of models) {
+				const option = document.createElement('option');
+				option.value = model.id;
+				option.textContent = model.label + ' (' + model.modelName + ')' + (model.isLocal ? ' local' : ' externo');
+				agent.appendChild(option);
+			}
+			if (Array.from(agent.options).some(option => option.value === selected)) {
+				agent.value = selected;
+			}
+			if (!agent.value && agent.options.length > 0) {
+				agent.value = agent.options[0].value;
+			}
+		}
 
 		function renderComposerPlan(instruction, agentName, plan) {
 			const wrapper = document.createElement('div');
@@ -458,3 +492,13 @@ function getNonce(): string {
 	}
 	return text;
 }
+
+const defaultAgents: readonly AgentDefinition[] = [
+	{ id: 'princy', label: 'Princy Ai', modelName: 'llama3.1', isLocal: true },
+	{ id: 'deepseek', label: 'DeepSeek Coder', modelName: 'deepseek-coder', isLocal: true },
+	{ id: 'qwen', label: 'Qwen Coder', modelName: 'qwen2.5-coder', isLocal: true },
+	{ id: 'codellama', label: 'CodeLlama', modelName: 'codellama', isLocal: true },
+	{ id: 'llama3', label: 'Llama 3.1', modelName: 'llama3.1', isLocal: true },
+	{ id: 'mistral', label: 'Mistral', modelName: 'mistral', isLocal: true },
+	{ id: 'openai', label: 'OpenAI', modelName: 'gpt-4o-mini', isLocal: false }
+];

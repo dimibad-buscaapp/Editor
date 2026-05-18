@@ -78,6 +78,13 @@ export interface ChatResponse {
 	readonly suggestedCommands?: readonly string[];
 }
 
+export interface AgentDefinition {
+	readonly id: AgentModel;
+	readonly label: string;
+	readonly modelName: string;
+	readonly isLocal: boolean;
+}
+
 export interface IndexFileRequest {
 	readonly filePath: string;
 	readonly languageId: string;
@@ -101,6 +108,11 @@ export interface RepairAfterCommandRequest {
 }
 
 export class AgentClient {
+	public async models(): Promise<readonly AgentDefinition[]> {
+		const response = await this.get<{ readonly models: readonly AgentDefinition[] }>('/api/agent/models');
+		return response.models;
+	}
+
 	public async inlineEdit(request: InlineEditRequest): Promise<InlineEditResponse> {
 		return this.post<InlineEditResponse>('/api/agent/inline-edit', request);
 	}
@@ -122,6 +134,19 @@ export class AgentClient {
 	}
 
 	private async post<T>(path: string, body: unknown): Promise<T> {
+		return this.request<T>(path, {
+			method: 'POST',
+			body: JSON.stringify(body)
+		});
+	}
+
+	private async get<T>(path: string): Promise<T> {
+		return this.request<T>(path, {
+			method: 'GET'
+		});
+	}
+
+	private async request<T>(path: string, init: { readonly method: string; readonly body?: string }): Promise<T> {
 		const endpoint = this.getEndpoint();
 		const token = vscode.workspace.getConfiguration('princyai').get<string>('apiToken', '');
 		const headers: Record<string, string> = {
@@ -133,9 +158,9 @@ export class AgentClient {
 		}
 
 		const response = await fetch(`${endpoint}${path}`, {
-			method: 'POST',
+			method: init.method,
 			headers,
-			body: JSON.stringify(body)
+			body: init.body
 		});
 
 		if (!response.ok) {
