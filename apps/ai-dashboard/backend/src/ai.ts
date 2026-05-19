@@ -134,25 +134,32 @@ export async function createChatCompletionDetailed(messages: ChatMessage[], agen
 	const useOrchestrator = options?.useOrchestrator ?? (config.orchestratorEnabled && (agent === 'princy' || agent === 'deepseek'));
 
 	if (useOrchestrator) {
-		const orchestrated = await getPrincyOrchestrator().execute({
-			messages: preparedMessages,
-			segment: options?.segment,
-			filePath: options?.filePath,
-			languageId: options?.languageId
-		});
+		try {
+			const orchestrated = await getPrincyOrchestrator().execute({
+				messages: preparedMessages,
+				segment: options?.segment,
+				filePath: options?.filePath,
+				languageId: options?.languageId
+			});
 
-		return {
-			content: orchestrated.content,
-			orchestrator: {
-				segment: orchestrated.segment,
-				enginesUsed: orchestrated.enginesUsed,
-				primaryEngine: orchestrated.primaryEngine,
-				fallbackEngines: orchestrated.fallbackEngines,
-				consensusApplied: orchestrated.consensusApplied,
-				status: orchestrated.status,
-				executionTimeMs: orchestrated.executionTimeMs
-			}
-		};
+			return {
+				content: orchestrated.content,
+				orchestrator: {
+					segment: orchestrated.segment,
+					enginesUsed: orchestrated.enginesUsed,
+					primaryEngine: orchestrated.primaryEngine,
+					fallbackEngines: orchestrated.fallbackEngines,
+					consensusApplied: orchestrated.consensusApplied,
+					status: orchestrated.status,
+					executionTimeMs: orchestrated.executionTimeMs
+				}
+			};
+		} catch (orchestratorError) {
+			console.warn('[princy-ai] Orquestrador falhou, usando Ollama direto:', orchestratorError instanceof Error ? orchestratorError.message : orchestratorError);
+			return {
+				content: await createOllamaChatCompletion(preparedMessages, config.ollamaChatModel)
+			};
+		}
 	}
 
 	if (!agentConfig.isLocal || config.aiProvider === 'openai') {

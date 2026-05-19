@@ -67,7 +67,12 @@ export async function indexWorkspaceFiles(workspace: { id: string; rootPath: str
 }
 
 export async function retrieveAgentRelevantChunks(query: string): Promise<RetrievedChunk[]> {
-	return retrieveRelevantChunks('agent-workspace', query);
+	try {
+		return await retrieveRelevantChunks('agent-workspace', query);
+	} catch (error) {
+		console.warn('[princy-ai] RAG indisponivel, seguindo sem contexto indexado:', error instanceof Error ? error.message : error);
+		return [];
+	}
 }
 
 export async function retrieveRelevantChunks(workspaceId: string, query: string): Promise<RetrievedChunk[]> {

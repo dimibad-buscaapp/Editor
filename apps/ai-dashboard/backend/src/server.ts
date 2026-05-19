@@ -24,7 +24,7 @@ await app.register(cors, {
 	credentials: true
 });
 
-app.setErrorHandler((error, _request, reply) => {
+app.setErrorHandler((error, request, reply) => {
 	if (error instanceof ZodError) {
 		return reply.code(400).send({
 			message: 'Validation failed',
@@ -33,8 +33,16 @@ app.setErrorHandler((error, _request, reply) => {
 	}
 
 	const statusCode = reply.statusCode >= 400 ? reply.statusCode : 500;
+	const isAgentRoute = request.url.startsWith('/api/agent/') || request.url.startsWith('/v1/');
+	const errorMessage = error instanceof Error ? error.message : 'Request failed';
+
+	if (statusCode >= 500) {
+		request.log.error({ err: error, url: request.url }, 'request failed');
+	}
+
 	return reply.code(statusCode).send({
-		message: statusCode >= 500 ? 'Internal server error' : error instanceof Error ? error.message : 'Request failed'
+		message: isAgentRoute ? errorMessage : statusCode >= 500 ? 'Internal server error' : errorMessage,
+		detail: isAgentRoute && error instanceof Error ? error.stack : undefined
 	});
 });
 

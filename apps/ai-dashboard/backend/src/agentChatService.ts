@@ -1,6 +1,6 @@
 import { agentConfigs, createChatCompletionDetailed, type AgentModel, type ChatMessage } from './ai.js';
 import { buildAgentChatResponse, type AgentChatResponse } from './agentMetadata.js';
-import { getCompileJobStatus, validateVpsEnvironment } from './compileService.js';
+import { validateVpsEnvironment } from './compileService.js';
 import { config } from './config.js';
 import { buildRagSystemPrompt, retrieveAgentRelevantChunks } from './rag.js';
 import { detectSegment } from './orchestrator/segments.js';
@@ -68,43 +68,45 @@ export async function handleAgentChat(body: AgentChatRequest): Promise<AgentChat
 		triggerCompile: body.trigger_compile
 	});
 
-	if (compileValidation.jobId) {
-		compileValidation = await waitForCompileJob(compileValidation.jobId, 120_000);
-	}
+	// Compilacao roda em background; o cliente faz polling via compile_job_id.
 
 	if (config.orchestratorAutoHeal && compileValidation.status === 'FAILED' && !compileValidation.serverMainReady) {
-		const compileOutput = compileValidation.output ?? 'server-main.js ausente ou Code Web indisponivel no VPS (porta 3200).';
-		const healed = await runDebugAutoHeal({
-			originalMessage: body.message,
-			previousContent: completion.content,
-			compileOutput,
-			messages
-		});
+		try {
+			const compileOutput = compileValidation.output ?? 'server-main.js ausente ou Code Web indisponivel no VPS (porta 3200).';
+			const healed = await runDebugAutoHeal({
+				originalMessage: body.message,
+				previousContent: completion.content,
+				compileOutput,
+				messages
+			});
 
-		completion = {
-			content: `${completion.content}\n\n---\n## Auto-correcao DEBUG (Princy IA)\n\n${healed.content}`,
-			orchestrator: {
+			completion = {
+				content: `${completion.content}\n\n---\n## Auto-correcao DEBUG (Princy IA)\n\n${healed.content}`,
+				orchestrator: {
+					segment: healed.segment,
+					enginesUsed: healed.enginesUsed,
+					primaryEngine: healed.primaryEngine,
+					fallbackEngines: healed.fallbackEngines,
+					consensusApplied: healed.consensusApplied,
+					status: healed.status,
+					executionTimeMs: healed.executionTimeMs
+				}
+			};
+
+			return buildAgentChatResponse({
+				completion,
+				executionTimeMs: Date.now() - startedAt,
 				segment: healed.segment,
-				enginesUsed: healed.enginesUsed,
-				primaryEngine: healed.primaryEngine,
-				fallbackEngines: healed.fallbackEngines,
-				consensusApplied: healed.consensusApplied,
-				status: healed.status,
-				executionTimeMs: healed.executionTimeMs
-			}
-		};
-
-		return buildAgentChatResponse({
-			completion,
-			executionTimeMs: Date.now() - startedAt,
-			segment: healed.segment,
-			vpsCompileStatus: compileValidation.status,
-			phase: 'auto_healing',
-			compileJobId: compileValidation.jobId,
-			codeWebReachable: compileValidation.codeWebReachable,
-			serverMainReady: compileValidation.serverMainReady,
-			suggestedCommands: extractCommands(completion.content)
-		});
+				vpsCompileStatus: compileValidation.status,
+				phase: 'auto_healing',
+				compileJobId: compileValidation.jobId,
+				codeWebReachable: compileValidation.codeWebReachable,
+				serverMainReady: compileValidation.serverMainReady,
+				suggestedCommands: extractCommands(completion.content)
+			});
+		} catch (healError) {
+			console.warn('[princy-ai] Auto-healing falhou:', healError instanceof Error ? healError.message : healError);
+		}
 	}
 
 	return buildAgentChatResponse({
@@ -118,19 +120,6 @@ export async function handleAgentChat(body: AgentChatRequest): Promise<AgentChat
 		serverMainReady: compileValidation.serverMainReady,
 		suggestedCommands: extractCommands(completion.content)
 	});
-}
-
-async function waitForCompileJob(jobId: string, timeoutMs: number): Promise<Awaited<ReturnType<typeof validateVpsEnvironment>>> {
-	const startedAt = Date.now();
-	let latest = getCompileJobStatus(jobId);
-	while (Date.now() - startedAt < timeoutMs) {
-		latest = getCompileJobStatus(jobId);
-		if (!latest || latest.status === 'READY' || latest.status === 'FAILED') {
-			return latest ?? { status: 'FAILED', codeWebReachable: false, serverMainReady: false, jobId };
-		}
-		await new Promise(resolve => setTimeout(resolve, 2000));
-	}
-	return latest ?? { status: 'PENDING', codeWebReachable: false, serverMainReady: false, jobId };
 }
 
 function buildSilentContext(shadowContext: unknown, codeGraph: unknown): string {
