@@ -29,6 +29,7 @@ if (-not (Test-Path $scriptPath)) {
 }
 
 $serverMain = Join-Path $ProjectRoot "out\server-main.js"
+$workbenchDevHtml = Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench-dev.html"
 $princyBrowserExtension = Join-Path $ProjectRoot "extensions\princy-ai\dist\browser\extension.js"
 
 $env:NODE_OPTIONS = "--max-old-space-size=8192"
@@ -44,8 +45,12 @@ if ($Rebuild -and (Test-Path (Join-Path $ProjectRoot "out"))) {
 	Remove-Item -Recurse -Force (Join-Path $ProjectRoot "out")
 }
 
-if (-not (Test-Path $serverMain)) {
-	Write-Host "out\server-main.js not found. Compiling Code-OSS core (first run can take 20-40 minutes) ..."
+if (-not (Test-Path $serverMain) -or -not (Test-Path $workbenchDevHtml)) {
+	if (-not (Test-Path $workbenchDevHtml)) {
+		Write-Host "VS Code Web UI (workbench) not found at out\vs\code\browser\workbench\workbench-dev.html"
+		Write-Host "compile-web only builds extensions — run compile-incremental for the full editor UI."
+	}
+	Write-Host "Compiling Code-OSS core (first run can take 20-40 minutes) ..."
 	Write-Host "Using incremental compile (skips deleting out/ — safer on Windows when EBUSY)."
 	$env:PRINCY_SKIP_GULP_CLEAN = "1"
 	Invoke-NpmTask -TaskName "compile-incremental"
@@ -76,5 +81,22 @@ if (-not (Test-Path $princyBrowserExtension)) {
 	Write-Host "Princy Ai panel may not activate until compile-web succeeds."
 }
 
+if (-not (Test-Path $workbenchDevHtml)) {
+	throw @"
+VS Code Web UI files are still missing.
+
+Run once on the VPS:
+  cd $ProjectRoot
+  `$env:PRINCY_SKIP_GULP_CLEAN = '1'
+  npm run compile-incremental
+  npm run compile-web
+
+Then confirm:
+  Test-Path .\out\vs\code\browser\workbench\workbench-dev.html
+"@
+}
+
 Write-Host "Using server entry: $serverMain"
+Write-Host "Workbench UI: $workbenchDevHtml"
+Write-Host "Open the URL printed below as 'Web UI available at ...' (full VS Code in the browser)."
 & $scriptPath $WorkspacePath --host $HostName --port $Port --without-connection-token --disable-extension GitHub.copilot-chat --disable-extension GitHub.copilot
