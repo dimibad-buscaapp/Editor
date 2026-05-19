@@ -18,10 +18,15 @@ export type AgentChatMetadata = {
 	readonly timestamp: number;
 };
 
+export type AgentJobStatusLabel = 'IN_PROGRESS' | 'COMPLETED' | 'FAILED';
+
 export type AgentChatResponse = {
 	readonly content: string;
 	readonly message: string;
 	readonly metadata: AgentChatMetadata;
+	readonly plan?: readonly string[];
+	readonly jobStatus?: AgentJobStatusLabel;
+	readonly intelligence_status?: string;
 	readonly suggestedCommands?: readonly string[];
 };
 

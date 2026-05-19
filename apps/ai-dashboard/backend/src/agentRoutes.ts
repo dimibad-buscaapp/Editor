@@ -1,7 +1,9 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { agentConfigs, createChatCompletion, createChatCompletionDetailed, type AgentModel, type ChatMessage } from './ai.js';
+import { getAgentJobSnapshot, startAgentJob } from './agentJob/runner.js';
 import { handleAgentChat } from './agentChatService.js';
+import { indexEditorProject } from './workspaceIndexer.js';
 import { formatIntelligenceStatus } from './agentMetadata.js';
 import { getCompileJobStatus } from './compileService.js';
 import { listSegmentEngines } from './orchestrator/engines.js';
@@ -30,6 +32,7 @@ const chatSchema = z.object({
 	priority: z.enum(['normal', 'high']).default('normal'),
 	stream: z.boolean().optional(),
 	trigger_compile: z.boolean().optional(),
+	async: z.boolean().optional(),
 	message: z.string().min(1).max(12000),
 	filePath: z.string().optional(),
 	selectedText: z.string().optional(),
@@ -187,8 +190,115 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 		return { ok: true, ...status };
 	});
 
+	app.get('/api/agent/jobs/', async (_request, reply) => {
+		return reply.code(400).send({
+			ok: false,
+			message: 'Missing jobId in URL',
+			hint: 'POST /api/agent/jobs first, then GET /api/agent/jobs/{jobId} using the jobId from the response',
+			example: 'Invoke-RestMethod http://127.0.0.1:3210/api/agent/jobs/{jobId}'
+		});
+	});
+
+	app.post('/api/agent/jobs', async (request, reply) => {
+		const body = chatSchema.parse(request.body);
+		const snapshot = startAgentJob({
+			agent: body.agent,
+			message: body.message,
+			context: body.context,
+			force_segment: (body.force_segment ?? body.segment) as ModelSegment | undefined,
+			priority: body.priority,
+			trigger_compile: body.trigger_compile,
+			filePath: body.filePath,
+			selectedText: body.selectedText,
+			shadowContext: body.shadowContext,
+			codeGraph: body.codeGraph
+		});
+
+		if (!snapshot.jobId?.trim()) {
+			request.log.error({ snapshot }, 'startAgentJob returned empty jobId');
+			return reply.code(500).send({
+				ok: false,
+				message: 'Failed to create agent job (empty jobId)'
+			});
+		}
+
+		request.log.info({ jobId: snapshot.jobId, state: snapshot.state }, 'agent job created');
+
+		return {
+			ok: true,
+			jobId: snapshot.jobId,
+			id: snapshot.jobId,
+			state: snapshot.state,
+			status: 'IN_PROGRESS',
+			plan: snapshot.plan,
+			thinkingLog: snapshot.thinkingLog
+		};
+	});
+
+	app.get('/api/agent/jobs/:jobId', async request => {
+		const params = z.object({ jobId: z.string().min(1) }).parse(request.params);
+		const snapshot = getAgentJobSnapshot(params.jobId);
+		if (!snapshot) {
+			return { ok: false, message: 'Agent job not found' };
+		}
+
+		return {
+			ok: true,
+			...snapshot,
+			intelligence_status: snapshot.response
+				? formatIntelligenceStatus(snapshot.response.metadata)
+				: `[Princy IA] ${snapshot.state} | ${snapshot.status}`
+		};
+	});
+
+	app.post('/api/agent/index-workspace', async () => {
+		const indexedFiles = await indexEditorProject(config.projectRagMaxFiles);
+		return {
+			ok: true,
+			indexedFiles,
+			workspace: config.agentWorkspaceName
+		};
+	});
+
 	app.post('/api/agent/chat', async request => {
 		const body = chatSchema.parse(request.body);
+
+		if (body.async === true) {
+			const snapshot = startAgentJob({
+				agent: body.agent,
+				message: body.message,
+				context: body.context,
+				force_segment: (body.force_segment ?? body.segment) as ModelSegment | undefined,
+				priority: body.priority,
+				trigger_compile: body.trigger_compile,
+				filePath: body.filePath,
+				selectedText: body.selectedText,
+				shadowContext: body.shadowContext,
+				codeGraph: body.codeGraph
+			});
+
+			return {
+				jobId: snapshot.jobId,
+				state: snapshot.state,
+				status: 'IN_PROGRESS',
+				plan: snapshot.plan,
+				content: '',
+				metadata: {
+					segment_used: (body.force_segment ?? body.segment ?? 'BACKEND') as ModelSegment,
+					primary_engine: 'orchestrator',
+					fallback_engines: [],
+					execution_time: '0.0s',
+					status: 'COMPLETED',
+					vps_compile_status: 'PENDING',
+					consensus_applied: false,
+					phase: 'processing',
+					timestamp: Date.now()
+				},
+				thinkingLog: snapshot.thinkingLog,
+				intelligence_status: `[Princy IA] 🧠 Job ${snapshot.jobId} | Estado: ${snapshot.state}`
+			};
+		}
+
 		const response = await handleAgentChat({
 			agent: body.agent,
 			message: body.message,

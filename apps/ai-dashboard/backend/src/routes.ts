@@ -4,6 +4,7 @@ import { createChatCompletion } from './ai.js';
 import { clearSession, createSession, getAuthenticatedUser, hashPassword, requireAuthenticatedUser, verifyPassword } from './auth.js';
 import { prisma } from './prisma.js';
 import { buildRagSystemPrompt, indexWorkspaceFiles, retrieveRelevantChunks } from './rag.js';
+import { config } from './config.js';
 import { createWorkspaceRoot, listWorkspaceFiles, normalizeWorkspacePath, readWorkspaceFile, writeWorkspaceFile } from './storage.js';
 
 const credentialsSchema = z.object({
@@ -44,7 +45,17 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 		openAiCompatible: '/v1/models'
 	}));
 
-	app.get('/api/health', async () => ({ ok: true }));
+	app.get('/api/health', async () => ({
+		ok: true,
+		service: 'princy-agent-backend',
+		build: '2026-05-fsm',
+		features: {
+			agentFsmJobs: true,
+			projectRagIndexing: config.projectRagIndexingEnabled,
+			testDrivenAgent: config.agentTestDrivenEnabled,
+			asyncJobs: config.agentAsyncJobsEnabled
+		}
+	}));
 
 	app.post('/api/auth/register', async (request, reply) => {
 		const body = credentialsSchema.parse(request.body);

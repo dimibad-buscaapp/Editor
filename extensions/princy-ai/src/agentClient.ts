@@ -77,6 +77,7 @@ export interface ChatRequest {
 	readonly priority?: 'normal' | 'high';
 	readonly stream?: boolean;
 	readonly trigger_compile?: boolean;
+	readonly async?: boolean;
 	readonly filePath?: string;
 	readonly selectedText?: string;
 	readonly shadowContext?: ShadowContext;
@@ -102,8 +103,31 @@ export interface ChatResponse {
 	readonly content: string;
 	readonly message: string;
 	readonly metadata: ChatMetadata;
+	readonly plan?: readonly string[];
+	readonly jobStatus?: 'IN_PROGRESS' | 'COMPLETED' | 'FAILED';
 	readonly intelligence_status?: string;
 	readonly suggestedCommands?: readonly string[];
+}
+
+export interface AgentJobStartResponse {
+	readonly jobId: string;
+	readonly state: string;
+	readonly status: 'IN_PROGRESS' | 'COMPLETED' | 'FAILED';
+	readonly plan: readonly string[];
+	readonly thinkingLog: readonly string[];
+}
+
+export interface AgentJobSnapshot {
+	readonly ok?: boolean;
+	readonly jobId: string;
+	readonly state: string;
+	readonly status: 'IN_PROGRESS' | 'COMPLETED' | 'FAILED';
+	readonly plan: readonly string[];
+	readonly content: string;
+	readonly thinkingLog: readonly string[];
+	readonly error?: string;
+	readonly response?: ChatResponse;
+	readonly intelligence_status?: string;
 }
 
 export interface AgentDefinition {
@@ -146,7 +170,45 @@ export class AgentClient {
 	}
 
 	public async chat(request: ChatRequest): Promise<ChatResponse> {
-		return this.post<ChatResponse>('/api/agent/chat', request);
+		if (request.async !== false) {
+			const started = await this.startAgentJob(request);
+			return this.waitForAgentJob(started.jobId);
+		}
+		return this.post<ChatResponse>('/api/agent/chat', { ...request, async: false });
+	}
+
+	public async startAgentJob(request: ChatRequest): Promise<AgentJobStartResponse> {
+		const result = await this.post<AgentJobStartResponse & { readonly id?: string; readonly ok?: boolean }>('/api/agent/jobs', request);
+		const jobId = (result.jobId ?? result.id ?? '').trim();
+		if (!jobId) {
+			throw new Error(
+				'POST /api/agent/jobs nao retornou jobId. Verifique se o backend foi atualizado (GET /api/health deve ter build: 2026-05-fsm).'
+			);
+		}
+		return { ...result, jobId };
+	}
+
+	public async getAgentJob(jobId: string): Promise<AgentJobSnapshot> {
+		const normalizedJobId = jobId?.trim();
+		if (!normalizedJobId) {
+			throw new Error('jobId vazio — crie o job com POST /api/agent/jobs antes de fazer polling.');
+		}
+		return this.get<AgentJobSnapshot>(`/api/agent/jobs/${encodeURIComponent(normalizedJobId)}`);
+	}
+
+	public async waitForAgentJob(jobId: string, timeoutMs = 300_000): Promise<ChatResponse> {
+		const startedAt = Date.now();
+		while (Date.now() - startedAt < timeoutMs) {
+			const snapshot = await this.getAgentJob(jobId);
+			if (snapshot.response && (snapshot.status === 'COMPLETED' || snapshot.state === 'SUCCESS')) {
+				return snapshot.response;
+			}
+			if (snapshot.status === 'FAILED' || snapshot.state === 'FAILED') {
+				throw new Error(snapshot.error ?? 'Agent job failed');
+			}
+			await new Promise(resolve => setTimeout(resolve, 1500));
+		}
+		throw new Error('Agent job timeout');
 	}
 
 	public async getCompileStatus(jobId: string): Promise<{ readonly status: string; readonly output?: string }> {

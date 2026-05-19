@@ -54,10 +54,21 @@ const frontendDist = path.resolve(currentDir, '../frontend');
 if (fs.existsSync(frontendDist)) {
 	await app.register(staticFiles, {
 		root: frontendDist,
-		prefix: '/'
+		prefix: '/',
+		allowedPath: (_pathName, _root, request) => {
+			const url = request.url.split('?')[0] ?? request.url;
+			return !url.startsWith('/api/') && !url.startsWith('/v1/');
+		}
 	});
 
-	app.setNotFoundHandler((_request, reply) => {
+	app.setNotFoundHandler((request, reply) => {
+		if (request.url.startsWith('/api/') || request.url.startsWith('/v1/')) {
+			return reply.code(404).send({
+				ok: false,
+				message: 'API route not found',
+				path: request.url
+			});
+		}
 		reply.sendFile('index.html');
 	});
 }

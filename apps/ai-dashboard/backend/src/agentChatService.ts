@@ -3,9 +3,10 @@ import { buildAgentChatResponse, type AgentChatResponse } from './agentMetadata.
 import { validateVpsEnvironment } from './compileService.js';
 import { config } from './config.js';
 import { buildRagSystemPrompt, retrieveAgentRelevantChunks } from './rag.js';
-import { detectSegment } from './orchestrator/segments.js';
+import { detectSegment, isHighComplexity } from './orchestrator/segments.js';
 import { runDebugAutoHeal } from './orchestrator/orchestrator.js';
 import type { ModelSegment } from './orchestrator/types.js';
+import { generateExecutionPlan } from './planGenerator.js';
 
 export type AgentChatRequest = {
 	readonly agent: AgentModel;
@@ -49,19 +50,40 @@ function buildMessages(body: AgentChatRequest, chunks: Awaited<ReturnType<typeof
 	];
 }
 
-export async function handleAgentChat(body: AgentChatRequest): Promise<AgentChatResponse> {
+export async function generateAgentChatCore(body: AgentChatRequest): Promise<{
+	readonly startedAt: number;
+	readonly segment: ModelSegment;
+	readonly messages: ChatMessage[];
+	readonly completion: Awaited<ReturnType<typeof createChatCompletionDetailed>>;
+}> {
 	const startedAt = Date.now();
 	const segment = resolveSegment(body);
 	const chunks = await retrieveAgentRelevantChunks(body.message);
 	const messages = buildMessages(body, chunks);
-
-	let completion = await createChatCompletionDetailed(messages, body.agent, {
+	const completion = await createChatCompletionDetailed(messages, body.agent, {
 		segment,
 		filePath: body.filePath,
 		languageId: body.shadowContext && typeof body.shadowContext === 'object' && body.shadowContext !== null && 'activeLanguageId' in body.shadowContext
 			? String((body.shadowContext as { activeLanguageId?: string }).activeLanguageId ?? '')
 			: undefined
 	});
+
+	return { startedAt, segment, messages, completion };
+}
+
+export async function handleAgentChat(body: AgentChatRequest, plan?: readonly string[]): Promise<AgentChatResponse> {
+	const segment = resolveSegment(body);
+	let executionPlan = plan;
+	if (!executionPlan && isHighComplexity(body.message)) {
+		executionPlan = await generateExecutionPlan({
+			message: body.message,
+			segment,
+			agent: body.agent
+		});
+	}
+
+	const { startedAt, completion: initialCompletion, messages } = await generateAgentChatCore(body);
+	let completion = initialCompletion;
 
 	let compileValidation = await validateVpsEnvironment({
 		priority: body.priority,
@@ -109,7 +131,7 @@ export async function handleAgentChat(body: AgentChatRequest): Promise<AgentChat
 		}
 	}
 
-	return buildAgentChatResponse({
+	const response = buildAgentChatResponse({
 		completion,
 		executionTimeMs: Date.now() - startedAt,
 		segment,
@@ -120,6 +142,12 @@ export async function handleAgentChat(body: AgentChatRequest): Promise<AgentChat
 		serverMainReady: compileValidation.serverMainReady,
 		suggestedCommands: extractCommands(completion.content)
 	});
+
+	return {
+		...response,
+		plan: executionPlan ? [...executionPlan] : undefined,
+		jobStatus: 'COMPLETED'
+	};
 }
 
 function buildSilentContext(shadowContext: unknown, codeGraph: unknown): string {

@@ -199,17 +199,17 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 		this.view?.webview.postMessage({ type: 'append', role: 'user', text });
 		this.view?.webview.postMessage({
 			type: 'intelligence_status',
-			text: `[Princy IA] 🧠 Segmento: ${processingSegment} | Motor principal em execucao...`
+			text: `[Princy IA] 🧠 Segmento: ${processingSegment} | Job assincrono iniciando...`
 		});
 		this.view?.webview.postMessage({ type: 'thinking', steps: [
 			{ label: 'Coletando Shadow Context...', state: 'done' },
-			{ label: 'Orquestrando motores por segmento...', state: 'active' },
-			{ label: 'Validando compilacao VPS...', state: 'pending' }
+			{ label: 'THINKING: plano e RAG...', state: 'active' },
+			{ label: 'GENERATING / COMPILING / TESTING...', state: 'pending' }
 		] });
 
 		try {
 			const nativeContext = await this.collectNativeContext();
-			const response = await this.client.chat({
+			const started = await this.client.startAgentJob({
 				agent,
 				message: text,
 				context: workspaceContext,
@@ -221,6 +221,26 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 				shadowContext: nativeContext.shadowContext,
 				codeGraph: nativeContext.codeGraph
 			});
+
+			if (!started.jobId?.trim()) {
+				throw new Error('Backend nao retornou jobId. Atualize o agent backend no VPS (git pull + npm run build:backend).');
+			}
+
+			if (started.plan?.length) {
+				this.view?.webview.postMessage({
+					type: 'intelligence_status',
+					text: `[Princy IA] Plano: ${started.plan.join(' → ')}`
+				});
+			}
+
+			const response = await this.pollAgentJob(started.jobId);
+			if (response.plan?.length) {
+				this.view?.webview.postMessage({
+					type: 'append',
+					role: 'assistant',
+					text: `Plano:\n${response.plan.map((step, index) => `${index + 1}. ${step}`).join('\n')}`
+				});
+			}
 			this.view?.webview.postMessage({
 				type: 'append',
 				role: 'assistant',
@@ -259,6 +279,33 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 			return `[Princy IA] ⚠️ ${metadata.segment_used} | Motores: [${engines}] | Compilador 3200 com pendencias`;
 		}
 		return `[Princy IA] ✅ ${metadata.segment_used} | Motores: [${engines}] | ${metadata.execution_time}`;
+	}
+
+	private async pollAgentJob(jobId: string): Promise<import('./agentClient').ChatResponse> {
+		for (let attempt = 0; attempt < 200; attempt++) {
+			const snapshot = await this.client.getAgentJob(jobId);
+			const lastThought = snapshot.thinkingLog[snapshot.thinkingLog.length - 1];
+			if (lastThought) {
+				this.view?.webview.postMessage({ type: 'intelligence_status', text: `[Princy IA] ${snapshot.state} | ${lastThought}` });
+			}
+
+			const steps = [
+				{ label: 'THINKING', state: snapshot.state === 'THINKING' ? 'active' : 'done' },
+				{ label: 'GENERATING', state: snapshot.state === 'GENERATING' ? 'active' : snapshot.state === 'THINKING' ? 'pending' : 'done' },
+				{ label: 'COMPILING', state: snapshot.state === 'COMPILING' ? 'active' : ['TESTING', 'HEALING', 'SUCCESS', 'FAILED'].includes(snapshot.state) ? 'done' : 'pending' },
+				{ label: 'TESTING', state: snapshot.state === 'TESTING' ? 'active' : snapshot.state === 'HEALING' || snapshot.state === 'SUCCESS' ? 'done' : 'pending' }
+			];
+			this.view?.webview.postMessage({ type: 'thinking', steps });
+
+			if (snapshot.response && (snapshot.status === 'COMPLETED' || snapshot.state === 'SUCCESS')) {
+				return snapshot.response;
+			}
+			if (snapshot.status === 'FAILED' || snapshot.state === 'FAILED') {
+				throw new Error(snapshot.error ?? 'Job do agente falhou');
+			}
+			await new Promise(resolve => setTimeout(resolve, 1500));
+		}
+		throw new Error('Timeout aguardando job do agente');
 	}
 
 	private async pollCompileJob(jobId: string): Promise<void> {
