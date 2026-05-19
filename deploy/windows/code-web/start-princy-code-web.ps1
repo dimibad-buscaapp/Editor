@@ -46,7 +46,9 @@ if ($Rebuild -and (Test-Path (Join-Path $ProjectRoot "out"))) {
 
 if (-not (Test-Path $serverMain)) {
 	Write-Host "out\server-main.js not found. Compiling Code-OSS core (first run can take 20-40 minutes) ..."
-	Invoke-NpmTask -TaskName "compile"
+	Write-Host "Using incremental compile (skips deleting out/ — safer on Windows when EBUSY)."
+	$env:PRINCY_SKIP_GULP_CLEAN = "1"
+	Invoke-NpmTask -TaskName "compile-incremental"
 }
 
 if (-not (Test-Path $serverMain)) {

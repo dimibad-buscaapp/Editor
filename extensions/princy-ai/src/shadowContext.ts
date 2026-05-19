@@ -6,9 +6,6 @@
 import * as vscode from 'vscode';
 import { ShadowContext, TerminalCommandResult } from './agentClient';
 
-declare function setTimeout(handler: () => void, timeout?: number): unknown;
-declare function clearTimeout(handle: unknown): void;
-
 const MAX_ACTIVE_CONTENT_LENGTH = 40000;
 const MAX_DIAGNOSTICS = 40;
 

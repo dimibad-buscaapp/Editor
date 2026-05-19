@@ -24,11 +24,33 @@ O primeiro start pode baixar extensoes built-in e dependencias usadas pelo scrip
 
 Se `npm install` falhar em pacotes nativos, instale o Visual Studio Build Tools com C++ e use Node LTS compatível.
 
-Antes do primeiro start, compile o servidor e as extensoes web:
+Antes do primeiro start, compile o servidor e as extensoes web.
+
+No Windows Server, se `npm run compile` falhar com `EBUSY` ao apagar `out`:
 
 ```powershell
-npm run compile
+powershell -ExecutionPolicy Bypass -File .\deploy\windows\code-web\compile-princy-windows.ps1
 npm run compile-web
+```
+
+Ou compile incremental manualmente:
+
+```powershell
+$env:PRINCY_SKIP_GULP_CLEAN = "1"
+npm run compile-incremental
+npm run compile-web
+```
+
+Compile completo (apaga `out` — pare Code Web, agent backend e antivírus na pasta antes):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\deploy\windows\code-web\compile-princy-windows.ps1 -Full
+```
+
+Watch (nao apaga `out`, recompila em background):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\deploy\windows\code-web\compile-princy-windows.ps1 -Watch
 ```
 
 ## Rodar Manualmente

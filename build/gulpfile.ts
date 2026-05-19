@@ -38,6 +38,13 @@ gulp.task(transpileClientTask);
 const compileClientTask = task.define('compile-client', task.series(util.rimraf('out'), compilation.copyCodiconsTask, compilation.compileApiProposalNamesTask, compilation.compileExtensionPointNamesTask, compilation.compileTask('src', 'out', false)));
 gulp.task(compileClientTask);
 
+// Windows/VPS: skip deleting out/ when antivirus or a running server locks the folder
+const compileClientIncrementalTask = task.define('compile-client-incremental', task.series(compilation.copyCodiconsTask, compilation.compileApiProposalNamesTask, compilation.compileExtensionPointNamesTask, compilation.compileTask('src', 'out', false)));
+gulp.task(compileClientIncrementalTask);
+
+const compileIncrementalTask = task.define('compile-incremental', task.parallel(monacoTypecheckTask, compileClientIncrementalTask, compileExtensionsTask, compileExtensionMediaTask));
+gulp.task(compileIncrementalTask);
+
 const watchClientTask = task.define('watch-client', task.parallel(compilation.watchTypeCheckTask('src'), compilation.watchApiProposalNamesTask, compilation.watchExtensionPointNamesTask, compilation.watchCodiconsTask));
 gulp.task(watchClientTask);
 

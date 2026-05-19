@@ -293,18 +293,38 @@ export function rewriteSourceMappingURL(sourceMappingURLBase: string): NodeJS.Re
 	return es.duplex(input, output);
 }
 
+function shouldSkipGulpClean(): boolean {
+	const flag = process.env.PRINCY_SKIP_GULP_CLEAN ?? process.env.VSCODE_SKIP_GULP_CLEAN ?? '';
+	return flag === '1' || flag.toLowerCase() === 'true';
+}
+
+const rimrafRetryableCodes = new Set(['EBUSY', 'ENOTEMPTY', 'EPERM', 'EACCES']);
+
 export function rimraf(dir: string): () => Promise<void> {
 	const result = () => new Promise<void>((c, e) => {
+		if (shouldSkipGulpClean()) {
+			console.log(`[gulp] Skipping clean of ${dir} (PRINCY_SKIP_GULP_CLEAN or VSCODE_SKIP_GULP_CLEAN is set)`);
+			return c();
+		}
+
+		if (!fs.existsSync(dir)) {
+			return c();
+		}
+
 		let retries = 0;
+		const maxRetries = process.platform === 'win32' ? 15 : 5;
 
 		const retry = () => {
-			_rimraf(dir, { maxBusyTries: 1 }, (err: any) => {
+			_rimraf(dir, { maxBusyTries: 10 }, (err: any) => {
 				if (!err) {
 					return c();
 				}
 
-				if (err.code === 'ENOTEMPTY' && ++retries < 5) {
-					return setTimeout(() => retry(), 10);
+				const code = err?.code as string | undefined;
+				if (code && rimrafRetryableCodes.has(code) && ++retries < maxRetries) {
+					const delayMs = Math.min(50 * retries, 500);
+					console.warn(`[gulp] clean-${path.basename(dir)} retry ${retries}/${maxRetries} after ${code}, waiting ${delayMs}ms`);
+					return setTimeout(() => retry(), delayMs);
 				}
 
 				return e(err);
