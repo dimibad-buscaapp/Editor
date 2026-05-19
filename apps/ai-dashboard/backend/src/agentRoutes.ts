@@ -1,6 +1,9 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { agentConfigs, createChatCompletion, createChatCompletionDetailed, type AgentModel, type ChatMessage } from './ai.js';
+import { handleAgentChat } from './agentChatService.js';
+import { formatIntelligenceStatus } from './agentMetadata.js';
+import { getCompileJobStatus } from './compileService.js';
 import { listSegmentEngines } from './orchestrator/engines.js';
 import type { ModelSegment } from './orchestrator/types.js';
 import { config } from './config.js';
@@ -22,6 +25,11 @@ const inlineEditSchema = z.object({
 const chatSchema = z.object({
 	agent: agentModelSchema.default('deepseek'),
 	segment: segmentSchema.optional(),
+	force_segment: segmentSchema.optional(),
+	context: z.string().max(200).optional(),
+	priority: z.enum(['normal', 'high']).default('normal'),
+	stream: z.boolean().optional(),
+	trigger_compile: z.boolean().optional(),
 	message: z.string().min(1).max(12000),
 	filePath: z.string().optional(),
 	selectedText: z.string().optional(),
@@ -170,59 +178,59 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 		};
 	});
 
+	app.get('/api/agent/compile-status/:jobId', async request => {
+		const params = z.object({ jobId: z.string().min(1) }).parse(request.params);
+		const status = getCompileJobStatus(params.jobId);
+		if (!status) {
+			return { ok: false, message: 'Compile job not found' };
+		}
+		return { ok: true, ...status };
+	});
+
 	app.post('/api/agent/chat', async request => {
 		const body = chatSchema.parse(request.body);
-		const chunks = await retrieveAgentRelevantChunks(body.message);
-		const selectedContext = body.selectedText ? `\n\nSelecao atual:\n${body.selectedText}` : '';
-		const silentContext = buildSilentContext(body.shadowContext, body.codeGraph);
-		const completion = await createChatCompletionDetailed([
-			{
-				role: 'system',
-				content: `${buildRagSystemPrompt(chunks)}\n\nAgente selecionado: ${agentConfigs[body.agent].label}.\nSe sugerir comandos de terminal, coloque cada comando em uma linha começando com COMMAND:.`
-			},
-			{
-				role: 'user',
-				content: `${body.filePath ? `Arquivo atual: ${body.filePath}\n\n` : ''}${body.message}${selectedContext}${silentContext}`
-			}
-		], body.agent, {
-			segment: body.segment as ModelSegment | undefined,
+		const response = await handleAgentChat({
+			agent: body.agent,
+			message: body.message,
+			context: body.context,
+			force_segment: (body.force_segment ?? body.segment) as ModelSegment | undefined,
+			priority: body.priority,
+			trigger_compile: body.trigger_compile,
 			filePath: body.filePath,
-			languageId: body.shadowContext && typeof body.shadowContext === 'object' && body.shadowContext !== null && 'activeLanguageId' in body.shadowContext
-				? String((body.shadowContext as { activeLanguageId?: string }).activeLanguageId ?? '')
-				: undefined
+			selectedText: body.selectedText,
+			shadowContext: body.shadowContext,
+			codeGraph: body.codeGraph
 		});
 
 		return {
-			message: completion.content,
-			suggestedCommands: extractCommands(completion.content),
-			orchestrator: completion.orchestrator
+			...response,
+			intelligence_status: formatIntelligenceStatus(response.metadata)
 		};
 	});
 
 	app.post('/api/agent/chat/stream', async (request, reply) => {
 		const body = chatSchema.parse(request.body);
-		const chunks = await retrieveAgentRelevantChunks(body.message);
-		const completion = await createChatCompletionDetailed([
-			{
-				role: 'system',
-				content: `${buildRagSystemPrompt(chunks)}\n\nAgente selecionado: ${agentConfigs[body.agent].label}.`
-			},
-			{
-				role: 'user',
-				content: body.message
-			}
-		], body.agent, {
-			segment: body.segment as ModelSegment | undefined,
-			filePath: body.filePath
+		const response = await handleAgentChat({
+			agent: body.agent,
+			message: body.message,
+			context: body.context,
+			force_segment: (body.force_segment ?? body.segment) as ModelSegment | undefined,
+			priority: body.priority,
+			trigger_compile: body.trigger_compile,
+			filePath: body.filePath,
+			selectedText: body.selectedText,
+			shadowContext: body.shadowContext,
+			codeGraph: body.codeGraph
 		});
-		const message = completion.content;
 
 		reply.raw.writeHead(200, {
 			'Content-Type': 'text/event-stream',
 			'Cache-Control': 'no-cache',
 			Connection: 'keep-alive'
 		});
-		reply.raw.write(`data: ${JSON.stringify({ type: 'message', text: message })}\n\n`);
+		reply.raw.write(`data: ${JSON.stringify({ type: 'metadata', metadata: response.metadata })}\n\n`);
+		reply.raw.write(`data: ${JSON.stringify({ type: 'message', text: response.content })}\n\n`);
+		reply.raw.write(`data: ${JSON.stringify({ type: 'intelligence_status', text: formatIntelligenceStatus(response.metadata) })}\n\n`);
 		reply.raw.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
 		reply.raw.end();
 	});

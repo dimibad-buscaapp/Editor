@@ -115,7 +115,11 @@ export type ChatCompletionResult = {
 	readonly orchestrator?: {
 		readonly segment: ModelSegment;
 		readonly enginesUsed: readonly string[];
+		readonly primaryEngine: string;
+		readonly fallbackEngines: readonly string[];
 		readonly consensusApplied: boolean;
+		readonly status: 'COMPLETED' | 'FAILED' | 'FALLBACK';
+		readonly executionTimeMs: number;
 	};
 };
 
@@ -142,7 +146,11 @@ export async function createChatCompletionDetailed(messages: ChatMessage[], agen
 			orchestrator: {
 				segment: orchestrated.segment,
 				enginesUsed: orchestrated.enginesUsed,
-				consensusApplied: orchestrated.consensusApplied
+				primaryEngine: orchestrated.primaryEngine,
+				fallbackEngines: orchestrated.fallbackEngines,
+				consensusApplied: orchestrated.consensusApplied,
+				status: orchestrated.status,
+				executionTimeMs: orchestrated.executionTimeMs
 			}
 		};
 	}

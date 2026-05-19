@@ -3,19 +3,24 @@ import { config } from '../config.js';
 import { segmentEngines } from './engines.js';
 import { callEngine } from './providers.js';
 import { detectSegment, isHighComplexity } from './segments.js';
-import type { EngineSpec, ModelSegment, OrchestratorExecuteOptions, OrchestratorResult } from './types.js';
+import type { EngineSpec, ModelSegment, OrchestratorExecuteOptions, OrchestratorResult, OrchestratorStatus } from './types.js';
 
 const validationMarkers = ['erro', 'error', 'correcao', 'correção', 'incorreto', 'falha', 'bug', 'problema', 'inseguro', 'nao compila', 'não compila'];
 
 export class PrincyOrchestrator {
 	async execute(options: OrchestratorExecuteOptions): Promise<OrchestratorResult> {
+		const startedAt = Date.now();
 		const userPrompt = this.extractUserPrompt(options.messages);
 		const segment = options.segment ?? detectSegment(userPrompt, options.filePath, options.languageId);
 		const engines = segmentEngines[segment];
 		const enginesUsed: string[] = [];
 		let consensusApplied = false;
+		let usedFallback = false;
 
 		let result = await this.tryEnginesInOrder(engines, options.messages, enginesUsed);
+		if (enginesUsed.length > 1) {
+			usedFallback = true;
+		}
 
 		if (config.orchestratorConsensusEnabled && isHighComplexity(userPrompt)) {
 			consensusApplied = true;
@@ -31,7 +36,8 @@ export class PrincyOrchestrator {
 						content: `Valide este resultado e aponte erros ou riscos:\n\n${result.content}`
 					}
 				],
-				enginesUsed
+				enginesUsed,
+				true
 			);
 
 			if (this.needsRefinement(validation.content)) {
@@ -51,27 +57,43 @@ export class PrincyOrchestrator {
 							].join('\n\n')
 						}
 					],
-					enginesUsed
+					enginesUsed,
+					true
 				);
+				usedFallback = true;
 			}
 		}
+
+		const uniqueEngines = [...new Set(enginesUsed)];
+		const primaryEngine = uniqueEngines[0]?.split('@')[0] ?? engines[0].id;
+		const fallbackEngines = uniqueEngines.slice(1).map(engine => engine.split('@')[0]);
 
 		return {
 			content: result.content,
 			segment,
-			enginesUsed: [...new Set(enginesUsed)],
-			consensusApplied
+			enginesUsed: uniqueEngines,
+			primaryEngine,
+			fallbackEngines,
+			consensusApplied,
+			status: usedFallback ? 'FALLBACK' : 'COMPLETED',
+			executionTimeMs: Date.now() - startedAt
 		};
 	}
 
 	private async tryEnginesInOrder(
 		engines: readonly EngineSpec[],
 		messages: readonly ChatMessage[],
-		enginesUsed: string[]
+		enginesUsed: string[],
+		allowDuplicate = false
 	): Promise<{ content: string }> {
 		const errors: string[] = [];
 
 		for (const engine of engines) {
+			const engineKey = `${engine.id}@${engine.provider}`;
+			if (!allowDuplicate && enginesUsed.some(used => used.startsWith(`${engine.id}@`))) {
+				continue;
+			}
+
 			try {
 				const response = await callEngine(engine, messages);
 				enginesUsed.push(`${engine.id}@${response.provider}`);
@@ -100,4 +122,32 @@ let orchestrator: PrincyOrchestrator | undefined;
 export function getPrincyOrchestrator(): PrincyOrchestrator {
 	orchestrator ??= new PrincyOrchestrator();
 	return orchestrator;
+}
+
+export async function runDebugAutoHeal(input: {
+	readonly originalMessage: string;
+	readonly previousContent: string;
+	readonly compileOutput: string;
+	readonly messages: readonly ChatMessage[];
+}): Promise<OrchestratorResult> {
+	const orchestratorInstance = getPrincyOrchestrator();
+	return orchestratorInstance.execute({
+		segment: 'DEBUG',
+		messages: [
+			...input.messages,
+			{
+				role: 'system',
+				content: 'Modo auto-healing: corrija o erro de compilacao ou build sem explicar o processo.'
+			},
+			{
+				role: 'user',
+				content: [
+					`Pedido original: ${input.originalMessage}`,
+					`Resposta anterior:\n${input.previousContent}`,
+					`Erro de compilacao/build:\n${input.compileOutput}`,
+					'Retorne a correcao final pronta para aplicar.'
+				].join('\n\n')
+			}
+		]
+	});
 }

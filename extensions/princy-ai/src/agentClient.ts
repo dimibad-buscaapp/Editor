@@ -67,25 +67,43 @@ export interface InlineEditResponse {
 	readonly explanation?: string;
 }
 
+export type ModelSegment = 'LOGIC' | 'FRONTEND' | 'BACKEND' | 'DEBUG';
+
 export interface ChatRequest {
 	readonly agent: AgentModel;
 	readonly message: string;
+	readonly context?: string;
+	readonly force_segment?: ModelSegment;
+	readonly priority?: 'normal' | 'high';
+	readonly stream?: boolean;
+	readonly trigger_compile?: boolean;
 	readonly filePath?: string;
 	readonly selectedText?: string;
 	readonly shadowContext?: ShadowContext;
 	readonly codeGraph?: CodeGraphContext;
 }
 
-export interface ChatOrchestratorMeta {
-	readonly segment: 'LOGIC' | 'FRONTEND' | 'BACKEND' | 'DEBUG';
-	readonly enginesUsed: readonly string[];
-	readonly consensusApplied: boolean;
+export interface ChatMetadata {
+	readonly segment_used: ModelSegment;
+	readonly primary_engine: string;
+	readonly fallback_engines: readonly string[];
+	readonly execution_time: string;
+	readonly status: string;
+	readonly vps_compile_status: 'PENDING' | 'COMPILING' | 'READY' | 'FAILED' | 'SKIPPED';
+	readonly consensus_applied: boolean;
+	readonly phase: 'processing' | 'completed' | 'error' | 'compiling' | 'auto_healing';
+	readonly compile_job_id?: string;
+	readonly code_web_reachable?: boolean;
+	readonly server_main_ready?: boolean;
+	readonly timestamp: number;
 }
 
 export interface ChatResponse {
+	readonly content: string;
 	readonly message: string;
+	readonly metadata: ChatMetadata;
+	readonly intelligence_status?: string;
 	readonly suggestedCommands?: readonly string[];
-	readonly orchestrator?: ChatOrchestratorMeta;
 }
 
 export interface AgentDefinition {
@@ -129,6 +147,10 @@ export class AgentClient {
 
 	public async chat(request: ChatRequest): Promise<ChatResponse> {
 		return this.post<ChatResponse>('/api/agent/chat', request);
+	}
+
+	public async getCompileStatus(jobId: string): Promise<{ readonly status: string; readonly output?: string }> {
+		return this.get<{ readonly ok: boolean; readonly status: string; readonly output?: string }>(`/api/agent/compile-status/${encodeURIComponent(jobId)}`);
 	}
 
 	public async indexFile(request: IndexFileRequest): Promise<void> {

@@ -7,8 +7,10 @@ import * as vscode from 'vscode';
 import { AgentClient, AgentDefinition, AgentModel, ComposerPlan, TerminalCommandResult } from './agentClient';
 import type { NativeContextBundle } from './nativeContext';
 
+type ModelSegment = 'LOGIC' | 'FRONTEND' | 'BACKEND' | 'DEBUG';
+
 type WebviewMessage =
-	| { readonly type: 'sendMessage'; readonly text: string; readonly agent: AgentModel }
+	| { readonly type: 'sendMessage'; readonly text: string; readonly agent: AgentModel; readonly force_segment?: ModelSegment; readonly priority?: 'normal' | 'high' }
 	| { readonly type: 'requestComposer'; readonly text: string; readonly agent: AgentModel }
 	| { readonly type: 'applyComposerPlan'; readonly instruction: string; readonly agent: AgentModel; readonly plan: ComposerPlan; readonly operationIds: readonly string[] }
 	| { readonly type: 'insertCode'; readonly code: string }
@@ -77,7 +79,7 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 	private async handleMessage(message: WebviewMessage): Promise<void> {
 		switch (message.type) {
 			case 'sendMessage':
-				await this.sendChatMessage(message.text, message.agent);
+				await this.sendChatMessage(message.text, message.agent, message.force_segment, message.priority);
 				break;
 			case 'requestComposer':
 				await this.requestComposerPlan(message.text, message.agent);
@@ -184,18 +186,25 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 		}
 	}
 
-	private async sendChatMessage(text: string, agent: AgentModel): Promise<void> {
+	private async sendChatMessage(text: string, agent: AgentModel, forceSegment?: ModelSegment, priority: 'normal' | 'high' = 'normal'): Promise<void> {
 		if (!text.trim()) {
 			return;
 		}
 
 		const editor = vscode.window.activeTextEditor;
 		const selectedText = editor && !editor.selection.isEmpty ? editor.document.getText(editor.selection) : undefined;
+		const workspaceContext = vscode.workspace.workspaceFolders?.[0]?.name;
+		const processingSegment = forceSegment ?? 'BACKEND';
+
 		this.view?.webview.postMessage({ type: 'append', role: 'user', text });
+		this.view?.webview.postMessage({
+			type: 'intelligence_status',
+			text: `[Princy IA] 🧠 Segmento: ${processingSegment} | Motor principal em execucao...`
+		});
 		this.view?.webview.postMessage({ type: 'thinking', steps: [
 			{ label: 'Coletando Shadow Context...', state: 'done' },
-			{ label: 'Consultando grafo de codigo...', state: 'active' },
-			{ label: 'Gerando resposta...', state: 'pending' }
+			{ label: 'Orquestrando motores por segmento...', state: 'active' },
+			{ label: 'Validando compilacao VPS...', state: 'pending' }
 		] });
 
 		try {
@@ -203,6 +212,10 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 			const response = await this.client.chat({
 				agent,
 				message: text,
+				context: workspaceContext,
+				force_segment: forceSegment,
+				priority,
+				trigger_compile: priority === 'high',
 				filePath: editor?.document.uri.toString(),
 				selectedText,
 				shadowContext: nativeContext.shadowContext,
@@ -211,20 +224,72 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 			this.view?.webview.postMessage({
 				type: 'append',
 				role: 'assistant',
-				text: response.message,
+				text: response.content ?? response.message,
 				suggestedCommands: response.suggestedCommands ?? []
 			});
 			this.view?.webview.postMessage({ type: 'thinking', steps: [
 				{ label: 'Coletando Shadow Context...', state: 'done' },
-				{ label: 'Consultando grafo de codigo...', state: 'done' },
-				{ label: 'Gerando resposta...', state: 'done' }
+				{ label: 'Orquestrando motores por segmento...', state: 'done' },
+				{ label: 'Validando compilacao VPS...', state: 'done' }
 			] });
-			const orchestratorStatus = response.orchestrator
-				? `Segmento ${response.orchestrator.segment} | Motores: ${response.orchestrator.enginesUsed.join(', ')}${response.orchestrator.consensusApplied ? ' | Consenso ativo' : ''}`
-				: '';
-			this.view?.webview.postMessage({ type: 'status', text: orchestratorStatus });
+			this.view?.webview.postMessage({
+				type: 'intelligence_status',
+				text: response.intelligence_status ?? this.formatMetadataStatus(response.metadata)
+			});
+			if (response.metadata?.compile_job_id) {
+				this.pollCompileJob(response.metadata.compile_job_id);
+			}
 		} catch (error) {
-			this.view?.webview.postMessage({ type: 'status', text: error instanceof Error ? error.message : 'Falha ao consultar a IA.' });
+			this.view?.webview.postMessage({
+				type: 'intelligence_status',
+				text: `[Princy IA] ❌ Falha | ${error instanceof Error ? error.message : 'Erro desconhecido'}`
+			});
+		}
+	}
+
+	private formatMetadataStatus(metadata: import('./agentClient').ChatMetadata): string {
+		const engines = [metadata.primary_engine, ...metadata.fallback_engines].filter(Boolean).join(' ➔ ');
+		if (metadata.phase === 'auto_healing') {
+			return `[Princy IA] ⚠️ DEBUG | Auto-correcao aplicada | Motores: [${engines}] | ${metadata.execution_time}`;
+		}
+		if (metadata.vps_compile_status === 'READY') {
+			return `[Princy IA] ✅ ${metadata.segment_used} | Motores: [${engines}] | ${metadata.execution_time} | Compiled & Ready`;
+		}
+		if (metadata.vps_compile_status === 'FAILED') {
+			return `[Princy IA] ⚠️ ${metadata.segment_used} | Motores: [${engines}] | Compilador 3200 com pendencias`;
+		}
+		return `[Princy IA] ✅ ${metadata.segment_used} | Motores: [${engines}] | ${metadata.execution_time}`;
+	}
+
+	private async pollCompileJob(jobId: string): Promise<void> {
+		for (let attempt = 0; attempt < 30; attempt++) {
+			await new Promise(resolve => setTimeout(resolve, 2000));
+			try {
+				const status = await this.client.getCompileStatus(jobId);
+				if (status.status === 'COMPILING') {
+					this.view?.webview.postMessage({
+						type: 'intelligence_status',
+						text: `[Princy IA] ⚙️ Compilando no VPS (3200)... job ${jobId}`
+					});
+					continue;
+				}
+				if (status.status === 'READY') {
+					this.view?.webview.postMessage({
+						type: 'intelligence_status',
+						text: `[Princy IA] ✅ Compilacao concluida | Code Web pronto`
+					});
+					return;
+				}
+				if (status.status === 'FAILED') {
+					this.view?.webview.postMessage({
+						type: 'intelligence_status',
+						text: `[Princy IA] ⚠️ Compilacao falhou | Verifique logs do VPS`
+					});
+					return;
+				}
+			} catch {
+				return;
+			}
 		}
 	}
 
@@ -267,6 +332,14 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 	<div class="messages" id="messages"></div>
 	<div class="thinking" id="thinking"></div>
 	<div class="status" id="status"></div>
+	<label class="label" for="segment">Segmento (force_segment)</label>
+	<select id="segment">
+		<option value="">Auto</option>
+		<option value="LOGIC">LOGIC - Arquitetura</option>
+		<option value="FRONTEND">FRONTEND - UI</option>
+		<option value="BACKEND">BACKEND - API</option>
+		<option value="DEBUG">DEBUG - Auditoria</option>
+	</select>
 	<label class="label" for="agent">Agente IA</label>
 	<select id="agent">
 		<option value="deepseek" selected>Princy Ai DeepSeek (principal)</option>
@@ -287,14 +360,23 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 		const vscode = acquireVsCodeApi();
 		const input = document.getElementById('input');
 		const agent = document.getElementById('agent');
+		const segment = document.getElementById('segment');
 		const messages = document.getElementById('messages');
 		const status = document.getElementById('status');
 		const thinking = document.getElementById('thinking');
 
-		document.getElementById('send').addEventListener('click', () => {
-			vscode.postMessage({ type: 'sendMessage', text: input.value, agent: agent.value });
+		function postChatMessage(priority) {
+			vscode.postMessage({
+				type: 'sendMessage',
+				text: input.value,
+				agent: agent.value,
+				force_segment: segment.value || undefined,
+				priority: priority || 'normal'
+			});
 			input.value = '';
-		});
+		}
+
+		document.getElementById('send').addEventListener('click', () => postChatMessage('normal'));
 		document.getElementById('composer').addEventListener('click', () => {
 			vscode.postMessage({ type: 'requestComposer', text: input.value, agent: agent.value });
 			input.value = '';
@@ -304,8 +386,7 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 		});
 		input.addEventListener('keydown', event => {
 			if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
-				vscode.postMessage({ type: 'sendMessage', text: input.value, agent: agent.value });
-				input.value = '';
+				postChatMessage('high');
 			}
 		});
 
@@ -319,6 +400,9 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 				input.focus();
 			}
 			if (message.type === 'status') {
+				status.textContent = message.text || '';
+			}
+			if (message.type === 'intelligence_status') {
 				status.textContent = message.text || '';
 			}
 			if (message.type === 'agents') {

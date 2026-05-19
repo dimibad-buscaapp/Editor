@@ -1,0 +1,154 @@
+import { agentConfigs, createChatCompletionDetailed, type AgentModel, type ChatMessage } from './ai.js';
+import { buildAgentChatResponse, type AgentChatResponse } from './agentMetadata.js';
+import { getCompileJobStatus, validateVpsEnvironment } from './compileService.js';
+import { config } from './config.js';
+import { buildRagSystemPrompt, retrieveAgentRelevantChunks } from './rag.js';
+import { detectSegment } from './orchestrator/segments.js';
+import { runDebugAutoHeal } from './orchestrator/orchestrator.js';
+import type { ModelSegment } from './orchestrator/types.js';
+
+export type AgentChatRequest = {
+	readonly agent: AgentModel;
+	readonly message: string;
+	readonly context?: string;
+	readonly force_segment?: ModelSegment;
+	readonly segment?: ModelSegment;
+	readonly priority?: 'normal' | 'high';
+	readonly stream?: boolean;
+	readonly trigger_compile?: boolean;
+	readonly filePath?: string;
+	readonly selectedText?: string;
+	readonly shadowContext?: unknown;
+	readonly codeGraph?: unknown;
+};
+
+function resolveSegment(body: AgentChatRequest): ModelSegment {
+	return body.force_segment ?? body.segment ?? detectSegment(
+		body.message,
+		body.filePath,
+		body.shadowContext && typeof body.shadowContext === 'object' && body.shadowContext !== null && 'activeLanguageId' in body.shadowContext
+			? String((body.shadowContext as { activeLanguageId?: string }).activeLanguageId ?? '')
+			: undefined
+	);
+}
+
+function buildMessages(body: AgentChatRequest, chunks: Awaited<ReturnType<typeof retrieveAgentRelevantChunks>>): ChatMessage[] {
+	const selectedContext = body.selectedText ? `\n\nSelecao atual:\n${body.selectedText}` : '';
+	const silentContext = buildSilentContext(body.shadowContext, body.codeGraph);
+	const contextLine = body.context ? `Contexto do projeto: ${body.context}\n\n` : '';
+
+	return [
+		{
+			role: 'system',
+			content: `${buildRagSystemPrompt(chunks)}\n\nAgente selecionado: ${agentConfigs[body.agent].label}.\nSe sugerir comandos de terminal, coloque cada comando em uma linha começando com COMMAND:.`
+		},
+		{
+			role: 'user',
+			content: `${contextLine}${body.filePath ? `Arquivo atual: ${body.filePath}\n\n` : ''}${body.message}${selectedContext}${silentContext}`
+		}
+	];
+}
+
+export async function handleAgentChat(body: AgentChatRequest): Promise<AgentChatResponse> {
+	const startedAt = Date.now();
+	const segment = resolveSegment(body);
+	const chunks = await retrieveAgentRelevantChunks(body.message);
+	const messages = buildMessages(body, chunks);
+
+	let completion = await createChatCompletionDetailed(messages, body.agent, {
+		segment,
+		filePath: body.filePath,
+		languageId: body.shadowContext && typeof body.shadowContext === 'object' && body.shadowContext !== null && 'activeLanguageId' in body.shadowContext
+			? String((body.shadowContext as { activeLanguageId?: string }).activeLanguageId ?? '')
+			: undefined
+	});
+
+	let compileValidation = await validateVpsEnvironment({
+		priority: body.priority,
+		triggerCompile: body.trigger_compile
+	});
+
+	if (compileValidation.jobId) {
+		compileValidation = await waitForCompileJob(compileValidation.jobId, 120_000);
+	}
+
+	if (config.orchestratorAutoHeal && compileValidation.status === 'FAILED' && !compileValidation.serverMainReady) {
+		const compileOutput = compileValidation.output ?? 'server-main.js ausente ou Code Web indisponivel no VPS (porta 3200).';
+		const healed = await runDebugAutoHeal({
+			originalMessage: body.message,
+			previousContent: completion.content,
+			compileOutput,
+			messages
+		});
+
+		completion = {
+			content: `${completion.content}\n\n---\n## Auto-correcao DEBUG (Princy IA)\n\n${healed.content}`,
+			orchestrator: {
+				segment: healed.segment,
+				enginesUsed: healed.enginesUsed,
+				primaryEngine: healed.primaryEngine,
+				fallbackEngines: healed.fallbackEngines,
+				consensusApplied: healed.consensusApplied,
+				status: healed.status,
+				executionTimeMs: healed.executionTimeMs
+			}
+		};
+
+		return buildAgentChatResponse({
+			completion,
+			executionTimeMs: Date.now() - startedAt,
+			segment: healed.segment,
+			vpsCompileStatus: compileValidation.status,
+			phase: 'auto_healing',
+			compileJobId: compileValidation.jobId,
+			codeWebReachable: compileValidation.codeWebReachable,
+			serverMainReady: compileValidation.serverMainReady,
+			suggestedCommands: extractCommands(completion.content)
+		});
+	}
+
+	return buildAgentChatResponse({
+		completion,
+		executionTimeMs: Date.now() - startedAt,
+		segment,
+		vpsCompileStatus: compileValidation.status,
+		phase: compileValidation.status === 'COMPILING' ? 'compiling' : 'completed',
+		compileJobId: compileValidation.jobId,
+		codeWebReachable: compileValidation.codeWebReachable,
+		serverMainReady: compileValidation.serverMainReady,
+		suggestedCommands: extractCommands(completion.content)
+	});
+}
+
+async function waitForCompileJob(jobId: string, timeoutMs: number): Promise<Awaited<ReturnType<typeof validateVpsEnvironment>>> {
+	const startedAt = Date.now();
+	let latest = getCompileJobStatus(jobId);
+	while (Date.now() - startedAt < timeoutMs) {
+		latest = getCompileJobStatus(jobId);
+		if (!latest || latest.status === 'READY' || latest.status === 'FAILED') {
+			return latest ?? { status: 'FAILED', codeWebReachable: false, serverMainReady: false, jobId };
+		}
+		await new Promise(resolve => setTimeout(resolve, 2000));
+	}
+	return latest ?? { status: 'PENDING', codeWebReachable: false, serverMainReady: false, jobId };
+}
+
+function buildSilentContext(shadowContext: unknown, codeGraph: unknown): string {
+	const parts: string[] = [];
+	if (shadowContext) {
+		parts.push(`\n\n[CONTEXTO SILENCIOSO]\n${JSON.stringify(shadowContext).slice(0, 50000)}`);
+	}
+	if (codeGraph) {
+		parts.push(`\n\n[CODE GRAPH]\n${JSON.stringify(codeGraph).slice(0, 20000)}`);
+	}
+	return parts.join('');
+}
+
+function extractCommands(value: string): string[] {
+	return value
+		.split(/\r?\n/)
+		.map(line => line.trim())
+		.filter(line => line.startsWith('COMMAND:'))
+		.map(line => line.replace(/^COMMAND:\s*/, ''))
+		.filter(Boolean);
+}
