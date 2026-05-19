@@ -48,10 +48,10 @@ if ($Rebuild -and (Test-Path (Join-Path $ProjectRoot "out"))) {
 if (-not (Test-Path $serverMain) -or -not (Test-Path $workbenchDevHtml)) {
 	if (-not (Test-Path $workbenchDevHtml)) {
 		Write-Host "VS Code Web UI (workbench) not found at out\vs\code\browser\workbench\workbench-dev.html"
-		Write-Host "compile-web only builds extensions — run compile-incremental for the full editor UI."
+		Write-Host "compile-web only builds extensions - run compile-incremental for the full editor UI."
 	}
 	Write-Host "Compiling Code-OSS core (first run can take 20-40 minutes) ..."
-	Write-Host "Using incremental compile (skips deleting out/ — safer on Windows when EBUSY)."
+	Write-Host "Using incremental compile (skips deleting out/ - safer on Windows when EBUSY)."
 	$env:PRINCY_SKIP_GULP_CLEAN = "1"
 	Invoke-NpmTask -TaskName "compile-incremental"
 }
