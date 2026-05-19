@@ -146,6 +146,7 @@
     "views": {
       "princyai": [
         {
+          "type": "webview",
           "id": "princyai.chat",
           "name": "Chat"
         }
