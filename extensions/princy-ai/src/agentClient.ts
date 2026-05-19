@@ -206,7 +206,7 @@ export class AgentClient {
 			if (snapshot.status === 'FAILED' || snapshot.state === 'FAILED') {
 				throw new Error(snapshot.error ?? 'Agent job failed');
 			}
-			await new Promise(resolve => setTimeout(resolve, 1500));
+			await new Promise<void>(resolve => setTimeout(() => resolve(), 1500));
 		}
 		throw new Error('Agent job timeout');
 	}

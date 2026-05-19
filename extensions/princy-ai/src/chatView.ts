@@ -303,14 +303,14 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 			if (snapshot.status === 'FAILED' || snapshot.state === 'FAILED') {
 				throw new Error(snapshot.error ?? 'Job do agente falhou');
 			}
-			await new Promise(resolve => setTimeout(resolve, 1500));
+			await new Promise<void>(resolve => setTimeout(() => resolve(), 1500));
 		}
 		throw new Error('Timeout aguardando job do agente');
 	}
 
 	private async pollCompileJob(jobId: string): Promise<void> {
 		for (let attempt = 0; attempt < 30; attempt++) {
-			await new Promise(resolve => setTimeout(resolve, 2000));
+			await new Promise<void>(resolve => setTimeout(() => resolve(), 2000));
 			try {
 				const status = await this.client.getCompileStatus(jobId);
 				if (status.status === 'COMPILING') {
