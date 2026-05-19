@@ -1,4 +1,6 @@
 import { config } from './config.js';
+import { getPrincyOrchestrator } from './orchestrator/orchestrator.js';
+import type { ModelSegment } from './orchestrator/types.js';
 
 export type ChatMessage = {
 	role: 'system' | 'user' | 'assistant';
@@ -18,10 +20,10 @@ export type AgentConfig = {
 export const agentConfigs: Record<AgentModel, AgentConfig> = {
 	princy: {
 		id: 'princy',
-		label: 'Princy Ai DeepSeek',
+		label: 'Princy Ai Consenso',
 		modelName: config.ollamaChatModel,
 		isLocal: true,
-		systemPrompt: 'Voce e o Princy Ai, o agente principal deste editor, rodando sobre DeepSeek Coder local. Responda de forma direta, usando o contexto do projeto, priorizando codigo limpo, edicoes aplicaveis, arquitetura simples e passos executaveis.'
+		systemPrompt: 'Voce e o Princy Ai, orquestrador de motores com consenso e fallback. Priorize respostas aplicaveis, codigo limpo, arquitetura simples e passos executaveis conforme o segmento da tarefa.'
 	},
 	deepseek: {
 		id: 'deepseek',
@@ -101,15 +103,59 @@ export async function createEmbedding(input: string): Promise<number[]> {
 	return createOllamaEmbedding(input);
 }
 
-export async function createChatCompletion(messages: ChatMessage[], agent: AgentModel = 'princy'): Promise<string> {
+export type ChatCompletionOptions = {
+	readonly segment?: ModelSegment;
+	readonly filePath?: string;
+	readonly languageId?: string;
+	readonly useOrchestrator?: boolean;
+};
+
+export type ChatCompletionResult = {
+	readonly content: string;
+	readonly orchestrator?: {
+		readonly segment: ModelSegment;
+		readonly enginesUsed: readonly string[];
+		readonly consensusApplied: boolean;
+	};
+};
+
+export async function createChatCompletion(messages: ChatMessage[], agent: AgentModel = 'princy', options?: ChatCompletionOptions): Promise<string> {
+	const result = await createChatCompletionDetailed(messages, agent, options);
+	return result.content;
+}
+
+export async function createChatCompletionDetailed(messages: ChatMessage[], agent: AgentModel = 'princy', options?: ChatCompletionOptions): Promise<ChatCompletionResult> {
 	const agentConfig = agentConfigs[agent] ?? agentConfigs.princy;
 	const preparedMessages = withAgentSystemPrompt(messages, agentConfig.systemPrompt);
+	const useOrchestrator = options?.useOrchestrator ?? (config.orchestratorEnabled && (agent === 'princy' || agent === 'deepseek'));
 
-	if (!agentConfig.isLocal || config.aiProvider === 'openai') {
-		return createOpenAiChatCompletion(preparedMessages, agentConfig.modelName);
+	if (useOrchestrator) {
+		const orchestrated = await getPrincyOrchestrator().execute({
+			messages: preparedMessages,
+			segment: options?.segment,
+			filePath: options?.filePath,
+			languageId: options?.languageId
+		});
+
+		return {
+			content: orchestrated.content,
+			orchestrator: {
+				segment: orchestrated.segment,
+				enginesUsed: orchestrated.enginesUsed,
+				consensusApplied: orchestrated.consensusApplied
+			}
+		};
 	}
 
-	return createOllamaChatCompletion(preparedMessages, agentConfig.modelName);
+	if (!agentConfig.isLocal || config.aiProvider === 'openai') {
+		return {
+			content: await createOpenAiChatCompletion(preparedMessages, agentConfig.modelName)
+		};
+	}
+
+	return {
+		content: await createOllamaChatCompletion(preparedMessages, agentConfig.modelName)
+	};
 }
 
 async function createOpenAiEmbedding(input: string): Promise<number[]> {

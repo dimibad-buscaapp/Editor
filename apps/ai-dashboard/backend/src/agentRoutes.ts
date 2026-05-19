@@ -1,10 +1,13 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { agentConfigs, createChatCompletion, type AgentModel, type ChatMessage } from './ai.js';
+import { agentConfigs, createChatCompletion, createChatCompletionDetailed, type AgentModel, type ChatMessage } from './ai.js';
+import { listSegmentEngines } from './orchestrator/engines.js';
+import type { ModelSegment } from './orchestrator/types.js';
 import { config } from './config.js';
 import { buildRagSystemPrompt, indexAgentFile, retrieveAgentRelevantChunks } from './rag.js';
 
 const agentModelSchema = z.enum(['princy', 'deepseek', 'qwen', 'codellama', 'llama3', 'mistral', 'openai']);
+const segmentSchema = z.enum(['LOGIC', 'FRONTEND', 'BACKEND', 'DEBUG']);
 
 const inlineEditSchema = z.object({
 	agent: agentModelSchema.default('deepseek'),
@@ -18,6 +21,7 @@ const inlineEditSchema = z.object({
 
 const chatSchema = z.object({
 	agent: agentModelSchema.default('deepseek'),
+	segment: segmentSchema.optional(),
 	message: z.string().min(1).max(12000),
 	filePath: z.string().optional(),
 	selectedText: z.string().optional(),
@@ -119,8 +123,17 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 				id: agent.id,
 				label: agent.label,
 				modelName: agent.modelName,
-				isLocal: agent.isLocal
+				isLocal: agent.isLocal,
+				orchestrator: agent.id === 'princy' || agent.id === 'deepseek'
 			}))
+		};
+	});
+
+	app.get('/api/agent/orchestrator/segments', async () => {
+		return {
+			enabled: config.orchestratorEnabled,
+			consensusEnabled: config.orchestratorConsensusEnabled,
+			segments: listSegmentEngines()
 		};
 	});
 
@@ -146,7 +159,10 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 					buildSilentContext(body.shadowContext, body.codeGraph)
 				].join('\n\n')
 			}
-		], body.agent);
+		], body.agent, {
+			filePath: body.filePath,
+			languageId: body.languageId
+		});
 
 		return {
 			replacement: stripCodeFence(replacement),
@@ -159,7 +175,7 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 		const chunks = await retrieveAgentRelevantChunks(body.message);
 		const selectedContext = body.selectedText ? `\n\nSelecao atual:\n${body.selectedText}` : '';
 		const silentContext = buildSilentContext(body.shadowContext, body.codeGraph);
-		const message = await createChatCompletion([
+		const completion = await createChatCompletionDetailed([
 			{
 				role: 'system',
 				content: `${buildRagSystemPrompt(chunks)}\n\nAgente selecionado: ${agentConfigs[body.agent].label}.\nSe sugerir comandos de terminal, coloque cada comando em uma linha começando com COMMAND:.`
@@ -168,18 +184,25 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 				role: 'user',
 				content: `${body.filePath ? `Arquivo atual: ${body.filePath}\n\n` : ''}${body.message}${selectedContext}${silentContext}`
 			}
-		], body.agent);
+		], body.agent, {
+			segment: body.segment as ModelSegment | undefined,
+			filePath: body.filePath,
+			languageId: body.shadowContext && typeof body.shadowContext === 'object' && body.shadowContext !== null && 'activeLanguageId' in body.shadowContext
+				? String((body.shadowContext as { activeLanguageId?: string }).activeLanguageId ?? '')
+				: undefined
+		});
 
 		return {
-			message,
-			suggestedCommands: extractCommands(message)
+			message: completion.content,
+			suggestedCommands: extractCommands(completion.content),
+			orchestrator: completion.orchestrator
 		};
 	});
 
 	app.post('/api/agent/chat/stream', async (request, reply) => {
 		const body = chatSchema.parse(request.body);
 		const chunks = await retrieveAgentRelevantChunks(body.message);
-		const message = await createChatCompletion([
+		const completion = await createChatCompletionDetailed([
 			{
 				role: 'system',
 				content: `${buildRagSystemPrompt(chunks)}\n\nAgente selecionado: ${agentConfigs[body.agent].label}.`
@@ -188,7 +211,11 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 				role: 'user',
 				content: body.message
 			}
-		], body.agent);
+		], body.agent, {
+			segment: body.segment as ModelSegment | undefined,
+			filePath: body.filePath
+		});
+		const message = completion.content;
 
 		reply.raw.writeHead(200, {
 			'Content-Type': 'text/event-stream',
@@ -304,7 +331,10 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 				role: 'user',
 				content: `${body.instruction}${buildSilentContext(body.shadowContext, body.codeGraph)}`
 			}
-		], body.agent);
+		], body.agent, {
+			segment: 'LOGIC',
+			useOrchestrator: true
+		});
 
 		return parseComposerPlan(response);
 	});
@@ -331,7 +361,10 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 					buildSilentContext(body.shadowContext, body.codeGraph)
 				].join('\n\n')
 			}
-		], body.agent);
+		], body.agent, {
+			segment: 'DEBUG',
+			useOrchestrator: true
+		});
 
 		return parseComposerPlan(response);
 	});

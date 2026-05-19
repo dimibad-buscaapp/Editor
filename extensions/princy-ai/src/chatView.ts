@@ -219,7 +219,10 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 				{ label: 'Consultando grafo de codigo...', state: 'done' },
 				{ label: 'Gerando resposta...', state: 'done' }
 			] });
-			this.view?.webview.postMessage({ type: 'status', text: '' });
+			const orchestratorStatus = response.orchestrator
+				? `Segmento ${response.orchestrator.segment} | Motores: ${response.orchestrator.enginesUsed.join(', ')}${response.orchestrator.consensusApplied ? ' | Consenso ativo' : ''}`
+				: '';
+			this.view?.webview.postMessage({ type: 'status', text: orchestratorStatus });
 		} catch (error) {
 			this.view?.webview.postMessage({ type: 'status', text: error instanceof Error ? error.message : 'Falha ao consultar a IA.' });
 		}

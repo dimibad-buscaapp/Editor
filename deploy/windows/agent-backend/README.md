@@ -60,6 +60,7 @@ Start-Service PrincyAiAgentBackend
 - `POST /api/agent/composer-plan`
 - `POST /api/agent/repair-after-command`
 - `GET /api/agent/models`
+- `GET /api/agent/orchestrator/segments`
 - `GET /v1/models`
 - `POST /v1/chat/completions`
 
@@ -92,6 +93,31 @@ $body = @{
   messages = @(@{ role = "user"; content = "Explique este workspace." })
 } | ConvertTo-Json -Depth 5
 Invoke-RestMethod http://127.0.0.1:3210/v1/chat/completions -Method Post -Headers $headers -ContentType "application/json" -Body $body
+```
+
+## Orquestrador de Consenso (Princy Ai)
+
+Com `PRINCY_ORCHESTRATOR_ENABLED=true`, os agentes `princy` e `deepseek` usam 3 motores por segmento com fallback automatico:
+
+| Segmento | Motor 1 | Motor 2 | Motor 3 |
+|----------|---------|---------|---------|
+| LOGIC | DeepSeek V3 | Llama 3.3 70B (Groq) | Mistral Large |
+| FRONTEND | Gemini 1.5 Flash | Llama 3.1 8B (Groq) | Qwen 2.5 Coder |
+| BACKEND | DeepSeek Coder | Qwen 2.5 Coder | Phi-3 |
+| DEBUG | Llama 3.3 70B | Gemini 1.5 Flash | Mistral 7B |
+
+Chaves suportadas no `.env`:
+
+- `GROQ_API_KEY` para Llama/Mistral rapidos.
+- `GOOGLE_AI_API_KEY` para Gemini Flash.
+- `DEEPSEEK_API_KEY` para DeepSeek V3/Coder.
+- `HUGGINGFACE_API_KEY` opcional.
+- Sem chave cloud, o fallback usa Ollama local (`OLLAMA_BASE_URL`).
+
+Consulte a matriz em tempo real:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:3210/api/agent/orchestrator/segments
 ```
 
 ## Agentes Locais Gratuitos

@@ -76,9 +76,16 @@ export interface ChatRequest {
 	readonly codeGraph?: CodeGraphContext;
 }
 
+export interface ChatOrchestratorMeta {
+	readonly segment: 'LOGIC' | 'FRONTEND' | 'BACKEND' | 'DEBUG';
+	readonly enginesUsed: readonly string[];
+	readonly consensusApplied: boolean;
+}
+
 export interface ChatResponse {
 	readonly message: string;
 	readonly suggestedCommands?: readonly string[];
+	readonly orchestrator?: ChatOrchestratorMeta;
 }
 
 export interface AgentDefinition {
