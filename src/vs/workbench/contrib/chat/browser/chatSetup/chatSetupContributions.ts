@@ -83,6 +83,10 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 	) {
 		super();
 
+		if (!product.defaultChatAgent) {
+			return;
+		}
+
 		const context = chatEntitlementService.context?.value;
 		const requests = chatEntitlementService.requests?.value;
 		if (!context || !requests) {
@@ -703,6 +707,10 @@ export class ChatTeardownContribution extends Disposable implements IWorkbenchCo
 		@IWorkbenchLayoutService private readonly layoutService: IWorkbenchLayoutService
 	) {
 		super();
+
+		if (!product.defaultChatAgent) {
+			return;
+		}
 
 		const context = chatEntitlementService.context?.value;
 		if (!context) {
