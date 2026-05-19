@@ -82,7 +82,15 @@ export function activate(context: vscode.ExtensionContext): void {
 
 	registerTerminalFixLinks(context, provider);
 
+	showPrincyChatOnStartup();
+
 	output.appendLine('Princy Ai view provider registered.');
+}
+
+function showPrincyChatOnStartup(): void {
+	setTimeout(() => {
+		void vscode.commands.executeCommand('workbench.view.extension.princyai');
+	}, 250);
 }
 
 export function deactivate(): void {

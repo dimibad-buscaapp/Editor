@@ -135,7 +135,7 @@
       ]
     },
     "viewsContainers": {
-      "activitybar": [
+      "secondarySidebar": [
         {
           "id": "princyai",
           "title": "Princy Ai",
@@ -151,6 +151,9 @@
           "name": "Chat"
         }
       ]
+    },
+    "configurationDefaults": {
+      "chat.disableAIFeatures": true
     },
     "configuration": {
       "title": "Princy Ai",
