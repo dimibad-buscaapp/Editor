@@ -12,8 +12,7 @@ Este documento consolida as mudancas recentes do Princy Ai para deploy no VPS Wi
 ## Lockdown do Copilot
 
 - O launcher `deploy/windows/code-web/start-princy-code-web.ps1` inicia o editor com:
-  - `--disable-extension GitHub.copilot-chat`
-  - `--disable-extension GitHub.copilot`
+  - `--disable-extension` para: `GitHub.copilot`, `GitHub.copilot-chat`, `GitHub.vscode-pull-request-github`, `vscode.github-authentication`, `vscode.microsoft-authentication`
 - `product.json` nao define mais `defaultChatAgent` apontando para Copilot.
 - `product.json` nao concede mais `trustedExtensionAuthAccess` para `GitHub.copilot-chat`.
 - `.vscode/settings.json` bloqueia Copilot, sugestoes inline e trigger suggestions externas no workspace.
@@ -24,7 +23,19 @@ Este documento consolida as mudancas recentes do Princy Ai para deploy no VPS Wi
 
 A extensao embutida `extensions/princy-ai` oferece:
 
-- Cmd+K/Cmd+K Cmd+I para edicao inline com IA.
+- Cmd+K/Cmd+K Cmd+I para edicao inline com IA (Ask Princy).
+- Ghost text (inline suggest) via Ollama enquanto digita, configuravel em `princyai.ghostText.*`.
+- Tema **Princy Black** (preto puro estilo Cursor) aplicado por padrao via `princyai.ui.forceBlackTheme`.
+- Chat lateral redesenhado (composer fixo embaixo, bolhas do usuario, visual Cursor-like).
+- Chat padrao: apenas **Princy Ai** na barra direita (auxiliary bar); chat nativo da plataforma nao registra container sem `defaultChatAgent`.
+- `princyai.ui.defaultChat`: desliga sessoes/agent bar nativos e abre `workbench.view.extension.princyai` ao iniciar.
+- Contexto `@file`, `@folder`, `@selection`, `@terminal`, `@codebase` no chat.
+- Regras em `.princy/rules/*.md`, `.princyrule` ou `.cursorrules`.
+- Indexacao em lote do workspace (`princyai.indexWorkspace`, `/api/agent/index-batch`).
+- Composer com **Apply All** / **Reject All** e lista de arquivos afetados.
+- Workbench minimalista (activity bar topo, sem minimap, menu compacto).
+- Streaming token-a-token: Ollama/OpenAI stream + SSE `GET /api/agent/jobs/:id/stream`.
+- Fontes: `deploy/windows/install-princy-fonts.ps1` (JetBrains Mono + Cascadia).
 - Cmd+L para foco no chat lateral.
 - Seletor de agentes gratuitos locais via Ollama: `princy`, `deepseek`, `qwen`, `codellama`, `llama3` e `mistral`.
 - Agente `openai` opcional quando `OPENAI_API_KEY` estiver configurada.
@@ -124,3 +135,33 @@ Depois do push, confirme:
 git log -5 --oneline
 git status
 ```
+
+## Erro no chat: `Failed to fetch`
+
+Sintoma: o painel mostra `[Princy IA] Falha` ou `Failed to fetch` logo apos iniciar o job.
+
+Causas comuns:
+
+1. **Agent backend parado** — o Code Web (`3200`) nao inclui a API; inicie:
+   ```powershell
+   .\deploy\windows\agent-backend\start-princy-agent-backend.ps1
+   ```
+   Teste no navegador: `http://127.0.0.1:3210/api/health`
+
+2. **CORS** — o backend deve aceitar a origem do editor. No `.env` do backend:
+   - `APP_ORIGIN=http://127.0.0.1:3200`
+   - `CODE_WEB_URL=http://127.0.0.1:3200`
+   - Opcional: `PRINCY_CORS_ORIGINS=https://princyai.com`
+
+3. **HTTPS + HTTP misto** — se o editor abre em `https://princyai.com`, o browser bloqueia chamadas para `http://127.0.0.1:3210`. Use proxy HTTPS para a API ou configure `princyai.agentEndpoint` para URL segura.
+
+4. **Token** — se `AGENT_API_TOKEN` estiver definido no servidor, configure `princyai.apiToken` com o mesmo valor (erro costuma ser HTTP 401, nao `Failed to fetch`).
+
+O chat mostra **● online / ● offline** no cabecalho apos checar `GET /api/agent/health`.
+
+Com Caddy, prefira API na mesma origem: `https://princyai.com/princy-api` (ver `deploy/windows/code-web/Caddyfile`).
+O Code Web tambem expoe `http://HOST:3200/princy-api` (proxy no servidor para `127.0.0.1:3210`) — necessario para o chat no browser.
+A extensao tenta `/princy-api` automaticamente (`princyai.useSameOriginApi`).
+Comando: **Princy Ai: Reconnect Agent Backend** (`princyai.reconnectBackend`).
+
+Chat somente webview (evita crash `agent.id` / `agent.metadata` no chat nativo): ver [`PRINCY_CHAT_WEBVIEW_ONLY.md`](PRINCY_CHAT_WEBVIEW_ONLY.md).

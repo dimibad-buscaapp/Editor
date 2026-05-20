@@ -4,6 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
+import product from '../../../../platform/product/common/product.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
@@ -27,6 +29,10 @@ import { IChatEntitlementService } from '../../../services/chat/common/chatEntit
 
 // Registration priority
 const agentSessionsWelcomeInputTypeId = 'workbench.editors.agentSessionsWelcomeInput';
+
+function isPrincyAiProduct(): boolean {
+	return product.applicationName === 'princy-ai' || product.nameShort === 'Princy Ai';
+}
 
 // Register editor serializer
 Registry.as<IEditorFactoryRegistry>(EditorExtensions.EditorFactory)
@@ -125,13 +131,25 @@ class AgentSessionsWelcomeRunnerContribution extends Disposable implements IWork
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@IStorageService private readonly storageService: IStorageService,
 		@IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
-		@IChatEntitlementService private readonly chatEntitlementService: IChatEntitlementService
+		@IChatEntitlementService private readonly chatEntitlementService: IChatEntitlementService,
+		@ICommandService private readonly commandService: ICommandService
 	) {
 		super();
 		this.run();
 	}
 
 	private async run(): Promise<void> {
+		// Princy Ai uses the princy-ai webview sidebar — native Agent Sessions welcome embeds ChatWidget without agents.
+		if (isPrincyAiProduct()) {
+			await this.editorGroupsService.whenReady;
+			try {
+				await this.commandService.executeCommand('workbench.view.extension.princyai');
+			} catch {
+				await this.commandService.executeCommand('princyai.open');
+			}
+			return;
+		}
+
 		// Check if AI features are enabled
 		if (this.chatEntitlementService.sentiment.hidden) {
 			return;

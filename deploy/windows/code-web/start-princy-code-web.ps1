@@ -39,6 +39,7 @@ Write-Host "Starting Princy Ai Code-OSS Web"
 Write-Host "Project: $ProjectRoot"
 Write-Host "Workspace: $WorkspacePath"
 Write-Host "URL: http://$HostName`:$Port"
+Write-Host "Agent API proxy: http://$HostName`:$Port/princy-api -> 127.0.0.1:3210 (start agent backend separately)"
 
 if ($Rebuild -and (Test-Path (Join-Path $ProjectRoot "out"))) {
 	Write-Host "Rebuild requested: removing incomplete out folder"
@@ -99,4 +100,21 @@ Then confirm:
 Write-Host "Using server entry: $serverMain"
 Write-Host "Workbench UI: $workbenchDevHtml"
 Write-Host "Open the URL printed below as 'Web UI available at ...' (full VS Code in the browser)."
-& $scriptPath $WorkspacePath --host $HostName --port $Port --without-connection-token --disable-extension GitHub.copilot-chat --disable-extension GitHub.copilot
+
+# Copilot, GitHub PR and auth extensions slow boot and are unused (Princy webview chat only).
+$disabledExtensions = @(
+	'GitHub.copilot',
+	'GitHub.copilot-chat',
+	'GitHub.vscode-pull-request-github',
+	'vscode.github-authentication',
+	'vscode.microsoft-authentication'
+)
+$extensionArgs = foreach ($ext in $disabledExtensions) { '--disable-extension'; $ext }
+Write-Host "Disabled extensions: $($disabledExtensions -join ', ')"
+
+& $scriptPath @(
+	$WorkspacePath
+	'--host', $HostName
+	'--port', $Port
+	'--without-connection-token'
+) + $extensionArgs

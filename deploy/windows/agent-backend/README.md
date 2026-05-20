@@ -28,6 +28,28 @@ AI_PROVIDER="ollama"
 OLLAMA_BASE_URL="http://localhost:11434"
 ```
 
+**Teste local no VPS** (editor em `http://127.0.0.1:3200`):
+
+```text
+APP_ORIGIN="http://127.0.0.1:3200"
+CODE_WEB_URL="http://127.0.0.1:3200"
+PRINCY_CORS_ORIGINS="https://princyai.com,http://127.0.0.1:3200"
+```
+
+Template: `apps/ai-dashboard/deploy/windows/princyai.env.local.example`
+
+**Producao com dominio** (`princyai.com` na Hostinger + Caddy):
+
+```text
+APP_ORIGIN="https://princyai.com"
+CODE_WEB_URL="https://princyai.com"
+PRINCY_CORS_ORIGINS="https://princyai.com,http://127.0.0.1:3200"
+```
+
+Se o browser mostrar `Access-Control-Allow-Origin: https://princyai.com` mas o editor estiver em `http://127.0.0.1:3200`, ajuste `APP_ORIGIN` e `PRINCY_CORS_ORIGINS` e rode `npm run build:backend`.
+
+No editor: `princyai.agentEndpoint` = `https://api.princyai.com`. Veja [`../DOMINIO-HOSTINGER.md`](../DOMINIO-HOSTINGER.md).
+
 ## Rodar Manualmente
 
 ```powershell

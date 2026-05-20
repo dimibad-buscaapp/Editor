@@ -1222,19 +1222,37 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			};
 		}
 
+		const isPrincyProduct = product.applicationName === 'princy-ai' || product.nameShort === 'Princy Ai';
+
 		let title: string;
-		if (this.input.currentModeKind === ChatModeKind.Ask) {
+		let message: MarkdownString;
+		let icon = Codicon.chatSparkle;
+
+		if (isPrincyProduct && this.input.currentModeKind === ChatModeKind.Agent) {
+			title = localize('princyAgentTitle', "Build with Princy Ai");
+			message = new MarkdownString(
+				localize(
+					'princyAgentMessage',
+					"Default engine: **DeepSeek Coder** (local via Ollama). Use the **Princy Ai** panel in the sidebar for chat, Composer and @ context."
+				),
+				{ isTrusted: true }
+			);
+			icon = Codicon.sparkle;
+		} else if (this.input.currentModeKind === ChatModeKind.Ask) {
 			title = localize('chatDescription', "Ask about your code");
+			message = new MarkdownString(DISCLAIMER);
 		} else if (this.input.currentModeKind === ChatModeKind.Edit) {
 			title = localize('editsTitle', "Edit in context");
+			message = new MarkdownString(DISCLAIMER);
 		} else {
 			title = localize('agentTitle', "Build with Agent");
+			message = new MarkdownString(DISCLAIMER);
 		}
 
 		return {
 			title,
-			message: new MarkdownString(DISCLAIMER),
-			icon: Codicon.chatSparkle,
+			message,
+			icon,
 			additionalMessage,
 		};
 	}

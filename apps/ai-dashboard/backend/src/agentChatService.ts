@@ -8,6 +8,12 @@ import { runDebugAutoHeal } from './orchestrator/orchestrator.js';
 import type { ModelSegment } from './orchestrator/types.js';
 import { generateExecutionPlan } from './planGenerator.js';
 
+export type ContextAttachmentInput = {
+	readonly kind: string;
+	readonly label: string;
+	readonly content: string;
+};
+
 export type AgentChatRequest = {
 	readonly agent: AgentModel;
 	readonly message: string;
@@ -21,6 +27,8 @@ export type AgentChatRequest = {
 	readonly selectedText?: string;
 	readonly shadowContext?: unknown;
 	readonly codeGraph?: unknown;
+	readonly contextAttachments?: readonly ContextAttachmentInput[];
+	readonly rulesText?: string;
 };
 
 function resolveSegment(body: AgentChatRequest): ModelSegment {
@@ -37,20 +45,29 @@ function buildMessages(body: AgentChatRequest, chunks: Awaited<ReturnType<typeof
 	const selectedContext = body.selectedText ? `\n\nSelecao atual:\n${body.selectedText}` : '';
 	const silentContext = buildSilentContext(body.shadowContext, body.codeGraph);
 	const contextLine = body.context ? `Contexto do projeto: ${body.context}\n\n` : '';
+	const attachmentsBlock = (body.contextAttachments ?? [])
+		.map(item => `\n\n### Contexto @${item.kind}: ${item.label}\n${item.content}`)
+		.join('');
+	const rulesBlock = body.rulesText?.trim()
+		? `\n\n## Regras do projeto (.princy/rules)\n${body.rulesText}`
+		: '';
 
 	return [
 		{
 			role: 'system',
-			content: `${buildRagSystemPrompt(chunks)}\n\nAgente selecionado: ${agentConfigs[body.agent].label}.\nSe sugerir comandos de terminal, coloque cada comando em uma linha começando com COMMAND:.`
+			content: `${buildRagSystemPrompt(chunks)}${rulesBlock}\n\nAgente selecionado: ${agentConfigs[body.agent].label}.\nSe sugerir comandos de terminal, coloque cada comando em uma linha começando com COMMAND:.`
 		},
 		{
 			role: 'user',
-			content: `${contextLine}${body.filePath ? `Arquivo atual: ${body.filePath}\n\n` : ''}${body.message}${selectedContext}${silentContext}`
+			content: `${contextLine}${body.filePath ? `Arquivo atual: ${body.filePath}\n\n` : ''}${body.message}${selectedContext}${attachmentsBlock}${silentContext}`
 		}
 	];
 }
 
-export async function generateAgentChatCore(body: AgentChatRequest): Promise<{
+export async function generateAgentChatCore(
+	body: AgentChatRequest,
+	onToken?: (fullText: string) => void
+): Promise<{
 	readonly startedAt: number;
 	readonly segment: ModelSegment;
 	readonly messages: ChatMessage[];
@@ -65,7 +82,9 @@ export async function generateAgentChatCore(body: AgentChatRequest): Promise<{
 		filePath: body.filePath,
 		languageId: body.shadowContext && typeof body.shadowContext === 'object' && body.shadowContext !== null && 'activeLanguageId' in body.shadowContext
 			? String((body.shadowContext as { activeLanguageId?: string }).activeLanguageId ?? '')
-			: undefined
+			: undefined,
+		stream: Boolean(onToken),
+		onToken: onToken ? (_chunk, fullText) => onToken(fullText) : undefined
 	});
 
 	return { startedAt, segment, messages, completion };

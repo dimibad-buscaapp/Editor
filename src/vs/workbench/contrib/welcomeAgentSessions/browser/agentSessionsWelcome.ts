@@ -60,6 +60,7 @@ import { IWorkspaceTrustManagementService } from '../../../../platform/workspace
 import { IViewDescriptorService, ViewContainerLocation } from '../../../common/views.js';
 import { toErrorMessage } from '../../../../base/common/errorMessage.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
+import product from '../../../../platform/product/common/product.js';
 import { canShowAgentsBanner, createAgentsBanner } from '../../chat/browser/agentSessions/agentSessionsBanner.js';
 
 const configurationKey = 'workbench.startupEditor';
@@ -308,6 +309,18 @@ export class AgentSessionsWelcomePage extends EditorPane {
 	}
 
 	private buildChatWidget(container: HTMLElement): void {
+		if (product.applicationName === 'princy-ai' || product.nameShort === 'Princy Ai') {
+			const redirect = append(container, $('.agentSessionsWelcome-chatWidget.princy-redirect'));
+			redirect.textContent = localize(
+				'princyWelcomeRedirect',
+				'Princy Ai uses the sidebar chat panel (DeepSeek). Open Princy Ai from the activity bar or press Ctrl+L.'
+			);
+			this.contentDisposables.add(addDisposableListener(redirect, 'click', () => {
+				void this.commandService.executeCommand('workbench.view.extension.princyai');
+			}));
+			return;
+		}
+
 		const chatWidgetContainer = append(container, $('.agentSessionsWelcome-chatWidget'));
 
 		// Create editor overflow widgets container
@@ -882,7 +895,9 @@ export class AgentSessionsWelcomePage extends EditorPane {
 			});
 		}
 		// Now proceed with opening chat and maximizing
-		if (sessionResource) {
+		if (product.applicationName === 'princy-ai' || product.nameShort === 'Princy Ai') {
+			await this.commandService.executeCommand('workbench.view.extension.princyai');
+		} else if (sessionResource) {
 			await this.chatWidgetService.openSession(sessionResource);
 		} else {
 			await this.commandService.executeCommand('workbench.action.chat.open');

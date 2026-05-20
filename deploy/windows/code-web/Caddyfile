@@ -1,5 +1,19 @@
+# Copie para C:\Caddy\Caddyfile no VPS.
+# DNS Hostinger: A @, A www, A api → IP do VPS.
+# Veja deploy/windows/DOMINIO-HOSTINGER.md
+
 princyai.com, www.princyai.com {
 	encode zstd gzip
 
+	# Mesma origem que o editor — evita CORS / Failed to fetch no chat
+	handle_path /princy-api/* {
+		reverse_proxy 127.0.0.1:3210
+	}
+
 	reverse_proxy 127.0.0.1:3200
+}
+
+api.princyai.com {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:3210
 }

@@ -4,7 +4,7 @@ import { agentConfigs, createChatCompletion, createChatCompletionDetailed, type 
 import { getAgentJobSnapshot, startAgentJob } from './agentJob/runner.js';
 import { handleAgentChat } from './agentChatService.js';
 import { indexEditorProject } from './workspaceIndexer.js';
-import { formatIntelligenceStatus } from './agentMetadata.js';
+import { buildAgentChatResponse, formatIntelligenceStatus } from './agentMetadata.js';
 import { getCompileJobStatus } from './compileService.js';
 import { listSegmentEngines } from './orchestrator/engines.js';
 import type { ModelSegment } from './orchestrator/types.js';
@@ -24,6 +24,15 @@ const inlineEditSchema = z.object({
 	codeGraph: z.unknown().optional()
 });
 
+const inlineCompleteSchema = z.object({
+	agent: agentModelSchema.default('deepseek'),
+	filePath: z.string().min(1),
+	languageId: z.string().min(1).max(80),
+	prefix: z.string().max(16000),
+	suffix: z.string().max(4000).optional().default(''),
+	linePrefix: z.string().max(500).optional().default('')
+});
+
 const chatSchema = z.object({
 	agent: agentModelSchema.default('deepseek'),
 	segment: segmentSchema.optional(),
@@ -37,13 +46,27 @@ const chatSchema = z.object({
 	filePath: z.string().optional(),
 	selectedText: z.string().optional(),
 	shadowContext: z.unknown().optional(),
-	codeGraph: z.unknown().optional()
+	codeGraph: z.unknown().optional(),
+	contextAttachments: z.array(z.object({
+		kind: z.string(),
+		label: z.string(),
+		content: z.string()
+	})).optional(),
+	rulesText: z.string().max(50000).optional()
 });
 
 const indexFileSchema = z.object({
 	filePath: z.string().min(1),
 	languageId: z.string().min(1).max(80),
 	content: z.string()
+});
+
+const indexBatchSchema = z.object({
+	files: z.array(z.object({
+		filePath: z.string().min(1),
+		languageId: z.string().min(1).max(80),
+		content: z.string()
+	})).min(1).max(32)
 });
 
 const composerOperationSchema = z.discriminatedUnion('type', [
@@ -123,10 +146,23 @@ const openAiChatCompletionSchema = z.object({
 
 export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 	app.addHook('preHandler', async (request, reply) => {
+		const path = request.url.split('?')[0] ?? request.url;
+		if (path === '/api/agent/health') {
+			return;
+		}
 		if (request.url.startsWith('/api/agent/') || request.url.startsWith('/v1/')) {
 			authorizeAgentRequest(request, reply);
 		}
 	});
+
+	app.get('/api/agent/health', async () => ({
+		ok: true,
+		service: 'princy-agent-api',
+		build: '2026-05-fsm',
+		port: config.apiPort,
+		cors: 'dynamic',
+		streamJobs: true
+	}));
 
 	app.get('/api/agent/models', async () => {
 		return {
@@ -145,6 +181,44 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 			enabled: config.orchestratorEnabled,
 			consensusEnabled: config.orchestratorConsensusEnabled,
 			segments: listSegmentEngines()
+		};
+	});
+
+	app.post('/api/agent/inline-complete', async request => {
+		const body = inlineCompleteSchema.parse(request.body);
+		const raw = await createChatCompletion([
+			{
+				role: 'system',
+				content: [
+					'Voce completa codigo no cursor dentro do Princy Ai.',
+					'Retorne SOMENTE o texto a inserir imediatamente apos o cursor.',
+					'Nao repita codigo ja escrito antes do cursor.',
+					'Sem Markdown, sem crases, sem explicacao.',
+					'Prefira ate 6 linhas curtas.'
+				].join('\n')
+			},
+			{
+				role: 'user',
+				content: [
+					`Arquivo: ${body.filePath}`,
+					`Linguagem: ${body.languageId}`,
+					`Linha atual (prefixo parcial): ${body.linePrefix || '(vazio)'}`,
+					'Codigo antes do cursor:',
+					body.prefix,
+					'Codigo depois do cursor:',
+					body.suffix || '(fim do arquivo)'
+				].join('\n\n')
+			}
+		], body.agent, {
+			filePath: body.filePath,
+			languageId: body.languageId,
+			useOrchestrator: false,
+			maxTokens: 120,
+			temperature: 0.15
+		});
+
+		return {
+			completion: normalizeInlineCompletion(raw, body.prefix, body.linePrefix ?? '')
 		};
 	});
 
@@ -251,6 +325,61 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 		};
 	});
 
+	app.get('/api/agent/jobs/:jobId/stream', async (request, reply) => {
+		const params = z.object({ jobId: z.string().min(1) }).parse(request.params);
+		let lastContent = '';
+		let lastState = '';
+
+		reply.raw.writeHead(200, {
+			'Content-Type': 'text/event-stream',
+			'Cache-Control': 'no-cache',
+			Connection: 'keep-alive'
+		});
+
+		const send = (payload: unknown) => {
+			reply.raw.write(`data: ${JSON.stringify(payload)}\n\n`);
+		};
+
+		const poll = () => {
+			const snapshot = getAgentJobSnapshot(params.jobId);
+			if (!snapshot) {
+				send({ type: 'error', message: 'Agent job not found' });
+				reply.raw.end();
+				return;
+			}
+
+			if (snapshot.state !== lastState) {
+				send({ type: 'state', state: snapshot.state, status: snapshot.status });
+				lastState = snapshot.state;
+			}
+
+			if (snapshot.content !== lastContent) {
+				send({ type: 'delta', text: snapshot.content });
+				lastContent = snapshot.content;
+			}
+
+			if (snapshot.response && (snapshot.status === 'COMPLETED' || snapshot.state === 'SUCCESS')) {
+				send({
+					type: 'done',
+					response: snapshot.response,
+					intelligence_status: formatIntelligenceStatus(snapshot.response.metadata)
+				});
+				reply.raw.end();
+				return;
+			}
+
+			if (snapshot.status === 'FAILED' || snapshot.state === 'FAILED') {
+				send({ type: 'error', message: snapshot.error ?? 'Agent job failed' });
+				reply.raw.end();
+				return;
+			}
+
+			setTimeout(poll, 180);
+		};
+
+		poll();
+	});
+
 	app.post('/api/agent/index-workspace', async () => {
 		const indexedFiles = await indexEditorProject(config.projectRagMaxFiles);
 		return {
@@ -320,28 +449,54 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 
 	app.post('/api/agent/chat/stream', async (request, reply) => {
 		const body = chatSchema.parse(request.body);
-		const response = await handleAgentChat({
-			agent: body.agent,
-			message: body.message,
-			context: body.context,
-			force_segment: (body.force_segment ?? body.segment) as ModelSegment | undefined,
-			priority: body.priority,
-			trigger_compile: body.trigger_compile,
-			filePath: body.filePath,
-			selectedText: body.selectedText,
-			shadowContext: body.shadowContext,
-			codeGraph: body.codeGraph
-		});
+		const startedAt = Date.now();
+		const segment = (body.force_segment ?? body.segment ?? 'BACKEND') as ModelSegment;
+		const chunks = await retrieveAgentRelevantChunks(body.message);
+		const messages: ChatMessage[] = [
+			{
+				role: 'system',
+				content: `${buildRagSystemPrompt(chunks)}\n\nAgente: ${agentConfigs[body.agent].label}.`
+			},
+			{
+				role: 'user',
+				content: body.message
+			}
+		];
 
 		reply.raw.writeHead(200, {
 			'Content-Type': 'text/event-stream',
 			'Cache-Control': 'no-cache',
 			Connection: 'keep-alive'
 		});
-		reply.raw.write(`data: ${JSON.stringify({ type: 'metadata', metadata: response.metadata })}\n\n`);
-		reply.raw.write(`data: ${JSON.stringify({ type: 'message', text: response.content })}\n\n`);
-		reply.raw.write(`data: ${JSON.stringify({ type: 'intelligence_status', text: formatIntelligenceStatus(response.metadata) })}\n\n`);
-		reply.raw.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
+
+		const send = (payload: unknown) => {
+			reply.raw.write(`data: ${JSON.stringify(payload)}\n\n`);
+		};
+
+		let fullText = '';
+		const completion = await createChatCompletionDetailed(messages, body.agent, {
+			segment,
+			filePath: body.filePath,
+			stream: true,
+			onToken: (_chunk, full) => {
+				fullText = full;
+				send({ type: 'delta', text: full });
+			}
+		});
+
+		const response = buildAgentChatResponse({
+			completion,
+			executionTimeMs: Date.now() - startedAt,
+			segment,
+			vpsCompileStatus: 'SKIPPED',
+			phase: 'completed',
+			suggestedCommands: extractCommands(fullText || completion.content)
+		});
+
+		send({ type: 'metadata', metadata: response.metadata });
+		send({ type: 'message', text: response.content });
+		send({ type: 'intelligence_status', text: formatIntelligenceStatus(response.metadata) });
+		send({ type: 'done' });
 		reply.raw.end();
 	});
 
@@ -500,6 +655,20 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 			file: indexed
 		};
 	});
+
+	app.post('/api/agent/index-batch', async request => {
+		const body = indexBatchSchema.parse(request.body);
+		let indexed = 0;
+		for (const file of body.files) {
+			await indexAgentFile({
+				workspaceName: config.agentWorkspaceName,
+				filePath: file.filePath,
+				content: `Linguagem: ${file.languageId}\n\n${file.content}`
+			});
+			indexed++;
+		}
+		return { ok: true, indexed };
+	});
 }
 
 function authorizeAgentRequest(request: FastifyRequest, reply: FastifyReply): void {
@@ -518,6 +687,29 @@ function stripCodeFence(value: string): string {
 	const trimmed = value.trim();
 	const match = /^```(?:\w+)?\s*([\s\S]*?)\s*```$/m.exec(trimmed);
 	return match ? match[1] : trimmed;
+}
+
+function normalizeInlineCompletion(raw: string, prefix: string, linePrefix: string): string {
+	let completion = stripCodeFence(raw).replace(/^\s+/, '');
+	if (!completion) {
+		return '';
+	}
+
+	const tail = prefix.slice(-Math.min(prefix.length, 200));
+	if (completion.startsWith(tail) && tail.length > 0) {
+		completion = completion.slice(tail.length);
+	}
+
+	if (linePrefix && completion.startsWith(linePrefix) && linePrefix.length > 2) {
+		completion = completion.slice(linePrefix.length);
+	}
+
+	const firstNewline = completion.indexOf('\n\n');
+	if (firstNewline >= 0 && firstNewline < completion.length - 2) {
+		completion = completion.slice(0, firstNewline + 1);
+	}
+
+	return completion.replace(/\r\n/g, '\n');
 }
 
 function extractCommands(value: string): string[] {

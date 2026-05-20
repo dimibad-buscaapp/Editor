@@ -74,7 +74,13 @@ async function runAgentJobPipeline(jobId: string): Promise<void> {
 
 	updateJob(jobId, { state: 'GENERATING' });
 	appendThinking(jobId, 'Gerando resposta com motores do segmento...');
-	const { startedAt, segment: usedSegment, completion } = await generateAgentChatCore(job.request);
+	const streamTokens = config.agentStreamTokens;
+	const { startedAt, segment: usedSegment, completion } = await generateAgentChatCore(
+		job.request,
+		streamTokens
+			? fullText => updateJob(jobId, { content: fullText })
+			: undefined
+	);
 	const baseResponse = buildAgentChatResponse({
 		completion,
 		executionTimeMs: Date.now() - startedAt,

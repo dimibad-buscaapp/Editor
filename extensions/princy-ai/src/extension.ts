@@ -9,8 +9,17 @@ import type { AgentModel, ComposerPlan, TerminalCommandResult } from './agentCli
 import { PrincyChatViewProvider } from './chatView';
 import { collectCodeGraphContext } from './codeGraph';
 import { ComposerApplier } from './composerApplier';
+import { previewComposerOperation } from './composerDiffPreview';
 import { collectNativeContext } from './nativeContext';
 import { ShadowContextManager } from './shadowContext';
+import { registerPrincyGhostText } from './ghostTextProvider';
+import { registerPrincyThemeOnActivate } from './princyTheme';
+import { ensurePrincyRulesTemplate } from './princyRules';
+import { registerWorkspaceIndexing } from './workspaceIndexService';
+import { registerPrincyWorkbenchUi } from './workbenchUi';
+import { registerPrincyChatIsolation } from './princyChatIsolation';
+import { registerPrincyDefaultChat } from './princyWorkbenchChat';
+import { checkAgentBackend } from './agentConnectivity';
 import { TerminalRunner } from './terminalRunner';
 
 const output = vscode.window.createOutputChannel('Princy Ai');
@@ -18,6 +27,9 @@ const output = vscode.window.createOutputChannel('Princy Ai');
 export function activate(context: vscode.ExtensionContext): void {
 	output.appendLine('Activating Princy Ai extension.');
 	const client = new AgentClient();
+	void client.resolveEndpoint().then(endpoint => {
+		output.appendLine(`Agent API endpoint: ${endpoint}`);
+	});
 	const shadowContext = new ShadowContextManager();
 	const terminalRunner = new TerminalRunner();
 	const composerApplier = new ComposerApplier(terminalRunner);
@@ -51,7 +63,8 @@ export function activate(context: vscode.ExtensionContext): void {
 			};
 		},
 		code => insertCodeAtCursor(code),
-		code => applyCodeToFile(code)
+		code => applyCodeToFile(code),
+		operation => previewComposerOperation(operation)
 	);
 
 	context.subscriptions.push(
@@ -72,6 +85,20 @@ export function activate(context: vscode.ExtensionContext): void {
 		vscode.commands.registerCommand('princyai.native.collectContext', () => collectNativeContext(shadowContext.getSnapshot())),
 		vscode.commands.registerCommand('princyai.indexActiveFile', () => indexActiveFile(client)),
 		vscode.commands.registerCommand('princyai.runSuggestedCommand', command => runSuggestedCommand(terminalRunner, shadowContext, command)),
+		vscode.commands.registerCommand('princyai.reconnectBackend', async () => {
+			client.clearEndpointCache();
+			const endpoint = await client.resolveEndpoint();
+			const status = await checkAgentBackend(client);
+			const msg = status.online
+				? `Princy API online: ${endpoint}`
+				: `Princy API offline em ${endpoint}. ${status.message}`;
+			if (status.online) {
+				void vscode.window.showInformationMessage(msg);
+			} else {
+				void vscode.window.showErrorMessage(msg, { modal: false });
+			}
+			output.appendLine(msg);
+		}),
 		vscode.workspace.onDidSaveTextDocument(document => {
 			const autoIndex = vscode.workspace.getConfiguration('princyai').get<boolean>('autoIndexOnSave', true);
 			if (autoIndex) {
@@ -81,16 +108,15 @@ export function activate(context: vscode.ExtensionContext): void {
 	);
 
 	registerTerminalFixLinks(context, provider);
-
-	showPrincyChatOnStartup();
+	registerPrincyGhostText(context, client);
+	registerPrincyThemeOnActivate(context);
+	registerWorkspaceIndexing(context, client);
+	registerPrincyWorkbenchUi(context);
+	registerPrincyDefaultChat(context);
+	registerPrincyChatIsolation(context);
+	void ensurePrincyRulesTemplate();
 
 	output.appendLine('Princy Ai view provider registered.');
-}
-
-function showPrincyChatOnStartup(): void {
-	setTimeout(() => {
-		void vscode.commands.executeCommand('workbench.view.extension.princyai');
-	}, 250);
 }
 
 export function deactivate(): void {

@@ -39,6 +39,7 @@ import { determineServerConnectionToken, requestHasValidConnectionToken as httpR
 import { IServerEnvironmentService, ServerParsedArgs } from './serverEnvironmentService.js';
 import { IServerLifetimeService } from './serverLifetimeService.js';
 import { setupServerServices, SocketServer } from './serverServices.js';
+import { handlePrincyAgentApiProxy, isPrincyAgentApiProxyPath } from './princyAgentApiProxy.js';
 import { CacheControl, serveError, serveFile, WebClientServer } from './webClientServer.js';
 const require = createRequire(import.meta.url);
 
@@ -103,11 +104,6 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 	}
 
 	public async handleRequest(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
-		// Only serve GET requests
-		if (req.method !== 'GET') {
-			return serveError(req, res, 405, `Unsupported method ${req.method}`);
-		}
-
 		if (!req.url) {
 			return serveError(req, res, 400, `Bad request.`);
 		}
@@ -126,6 +122,17 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 		// for now accept all paths, with or without server product path
 		if (pathname.startsWith(this._serverProductPath) && pathname.charCodeAt(this._serverProductPath.length) === CharCode.Slash) {
 			pathname = pathname.substring(this._serverProductPath.length);
+		}
+
+		// Princy Ai agent API (same-origin for web); supports POST/OPTIONS — no connection token required
+		if (isPrincyAgentApiProxyPath(pathname)) {
+			handlePrincyAgentApiProxy(req, res, pathname, parsedUrl.search, this._logService);
+			return;
+		}
+
+		// Only serve GET requests
+		if (req.method !== 'GET') {
+			return serveError(req, res, 405, `Unsupported method ${req.method}`);
 		}
 
 		// Version

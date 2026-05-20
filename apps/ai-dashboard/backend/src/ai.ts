@@ -108,6 +108,10 @@ export type ChatCompletionOptions = {
 	readonly filePath?: string;
 	readonly languageId?: string;
 	readonly useOrchestrator?: boolean;
+	readonly maxTokens?: number;
+	readonly temperature?: number;
+	readonly stream?: boolean;
+	readonly onToken?: (chunk: string, fullText: string) => void;
 };
 
 export type ChatCompletionResult = {
@@ -131,7 +135,7 @@ export async function createChatCompletion(messages: ChatMessage[], agent: Agent
 export async function createChatCompletionDetailed(messages: ChatMessage[], agent: AgentModel = 'princy', options?: ChatCompletionOptions): Promise<ChatCompletionResult> {
 	const agentConfig = agentConfigs[agent] ?? agentConfigs.princy;
 	const preparedMessages = withAgentSystemPrompt(messages, agentConfig.systemPrompt);
-	const useOrchestrator = options?.useOrchestrator ?? (config.orchestratorEnabled && (agent === 'princy' || agent === 'deepseek'));
+	const useOrchestrator = !options?.stream && (options?.useOrchestrator ?? (config.orchestratorEnabled && (agent === 'princy' || agent === 'deepseek')));
 
 	if (useOrchestrator) {
 		try {
@@ -157,20 +161,159 @@ export async function createChatCompletionDetailed(messages: ChatMessage[], agen
 		} catch (orchestratorError) {
 			console.warn('[princy-ai] Orquestrador falhou, usando Ollama direto:', orchestratorError instanceof Error ? orchestratorError.message : orchestratorError);
 			return {
-				content: await createOllamaChatCompletion(preparedMessages, config.ollamaChatModel)
+				content: await createOllamaChatCompletion(preparedMessages, config.ollamaChatModel, options)
 			};
 		}
 	}
 
 	if (!agentConfig.isLocal || config.aiProvider === 'openai') {
 		return {
-			content: await createOpenAiChatCompletion(preparedMessages, agentConfig.modelName)
+			content: await createOpenAiChatCompletion(preparedMessages, agentConfig.modelName, options)
 		};
 	}
 
 	return {
-		content: await createOllamaChatCompletion(preparedMessages, agentConfig.modelName)
+		content: await createOllamaChatCompletion(preparedMessages, agentConfig.modelName, options)
 	};
+}
+
+async function createOllamaChatCompletionStream(
+	messages: ChatMessage[],
+	modelName: string,
+	options: ChatCompletionOptions | undefined,
+	onToken: (chunk: string, fullText: string) => void
+): Promise<string> {
+	const response = await fetch(`${config.ollamaBaseUrl}/api/chat`, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify({
+			model: modelName,
+			messages,
+			stream: true,
+			options: {
+				temperature: options?.temperature ?? 0.2,
+				...(options?.maxTokens !== undefined ? { num_predict: options.maxTokens } : {})
+			}
+		})
+	});
+
+	if (!response.ok) {
+		throw new Error(`Ollama chat stream failed: ${await response.text()}`);
+	}
+
+	const reader = response.body?.getReader();
+	if (!reader) {
+		throw new Error('Ollama stream body unavailable');
+	}
+
+	const decoder = new TextDecoder();
+	let buffer = '';
+	let full = '';
+
+	while (true) {
+		const { done, value } = await reader.read();
+		if (done) {
+			break;
+		}
+		buffer += decoder.decode(value, { stream: true });
+		const lines = buffer.split('\n');
+		buffer = lines.pop() ?? '';
+
+		for (const line of lines) {
+			const trimmed = line.trim();
+			if (!trimmed) {
+				continue;
+			}
+			try {
+				const payload = JSON.parse(trimmed) as OllamaChatResponse;
+				const piece = payload.message?.content ?? payload.response ?? '';
+				if (piece) {
+					full += piece;
+					onToken(piece, full);
+				}
+			} catch {
+				// ignore malformed chunks
+			}
+		}
+	}
+
+	return full || 'A LLM local nao retornou conteudo.';
+}
+
+async function createOpenAiChatCompletionStream(
+	messages: ChatMessage[],
+	modelName: string,
+	options: ChatCompletionOptions | undefined,
+	onToken: (chunk: string, fullText: string) => void
+): Promise<string> {
+	if (!config.openAiApiKey) {
+		throw new Error('OPENAI_API_KEY is required when AI_PROVIDER=openai');
+	}
+
+	const response = await fetch('https://api.openai.com/v1/chat/completions', {
+		method: 'POST',
+		headers: {
+			Authorization: `Bearer ${config.openAiApiKey}`,
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify({
+			model: modelName,
+			messages,
+			stream: true,
+			max_tokens: options?.maxTokens,
+			temperature: options?.temperature ?? 0.2
+		})
+	});
+
+	if (!response.ok) {
+		throw new Error(`OpenAI chat stream failed: ${await response.text()}`);
+	}
+
+	const reader = response.body?.getReader();
+	if (!reader) {
+		throw new Error('OpenAI stream body unavailable');
+	}
+
+	const decoder = new TextDecoder();
+	let buffer = '';
+	let full = '';
+
+	while (true) {
+		const { done, value } = await reader.read();
+		if (done) {
+			break;
+		}
+		buffer += decoder.decode(value, { stream: true });
+		const lines = buffer.split('\n');
+		buffer = lines.pop() ?? '';
+
+		for (const line of lines) {
+			const trimmed = line.trim();
+			if (!trimmed.startsWith('data:')) {
+				continue;
+			}
+			const data = trimmed.slice(5).trim();
+			if (data === '[DONE]') {
+				continue;
+			}
+			try {
+				const payload = JSON.parse(data) as {
+					choices?: Array<{ delta?: { content?: string } }>;
+				};
+				const piece = payload.choices?.[0]?.delta?.content ?? '';
+				if (piece) {
+					full += piece;
+					onToken(piece, full);
+				}
+			} catch {
+				// ignore
+			}
+		}
+	}
+
+	return full || 'A LLM nao retornou conteudo.';
 }
 
 async function createOpenAiEmbedding(input: string): Promise<number[]> {
@@ -203,7 +346,11 @@ async function createOpenAiEmbedding(input: string): Promise<number[]> {
 	return embedding;
 }
 
-async function createOpenAiChatCompletion(messages: ChatMessage[], modelName: string): Promise<string> {
+async function createOpenAiChatCompletion(messages: ChatMessage[], modelName: string, options?: ChatCompletionOptions): Promise<string> {
+	if (options?.stream && options.onToken) {
+		return createOpenAiChatCompletionStream(messages, modelName, options, options.onToken);
+	}
+
 	if (!config.openAiApiKey) {
 		throw new Error('OPENAI_API_KEY is required when AI_PROVIDER=openai');
 	}
@@ -217,7 +364,8 @@ async function createOpenAiChatCompletion(messages: ChatMessage[], modelName: st
 		body: JSON.stringify({
 			model: modelName,
 			messages,
-			temperature: 0.2
+			max_tokens: options?.maxTokens,
+			temperature: options?.temperature ?? 0.2
 		})
 	});
 
@@ -254,7 +402,11 @@ async function createOllamaEmbedding(input: string): Promise<number[]> {
 	return embedding;
 }
 
-async function createOllamaChatCompletion(messages: ChatMessage[], modelName: string): Promise<string> {
+async function createOllamaChatCompletion(messages: ChatMessage[], modelName: string, options?: ChatCompletionOptions): Promise<string> {
+	if (options?.stream && options.onToken) {
+		return createOllamaChatCompletionStream(messages, modelName, options, options.onToken);
+	}
+
 	const response = await fetch(`${config.ollamaBaseUrl}/api/chat`, {
 		method: 'POST',
 		headers: {
@@ -265,7 +417,8 @@ async function createOllamaChatCompletion(messages: ChatMessage[], modelName: st
 			messages,
 			stream: false,
 			options: {
-				temperature: 0.2
+				temperature: options?.temperature ?? 0.2,
+				...(options?.maxTokens !== undefined ? { num_predict: options.maxTokens } : {})
 			}
 		})
 	});

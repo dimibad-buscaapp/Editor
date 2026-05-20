@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { subscribeAgentJobStream, type AgentJobStreamHandlers } from './agentJobStream';
 
 interface FetchResponse {
 	readonly ok: boolean;
@@ -67,7 +68,26 @@ export interface InlineEditResponse {
 	readonly explanation?: string;
 }
 
+export interface InlineCompleteRequest {
+	readonly agent: AgentModel;
+	readonly filePath: string;
+	readonly languageId: string;
+	readonly prefix: string;
+	readonly suffix?: string;
+	readonly linePrefix?: string;
+}
+
+export interface InlineCompleteResponse {
+	readonly completion: string;
+}
+
 export type ModelSegment = 'LOGIC' | 'FRONTEND' | 'BACKEND' | 'DEBUG';
+
+export interface ContextAttachmentPayload {
+	readonly kind: string;
+	readonly label: string;
+	readonly content: string;
+}
 
 export interface ChatRequest {
 	readonly agent: AgentModel;
@@ -82,6 +102,8 @@ export interface ChatRequest {
 	readonly selectedText?: string;
 	readonly shadowContext?: ShadowContext;
 	readonly codeGraph?: CodeGraphContext;
+	readonly contextAttachments?: readonly ContextAttachmentPayload[];
+	readonly rulesText?: string;
 }
 
 export interface ChatMetadata {
@@ -159,7 +181,86 @@ export interface RepairAfterCommandRequest {
 	readonly codeGraph?: CodeGraphContext;
 }
 
+const DEFAULT_AGENT_ENDPOINT = 'http://127.0.0.1:3210';
+const SAME_ORIGIN_PROXY_PATH = '/princy-api';
+
+let cachedAgentEndpoint: string | undefined;
+
 export class AgentClient {
+	public clearEndpointCache(): void {
+		cachedAgentEndpoint = undefined;
+	}
+
+	/** Detecta a melhor URL da API (proxy mesma origem, localhost ou config manual). */
+	public async resolveEndpoint(): Promise<string> {
+		if (cachedAgentEndpoint) {
+			return cachedAgentEndpoint;
+		}
+
+		const configuration = vscode.workspace.getConfiguration('princyai');
+		const configured = (configuration.get<string>('agentEndpoint', '') ?? '').trim();
+		const useSameOrigin = configuration.get<boolean>('useSameOriginApi', true);
+
+		if (configured && configured !== 'auto' && configured !== DEFAULT_AGENT_ENDPOINT) {
+			cachedAgentEndpoint = configured.replace(/\/+$/, '');
+			return cachedAgentEndpoint;
+		}
+
+		if (vscode.env.uiKind === vscode.UIKind.Web) {
+			if (useSameOrigin) {
+				const candidates = buildWebApiCandidates();
+				for (const base of candidates) {
+					if (await this.probeEndpoint(base)) {
+						cachedAgentEndpoint = base.replace(/\/+$/, '');
+						return cachedAgentEndpoint;
+					}
+				}
+				// Mesmo se o probe falhar no boot, use proxy relativo (porta 3200 -> 3210 no servidor)
+				cachedAgentEndpoint = SAME_ORIGIN_PROXY_PATH;
+				return cachedAgentEndpoint;
+			}
+		} else if (await this.probeEndpoint(DEFAULT_AGENT_ENDPOINT)) {
+			cachedAgentEndpoint = DEFAULT_AGENT_ENDPOINT;
+			return cachedAgentEndpoint;
+		}
+
+		cachedAgentEndpoint = (configured && configured !== 'auto' ? configured : DEFAULT_AGENT_ENDPOINT).replace(/\/+$/, '');
+		return cachedAgentEndpoint;
+	}
+
+	public getAgentEndpoint(): string {
+		return cachedAgentEndpoint ?? this.getConfiguredEndpoint();
+	}
+
+	private getConfiguredEndpoint(): string {
+		return (vscode.workspace.getConfiguration('princyai').get<string>('agentEndpoint', DEFAULT_AGENT_ENDPOINT) ?? DEFAULT_AGENT_ENDPOINT)
+			.replace(/\/+$/, '');
+	}
+
+	private async probeEndpoint(base: string): Promise<boolean> {
+		const normalized = base.replace(/\/+$/, '');
+		const paths = ['/api/agent/health', '/api/health', '/'];
+		for (const path of paths) {
+			try {
+				const response = await fetch(`${normalized}${path}`, { method: 'GET' });
+				if (response.ok) {
+					return true;
+				}
+			} catch {
+				// try next path
+			}
+		}
+		return false;
+	}
+
+	public async health(): Promise<{ readonly ok: boolean; readonly build?: string }> {
+		return this.get<{ readonly ok: boolean; readonly build?: string }>('/api/health');
+	}
+
+	public async agentHealth(): Promise<{ readonly ok: boolean; readonly build?: string }> {
+		return this.get<{ readonly ok: boolean; readonly build?: string }>('/api/agent/health');
+	}
+
 	public async models(): Promise<readonly AgentDefinition[]> {
 		const response = await this.get<{ readonly models: readonly AgentDefinition[] }>('/api/agent/models');
 		return response.models;
@@ -167,6 +268,10 @@ export class AgentClient {
 
 	public async inlineEdit(request: InlineEditRequest): Promise<InlineEditResponse> {
 		return this.post<InlineEditResponse>('/api/agent/inline-edit', request);
+	}
+
+	public async inlineComplete(request: InlineCompleteRequest): Promise<InlineCompleteResponse> {
+		return this.post<InlineCompleteResponse>('/api/agent/inline-complete', request);
 	}
 
 	public async chat(request: ChatRequest): Promise<ChatResponse> {
@@ -186,6 +291,11 @@ export class AgentClient {
 			);
 		}
 		return { ...result, jobId };
+	}
+
+	public async subscribeJobStream(jobId: string, handlers: AgentJobStreamHandlers): Promise<void> {
+		const token = vscode.workspace.getConfiguration('princyai').get<string>('apiToken', '');
+		await subscribeAgentJobStream(await this.resolveEndpoint(), token, jobId, handlers);
 	}
 
 	public async getAgentJob(jobId: string): Promise<AgentJobSnapshot> {
@@ -219,6 +329,13 @@ export class AgentClient {
 		await this.post<{ ok: boolean }>('/api/agent/index-file', request);
 	}
 
+	public async indexFilesBatch(
+		files: readonly { readonly filePath: string; readonly languageId: string; readonly content: string }[]
+	): Promise<number> {
+		const result = await this.post<{ readonly ok: boolean; readonly indexed: number }>('/api/agent/index-batch', { files });
+		return result.indexed;
+	}
+
 	public async composerPlan(request: ComposerPlanRequest): Promise<ComposerPlan> {
 		return this.post<ComposerPlan>('/api/agent/composer-plan', request);
 	}
@@ -241,7 +358,7 @@ export class AgentClient {
 	}
 
 	private async request<T>(path: string, init: { readonly method: string; readonly body?: string }): Promise<T> {
-		const endpoint = this.getEndpoint();
+		const endpoint = await this.resolveEndpoint();
 		const token = vscode.workspace.getConfiguration('princyai').get<string>('apiToken', '');
 		const headers: Record<string, string> = {
 			'Content-Type': 'application/json'
@@ -251,21 +368,56 @@ export class AgentClient {
 			headers.Authorization = `Bearer ${token}`;
 		}
 
-		const response = await fetch(`${endpoint}${path}`, {
-			method: init.method,
-			headers,
-			body: init.body
-		});
+		try {
+			const response = await fetch(`${endpoint}${path}`, {
+				method: init.method,
+				headers,
+				body: init.body
+			});
 
-		if (!response.ok) {
-			throw new Error(await response.text());
+			if (!response.ok) {
+				const body = await response.text();
+				throw new Error(body || `HTTP ${response.status} em ${path}`);
+			}
+
+			return response.json() as Promise<T>;
+		} catch (error) {
+			throw new Error(formatAgentFetchError(endpoint, path, error));
 		}
-
-		return response.json() as Promise<T>;
 	}
 
-	private getEndpoint(): string {
-		const configured = vscode.workspace.getConfiguration('princyai').get<string>('agentEndpoint', 'http://127.0.0.1:3210');
-		return configured.replace(/\/+$/, '');
+}
+
+function buildWebApiCandidates(): readonly string[] {
+	const candidates: string[] = [SAME_ORIGIN_PROXY_PATH];
+	const location = (globalThis as { location?: { origin?: string; hostname?: string } }).location;
+	if (location?.origin) {
+		candidates.push(`${location.origin}${SAME_ORIGIN_PROXY_PATH}`);
 	}
+	if (location?.hostname) {
+		candidates.push(`http://${location.hostname}:3200${SAME_ORIGIN_PROXY_PATH}`);
+		candidates.push(`https://${location.hostname}${SAME_ORIGIN_PROXY_PATH}`);
+	}
+	candidates.push(`http://127.0.0.1:3200${SAME_ORIGIN_PROXY_PATH}`);
+	return candidates;
+}
+
+function formatAgentFetchError(endpoint: string, path: string, error: unknown): string {
+	if (error instanceof Error && error.message.startsWith('Backend ')) {
+		return error.message;
+	}
+
+	const detail = error instanceof Error ? error.message : String(error);
+	const lower = detail.toLowerCase();
+
+	if (lower.includes('failed to fetch') || lower.includes('networkerror') || lower.includes('unreachable')) {
+		return [
+			`Sem conexao com a API em ${endpoint}${path}.`,
+			'No VPS: inicie o agent backend (porta 3210) e reinicie o Code Web.',
+			'Script: deploy\\windows\\agent-backend\\start-princy-agent-backend.ps1',
+			'Teste: http://127.0.0.1:3210/api/health (no servidor) ou /princy-api/api/health no mesmo host do editor.'
+		].join(' ');
+	}
+
+	return detail;
 }

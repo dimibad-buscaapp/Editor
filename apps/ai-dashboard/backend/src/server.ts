@@ -7,6 +7,7 @@ import staticFiles from '@fastify/static';
 import Fastify from 'fastify';
 import { ZodError } from 'zod';
 import { config } from './config.js';
+import { resolveCorsOrigin } from './corsPolicy.js';
 import { prisma } from './prisma.js';
 import { registerAgentRoutes } from './agentRoutes.js';
 import { registerRoutes } from './routes.js';
@@ -20,8 +21,16 @@ await app.register(cookie, {
 });
 
 await app.register(cors, {
-	origin: config.appOrigin,
-	credentials: true
+	origin: (origin, callback) => {
+		if (config.corsRelaxed) {
+			callback(null, true);
+			return;
+		}
+		callback(null, resolveCorsOrigin(origin));
+	},
+	credentials: true,
+	methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
+	allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Cache-Control']
 });
 
 app.setErrorHandler((error, request, reply) => {

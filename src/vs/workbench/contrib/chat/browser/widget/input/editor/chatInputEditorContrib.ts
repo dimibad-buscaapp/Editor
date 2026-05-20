@@ -433,11 +433,17 @@ class InputEditorSlashCommandMode extends Disposable {
 	) {
 		super();
 		this._register(this.widget.onDidChangeAgent(e => {
+			if (!e.agent?.metadata) {
+				return;
+			}
 			if (e.slashCommand && e.slashCommand.isSticky || !e.slashCommand && e.agent.metadata.isSticky) {
 				this.repopulateAgentCommand(e.agent, e.slashCommand);
 			}
 		}));
 		this._register(this.widget.onDidSubmitAgent(e => {
+			if (!e.agent?.metadata) {
+				return;
+			}
 			this.repopulateAgentCommand(e.agent, e.slashCommand);
 		}));
 	}

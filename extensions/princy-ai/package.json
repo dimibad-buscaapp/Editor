@@ -12,6 +12,7 @@
   "browser": "./dist/browser/extension",
   "categories": [
     "AI",
+    "Themes",
     "Other"
   ],
   "extensionKind": [
@@ -26,6 +27,7 @@
     "onCommand:princyai.composer",
     "onCommand:princyai.native.collectContext",
     "onCommand:princyai.indexActiveFile",
+    "onCommand:princyai.indexWorkspace",
     "onView:princyai.chat"
   ],
   "capabilities": {
@@ -38,7 +40,7 @@
     "commands": [
       {
         "command": "princyai.inlineEdit",
-        "title": "Inline Edit",
+        "title": "Ask Princy",
         "category": "Princy Ai",
         "icon": "$(sparkle)"
       },
@@ -77,6 +79,18 @@
         "title": "Collect Native Context",
         "category": "Princy Ai",
         "icon": "$(symbol-namespace)"
+      },
+      {
+        "command": "princyai.indexWorkspace",
+        "title": "Index Workspace for RAG",
+        "category": "Princy Ai",
+        "icon": "$(database)"
+      },
+      {
+        "command": "princyai.reconnectBackend",
+        "title": "Reconnect Agent Backend",
+        "category": "Princy Ai",
+        "icon": "$(refresh)"
       }
     ],
     "keybindings": [
@@ -102,7 +116,8 @@
         {
           "command": "princyai.inlineEdit",
           "when": "editorHasSelection && !editorReadonly",
-          "group": "princyai@1"
+          "group": "princyai@1",
+          "title": "Ask Princy"
         },
         {
           "command": "princyai.indexActiveFile",
@@ -148,12 +163,39 @@
         {
           "type": "webview",
           "id": "princyai.chat",
-          "name": "Chat"
+          "name": "Princy Ai",
+          "icon": "$(sparkle)"
         }
       ]
     },
+    "themes": [
+      {
+        "id": "Princy Black",
+        "label": "Princy Black",
+        "uiTheme": "vs-dark",
+        "path": "./themes/princy-black-color-theme.json"
+      }
+    ],
     "configurationDefaults": {
-      "chat.disableAIFeatures": true
+      "chat.disableAIFeatures": true,
+      "chat.agent.enabled": false,
+      "chat.generalPurposeAgent.enabled": false,
+      "chat.viewSessions.enabled": false,
+      "chat.unifiedAgentsBar.enabled": false,
+      "chat.restoreLastPanelSession": false,
+      "chat.titleBar.signIn.enabled": false,
+      "workbench.secondarySideBar.defaultVisibility": "visible",
+      "editor.inlineSuggest.enabled": true,
+      "workbench.colorTheme": "Princy Black",
+      "workbench.preferredDarkColorTheme": "Princy Black",
+      "editor.fontFamily": "'JetBrains Mono', 'Cascadia Code', Consolas, monospace",
+      "workbench.activityBar.location": "top",
+      "editor.minimap.enabled": false,
+      "window.menuBarVisibility": "compact",
+      "workbench.layoutControl.enabled": false,
+      "workbench.startupEditor": "none",
+      "princyai.defaultAgent": "deepseek",
+      "princyai.ghostText.agent": "deepseek"
     },
     "configuration": {
       "title": "Princy Ai",
@@ -161,7 +203,12 @@
         "princyai.agentEndpoint": {
           "type": "string",
           "default": "http://127.0.0.1:3210",
-          "description": "Fastify endpoint for the Princy Ai agent backend."
+          "description": "URL da API do agent backend. Use auto-detecao deixando padrao, ou https://princyai.com/princy-api com Caddy."
+        },
+        "princyai.useSameOriginApi": {
+          "type": "boolean",
+          "default": true,
+          "description": "No navegador, tenta /princy-api no mesmo dominio do editor antes de localhost:3210."
         },
         "princyai.apiToken": {
           "type": "string",
@@ -172,6 +219,57 @@
           "type": "boolean",
           "default": true,
           "description": "Re-index files in the AI backend when they are saved."
+        },
+        "princyai.ghostText.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show Princy Ai ghost text (inline completions) while typing."
+        },
+        "princyai.ghostText.agent": {
+          "type": "string",
+          "enum": ["princy", "deepseek", "qwen", "codellama", "llama3", "mistral", "openai"],
+          "default": "deepseek",
+          "description": "Agent used for ghost text completions."
+        },
+        "princyai.ghostText.debounceMs": {
+          "type": "number",
+          "default": 650,
+          "minimum": 200,
+          "maximum": 3000,
+          "description": "Delay in milliseconds before requesting a ghost text suggestion."
+        },
+        "princyai.ghostText.prefixLines": {
+          "type": "number",
+          "default": 36,
+          "minimum": 8,
+          "maximum": 120,
+          "description": "Number of lines before the cursor sent as context."
+        },
+        "princyai.ui.forceBlackTheme": {
+          "type": "boolean",
+          "default": true,
+          "description": "Apply the Princy Black color theme on startup."
+        },
+        "princyai.ui.minimalWorkbench": {
+          "type": "boolean",
+          "default": true,
+          "description": "Simplify workbench UI (Cursor-like: no minimap, compact menu)."
+        },
+        "princyai.ui.defaultChat": {
+          "type": "boolean",
+          "default": true,
+          "description": "Hide built-in VS Code chat and open Princy Ai as the default chat panel."
+        },
+        "princyai.defaultAgent": {
+          "type": "string",
+          "enum": ["princy", "deepseek", "qwen", "codellama", "llama3", "mistral", "openai"],
+          "default": "deepseek",
+          "description": "Default AI engine for Princy Ai chat and Composer (DeepSeek recommended)."
+        },
+        "princyai.workspaceIndex.onOpen": {
+          "type": "boolean",
+          "default": true,
+          "description": "Index workspace files for RAG shortly after opening a folder."
         }
       }
     }

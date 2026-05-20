@@ -11,6 +11,8 @@ powershell -ExecutionPolicy Bypass -File .\deploy\windows\code-web\start-princy-
 
 O app principal deve responder em `http://127.0.0.1:3200`, com `princyai.com` apontando via Caddy para essa porta. Veja [`deploy/windows/code-web/README.md`](deploy/windows/code-web/README.md).
 
+Dominio na Hostinger + VPS (portas 3200/3210): [`deploy/windows/DOMINIO-HOSTINGER.md`](deploy/windows/DOMINIO-HOSTINGER.md).
+
 O backend de IA/RAG usado pela extensão roda separado em `http://127.0.0.1:3210`. Veja [`deploy/windows/agent-backend/README.md`](deploy/windows/agent-backend/README.md).
 
 A extensão `Princy Ai` inclui seletor de agentes locais via Ollama: Princy Ai, DeepSeek Coder, Qwen Coder, CodeLlama, Llama 3.1 e Mistral. Ela também oferece Composer multi-arquivo com aprovação, Shadow Context do editor, terminal controlado, Code Graph inicial via LSP e proxy OpenAI-compatible em `http://127.0.0.1:3210/v1`.

@@ -10,6 +10,16 @@ Este é o deploy principal do Princy Ai neste momento. Ele abre a experiência P
 - Porta interna: `3200`
 - Dominio: `princyai.com`
 
+## Fontes (JetBrains Mono)
+
+Instale as fontes do editor antes do primeiro uso:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\deploy\windows\install-princy-fonts.ps1
+```
+
+Reinicie o Princy Ai Web após a instalação.
+
 ## Preparar o Projeto
 
 No VPS, dentro da raiz do projeto:
@@ -73,7 +83,7 @@ Use este script, e nao `scripts\code-web.js`, para o deploy. `code-web.js` usa `
 O script também bloqueia extensões Copilot na inicialização:
 
 ```text
---disable-extension GitHub.copilot-chat --disable-extension GitHub.copilot
+Copilot, GitHub PR e extensões de auth desativadas no launcher (ver `start-princy-code-web.ps1`)
 ```
 
 O produto não aponta mais para Copilot como agente de chat padrão. A experiência principal de IA é a extensão embutida `Princy Ai`.
@@ -108,15 +118,20 @@ C:\Apps\Editor\logs\code-web.out.log
 C:\Apps\Editor\logs\code-web.err.log
 ```
 
-## HTTPS
+## HTTPS e dominio (Hostinger)
 
-Copie `deploy/windows/code-web/Caddyfile` para a configuração do Caddy.
+Guia completo: [`../DOMINIO-HOSTINGER.md`](../DOMINIO-HOSTINGER.md)
+
+Copie `deploy/windows/code-web/Caddyfile` para `C:\Caddy\Caddyfile`.
 
 Fluxo:
 
 ```text
-https://princyai.com -> Caddy :443 -> 127.0.0.1:3200 -> Code-OSS Web
+https://princyai.com      -> Caddy :443 -> 127.0.0.1:3200 -> Code-OSS Web
+https://api.princyai.com  -> Caddy :443 -> 127.0.0.1:3210 -> Agent backend (chat/IA)
 ```
+
+Configure `princyai.agentEndpoint` = `https://api.princyai.com` (veja `deploy/windows/princy-production.settings.json`).
 
 ## Acesso Temporario
 
