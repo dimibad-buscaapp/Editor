@@ -25,7 +25,7 @@ const NATIVE_CHAT_COMMANDS = [
 export function registerPrincyChatIsolation(context: vscode.ExtensionContext): void {
 	for (const commandId of NATIVE_CHAT_COMMANDS) {
 		context.subscriptions.push(
-			vscode.commands.registerCommand(commandId, async (...args: unknown[]) => {
+			vscode.commands.registerCommand(commandId, async () => {
 				await focusPrincyChatPanel();
 				return undefined;
 			})

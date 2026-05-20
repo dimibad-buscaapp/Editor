@@ -1,5 +1,29 @@
 # Corrigir chat no Code Web (3200) com backend OK na 3210
 
+## Conflito apos `git stash pop` (server.ts)
+
+Se `git pull` falhar com *unmerged files* em `apps/ai-dashboard/backend/src/server.ts`:
+
+1. Abra o arquivo e resolva os marcadores `<<<<<<<` / `=======` / `>>>>>>>`.
+2. Mantenha a versao do **upstream** (CORS + `corsPolicy`) e re-aplique so o que o stash precisava (porta, paths locais do VPS).
+3. Marque resolvido e puxe de novo:
+
+```powershell
+cd C:\Apps\Editor
+git add apps/ai-dashboard/backend/src/server.ts
+git commit -m "merge: resolver server.ts apos stash vps"
+git pull origin main
+```
+
+Se nao precisar das alteracoes do stash no backend:
+
+```powershell
+git checkout --theirs apps/ai-dashboard/backend/src/server.ts
+git add apps/ai-dashboard/backend/src/server.ts
+git stash drop
+git pull origin main
+```
+
 ## Service Worker / cache antigo
 
 Se o log mostrar `unexpected service worker version`:

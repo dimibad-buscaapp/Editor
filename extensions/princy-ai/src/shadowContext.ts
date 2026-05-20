@@ -9,6 +9,12 @@ import { ShadowContext, TerminalCommandResult } from './agentClient';
 const MAX_ACTIVE_CONTENT_LENGTH = 40000;
 const MAX_DIAGNOSTICS = 40;
 
+/** Empty shadow context for lightweight chat (no editor scan). */
+export const EMPTY_SHADOW_CONTEXT: ShadowContext = {
+	openTabs: [],
+	diagnostics: []
+};
+
 export class ShadowContextManager implements vscode.Disposable {
 	private readonly disposables: vscode.Disposable[] = [];
 	private timer: unknown | undefined;

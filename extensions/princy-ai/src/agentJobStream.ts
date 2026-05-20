@@ -59,7 +59,9 @@ export async function subscribeAgentJobStream(
 		if (done) {
 			break;
 		}
-		buffer += decoder.decode(value);
+		if (value) {
+			buffer += decoder.decode(value);
+		}
 		const events = buffer.split('\n\n');
 		buffer = events.pop() ?? '';
 

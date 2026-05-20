@@ -11,6 +11,7 @@ import { buildChatPanelHtml } from './chatPanelHtml';
 import { getMentionSuggestions, resolveContextMentions } from './contextMentions';
 import type { NativeContextBundle } from './nativeContext';
 import { loadPrincyRules } from './princyRules';
+import { EMPTY_SHADOW_CONTEXT } from './shadowContext';
 
 type ModelSegment = 'LOGIC' | 'FRONTEND' | 'BACKEND' | 'DEBUG';
 
@@ -337,7 +338,7 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 			let codeGraph: import('./agentClient').CodeGraphContext | undefined;
 
 			if (simple) {
-				const mentionResult = await resolveContextMentions(text, {});
+				const mentionResult = await resolveContextMentions(text, EMPTY_SHADOW_CONTEXT);
 				cleanMessage = mentionResult.cleanMessage || text;
 				attachments = mentionResult.attachments;
 			} else {

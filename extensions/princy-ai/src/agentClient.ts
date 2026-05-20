@@ -8,6 +8,7 @@ import { subscribeAgentJobStream, type AgentJobStreamHandlers } from './agentJob
 
 interface FetchResponse {
 	readonly ok: boolean;
+	readonly status: number;
 	text(): Promise<string>;
 	json(): Promise<unknown>;
 }
