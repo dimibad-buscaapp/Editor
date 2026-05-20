@@ -266,9 +266,14 @@
           "default": "deepseek",
           "description": "Default AI engine for Princy Ai chat and Composer (DeepSeek recommended)."
         },
-        "princyai.workspaceIndex.onOpen": {
+        "princyai.chat.simpleMode": {
           "type": "boolean",
           "default": true,
+          "description": "Use POST /api/agent/chat (sync) without jobs, RAG, shadow context or VPS compile on each message."
+        },
+        "princyai.workspaceIndex.onOpen": {
+          "type": "boolean",
+          "default": false,
           "description": "Index workspace files for RAG shortly after opening a folder."
         }
       }

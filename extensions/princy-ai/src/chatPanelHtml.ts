@@ -16,171 +16,198 @@ export function buildChatPanelHtml(cspSource: string, nonce: string): string {
 		body {
 			margin: 0;
 			padding: 0;
+			overflow: hidden;
 			color: var(--vscode-foreground, #cccccc);
-			background: var(--vscode-sideBar-background, #252526);
+			background: var(--vscode-editor-background, #1e1e1e);
 			font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif);
 			font-size: var(--vscode-font-size, 13px);
-			height: 100%;
-			overflow: hidden;
 		}
-		.chat-shell {
+		.princy-root {
+			height: 100vh;
 			display: flex;
 			flex-direction: column;
-			height: 100vh;
-			background: var(--vscode-sideBar-background, #252526);
+			background: var(--vscode-editor-background, #1e1e1e);
 		}
-		.chat-header {
-			height: 36px;
+		.princy-header {
+			height: 42px;
+			flex: 0 0 auto;
 			padding: 0 12px;
 			display: flex;
 			align-items: center;
 			justify-content: space-between;
-			gap: 8px;
-			flex-shrink: 0;
 			border-bottom: 1px solid var(--vscode-panel-border, #3c3c3c);
-			background: var(--vscode-editor-background, #1e1e1e);
+			background: var(--vscode-sideBar-background, #252526);
 		}
-		.chat-title {
-			font-size: 13px;
-			font-weight: 600;
-			color: var(--vscode-foreground, #cccccc);
-			white-space: nowrap;
-		}
-		.header-controls {
-			align-items: center;
+		.princy-title {
 			display: flex;
-			flex: 1;
-			gap: 6px;
-			justify-content: flex-end;
-			min-width: 0;
+			align-items: center;
+			gap: 8px;
+			font-weight: 600;
 		}
-		.agent-select {
+		.princy-dot {
+			width: 8px;
+			height: 8px;
+			border-radius: 999px;
+			background: var(--vscode-errorForeground, #f48771);
+			flex-shrink: 0;
+		}
+		.princy-dot.online {
+			background: var(--vscode-testing-iconPassed, #73c991);
+			box-shadow: 0 0 8px var(--vscode-testing-iconPassed, #73c991);
+		}
+		.princy-agent {
+			max-width: 140px;
+			height: 26px;
 			background: var(--vscode-dropdown-background, #3c3c3c);
 			color: var(--vscode-dropdown-foreground, #cccccc);
 			border: 1px solid var(--vscode-dropdown-border, #3c3c3c);
 			border-radius: 4px;
-			padding: 4px 8px;
+			padding: 2px 8px;
+			outline: none;
 			font-size: 11px;
-			max-width: 110px;
-			cursor: pointer;
 		}
-		.backend-pill {
-			color: var(--vscode-errorForeground, #f48771);
-			font-size: 10px;
-			white-space: nowrap;
-		}
-		.backend-pill.online { color: var(--vscode-testing-iconPassed, #73c991); }
-		.messages-scroll {
+		.princy-messages {
 			flex: 1;
 			overflow-y: auto;
-			overflow-x: hidden;
-			padding: 12px;
+			padding: 16px 14px;
 		}
-		.empty {
-			color: var(--vscode-descriptionForeground, #9d9d9d);
-			font-size: 13px;
-			line-height: 1.5;
-			margin-top: 24px;
+		.princy-empty {
+			min-height: 220px;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
 			text-align: center;
+			opacity: 0.9;
 		}
-		.empty strong {
-			color: var(--vscode-foreground, #cccccc);
-			display: block;
-			font-size: 14px;
-			font-weight: 600;
-			margin-bottom: 8px;
-		}
-		.empty .engine-pill {
-			background: var(--vscode-badge-background, #4d4d4d);
-			color: var(--vscode-badge-foreground, #ffffff);
-			border-radius: 4px;
-			display: inline-block;
-			font-size: 11px;
+		.princy-logo {
+			width: 42px;
+			height: 42px;
 			margin-bottom: 10px;
-			padding: 3px 8px;
-		}
-		.messages { display: flex; flex-direction: column; gap: 14px; }
-		.msg-user-wrap { display: flex; justify-content: flex-end; }
-		.message.user,
-		.msg-user {
-			color: var(--vscode-input-foreground, #cccccc);
-			line-height: 1.45;
-			max-width: 92%;
-			padding: 8px 10px;
-			white-space: pre-wrap;
-			word-break: break-word;
-		}
-		.message.assistant,
-		.msg-assistant {
-			line-height: 1.45;
-			max-width: 100%;
-			white-space: pre-wrap;
-			word-break: break-word;
-		}
-		.message.assistant,
-		.msg-assistant:not(.streaming) {
+			border-radius: 12px;
+			display: grid;
+			place-items: center;
 			background: var(--vscode-editorWidget-background, #252526);
 			border: 1px solid var(--vscode-widget-border, #454545);
-			border-radius: 8px;
-			padding: 10px;
+			font-size: 20px;
 		}
-		.msg-assistant .label,
-		.message.assistant .label {
+		.princy-empty h2 { margin: 0 0 6px; font-size: 17px; font-weight: 600; }
+		.princy-empty p {
+			margin: 0;
+			max-width: 320px;
 			color: var(--vscode-descriptionForeground, #9d9d9d);
-			display: block;
-			font-size: 11px;
-			font-weight: 500;
-			margin-bottom: 6px;
+			line-height: 1.45;
 		}
-		.msg-assistant.streaming { background: transparent; border: none; padding: 0; }
+		.princy-message { margin: 0 0 14px; line-height: 1.5; }
+		.princy-message-header {
+			margin-bottom: 6px;
+			color: var(--vscode-descriptionForeground, #9d9d9d);
+			font-size: 11px;
+		}
+		.princy-bubble {
+			padding: 10px 12px;
+			border-radius: 8px;
+			white-space: pre-wrap;
+			word-break: break-word;
+		}
+		.princy-message.user .princy-bubble {
+			background: transparent;
+			border: 1px solid var(--vscode-input-border, #3c3c3c);
+		}
+		.princy-message.assistant .princy-bubble {
+			background: var(--vscode-editorWidget-background, #252526);
+			border: 1px solid var(--vscode-widget-border, #454545);
+		}
+		.princy-composer {
+			flex: 0 0 auto;
+			padding: 10px;
+			border-top: 1px solid var(--vscode-panel-border, #3c3c3c);
+			background: var(--vscode-sideBar-background, #252526);
+		}
+		.princy-context-row, .chips {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 6px;
+			margin-bottom: 8px;
+		}
+		.princy-context-row button, .chips .chip {
+			height: 24px;
+			padding: 0 8px;
+			border-radius: 999px;
+			border: none;
+			background: var(--vscode-button-secondaryBackground, #3a3d41);
+			color: var(--vscode-button-secondaryForeground, #ffffff);
+			font-size: 11px;
+			cursor: pointer;
+		}
+		.chips .chip.on {
+			background: var(--vscode-list-activeSelectionBackground, #094771);
+		}
+		.princy-input-box {
+			border: 1px solid var(--vscode-input-border, #3c3c3c);
+			background: var(--vscode-input-background, #3c3c3c);
+			border-radius: 8px;
+			overflow: hidden;
+		}
+		.princy-input-box textarea {
+			width: 100%;
+			min-height: 78px;
+			max-height: 180px;
+			resize: vertical;
+			border: none;
+			outline: none;
+			padding: 10px;
+			display: block;
+			color: var(--vscode-input-foreground, #cccccc);
+			background: transparent;
+			font-family: inherit;
+			font-size: inherit;
+			line-height: 1.45;
+		}
+		.princy-actions {
+			min-height: 34px;
+			padding: 6px 8px;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			border-top: 1px solid var(--vscode-panel-border, #3c3c3c);
+		}
+		.princy-status {
+			color: var(--vscode-descriptionForeground, #9d9d9d);
+			font-size: 11px;
+		}
+		.princy-action-btns { display: flex; gap: 6px; }
+		.princy-secondary {
+			height: 26px;
+			padding: 0 10px;
+			border: none;
+			border-radius: 4px;
+			background: var(--vscode-button-secondaryBackground, #3a3d41);
+			color: var(--vscode-button-secondaryForeground, #fff);
+			font-size: 11px;
+			cursor: pointer;
+		}
+		.princy-send {
+			height: 26px;
+			padding: 0 12px;
+			border: none;
+			border-radius: 4px;
+			background: var(--vscode-button-background, #0e639c);
+			color: var(--vscode-button-foreground, #ffffff);
+			cursor: pointer;
+			font-size: 12px;
+		}
+		.princy-send:hover { background: var(--vscode-button-hoverBackground, #1177bb); }
 		.thinking {
 			border-left: 2px solid var(--vscode-panel-border, #3c3c3c);
 			color: var(--vscode-descriptionForeground, #9d9d9d);
 			font-size: 12px;
-			margin: 0 0 12px;
+			margin: 8px 0;
 			padding-left: 10px;
 		}
 		.thinking .step { line-height: 1.6; }
 		.thinking .step.active { color: var(--vscode-foreground, #cccccc); }
 		.thinking .step.done { color: var(--vscode-testing-iconPassed, #73c991); }
-		.status-bar {
-			color: var(--vscode-descriptionForeground, #9d9d9d);
-			font-size: 11px;
-			line-height: 1.4;
-			min-height: 16px;
-			padding: 0 12px 6px;
-		}
-		.chat-input-wrap {
-			border-top: 1px solid var(--vscode-panel-border, #3c3c3c);
-			background: var(--vscode-editor-background, #1e1e1e);
-			padding: 8px;
-			flex-shrink: 0;
-		}
-		.quick-actions,
-		.chips {
-			display: flex;
-			flex-wrap: wrap;
-			gap: 6px;
-			margin-bottom: 6px;
-			min-height: 0;
-		}
-		.quick-actions button,
-		.chip,
-		.mention-btn {
-			background: var(--vscode-button-secondaryBackground, #3a3d41);
-			color: var(--vscode-button-secondaryForeground, #ffffff);
-			border: none;
-			border-radius: 4px;
-			padding: 3px 8px;
-			font-size: 11px;
-			cursor: pointer;
-		}
-		.quick-actions button:hover,
-		.mention-btn:hover { opacity: 0.9; }
-		.chip.on {
-			background: var(--vscode-list-activeSelectionBackground, #094771);
-			color: var(--vscode-list-activeSelectionForeground, #ffffff);
-		}
 		#mentionMenu {
 			background: var(--vscode-editorWidget-background, #252526);
 			border: 1px solid var(--vscode-widget-border, #454545);
@@ -189,51 +216,24 @@ export function buildChatPanelHtml(cspSource: string, nonce: string): string {
 			max-height: 140px;
 			overflow: auto;
 		}
-		textarea {
-			width: 100%;
-			min-height: 64px;
-			max-height: 160px;
-			resize: vertical;
-			box-sizing: border-box;
-			background: var(--vscode-input-background, #3c3c3c);
-			color: var(--vscode-input-foreground, #cccccc);
-			border: 1px solid var(--vscode-input-border, #3c3c3c);
-			border-radius: 6px;
-			padding: 8px;
-			font-family: var(--vscode-font-family, inherit);
-			font-size: var(--vscode-font-size, 13px);
-			line-height: 1.45;
-			outline: none;
+		.msg-assistant.streaming .princy-bubble { border: none; background: transparent; }
+		.cursor-blink::after {
+			animation: blink 1s step-end infinite;
+			color: var(--vscode-descriptionForeground, #9d9d9d);
+			content: '▋';
+			margin-left: 1px;
 		}
-		textarea::placeholder { color: var(--vscode-input-placeholderForeground, #9d9d9d); }
-		.send-row {
-			display: flex;
-			align-items: center;
-			justify-content: space-between;
-			margin-top: 6px;
-			gap: 8px;
-		}
-		.send-row .tools { display: flex; gap: 4px; }
-		.icon-btn {
+		@keyframes blink { 50% { opacity: 0; } }
+		.cmd-btn {
 			background: var(--vscode-button-secondaryBackground, #3a3d41);
 			color: var(--vscode-button-secondaryForeground, #ffffff);
 			border: none;
 			border-radius: 4px;
-			padding: 5px 10px;
+			cursor: pointer;
 			font-size: 11px;
-			cursor: pointer;
+			margin-top: 6px;
+			padding: 4px 10px;
 		}
-		.icon-btn:hover { opacity: 0.9; }
-		.send {
-			background: var(--vscode-button-background, #0e639c);
-			color: var(--vscode-button-foreground, #ffffff);
-			border: none;
-			border-radius: 4px;
-			padding: 5px 12px;
-			font-size: 12px;
-			cursor: pointer;
-		}
-		.send:hover { opacity: 0.92; }
 		.plan {
 			background: var(--vscode-editorWidget-background, #252526);
 			border: 1px solid var(--vscode-widget-border, #454545);
@@ -330,57 +330,52 @@ export function buildChatPanelHtml(cspSource: string, nonce: string): string {
 	</style>
 </head>
 <body>
-	<div class="chat-shell">
-		<header class="chat-header">
-			<span class="chat-title">Princy IA</span>
-			<div class="header-controls">
-				<select id="agent" class="agent-select" title="Modelo" aria-label="Modelo">
-					<option value="deepseek" selected>DeepSeek</option>
-					<option value="princy">Princy</option>
-					<option value="qwen">Qwen</option>
-					<option value="codellama">CodeLlama</option>
-					<option value="llama3">Llama 3.1</option>
-					<option value="mistral">Mistral</option>
-					<option value="openai">OpenAI</option>
-				</select>
-				<select id="segment" class="agent-select" title="Modo" aria-label="Modo">
-					<option value="">Auto</option>
-					<option value="LOGIC">Logic</option>
-					<option value="FRONTEND">UI</option>
-					<option value="BACKEND">API</option>
-					<option value="DEBUG">Debug</option>
-				</select>
-				<span class="backend-pill" id="backendDot" title="Agent backend">● offline</span>
+	<div class="princy-root">
+		<header class="princy-header">
+			<div class="princy-title">
+				<span class="princy-dot" id="backendDot" title="Agent backend"></span>
+				<span>Princy IA</span>
 			</div>
+			<select id="agent" class="princy-agent" title="Modelo" aria-label="Modelo">
+				<option value="auto" selected>Auto</option>
+				<option value="deepseek">DeepSeek</option>
+				<option value="princy">Princy IA</option>
+				<option value="qwen">Qwen</option>
+				<option value="codellama">CodeLlama</option>
+			</select>
+			<select id="segment" class="princy-agent" style="display:none" aria-hidden="true">
+				<option value="">Auto</option>
+			</select>
 		</header>
-		<div class="messages-scroll" id="scroll">
-			<div class="empty" id="empty">
-				<strong>Princy IA</strong>
-				<span class="engine-pill">DeepSeek · Ollama</span>
-				<p class="empty-hint">Pergunte sobre o código. Use @ para contexto ou Composer para mudanças multi-arquivo.</p>
+		<main class="princy-messages" id="scroll">
+			<div class="princy-empty" id="empty">
+				<div class="princy-logo">✦</div>
+				<h2>Como posso ajudar?</h2>
+				<p>Peça para explicar, corrigir ou criar código no projeto atual.</p>
 			</div>
-			<div class="messages" id="messages"></div>
-			<div class="thinking" id="thinking"></div>
-		</div>
-		<div class="status-bar" id="status"></div>
-		<footer class="chat-input-wrap">
+			<div id="messages"></div>
+			<div class="thinking" id="thinking" style="display:none"></div>
+		</main>
+		<footer class="princy-composer">
 			<div class="chips" id="contextBar"></div>
-			<div class="quick-actions">
-				<button type="button" id="qaWorkspace">@workspace</button>
+			<div class="princy-context-row">
+				<button type="button" data-chip="workspace" id="qaWorkspace">@workspace</button>
 				<button type="button" id="qaFix">/fix</button>
 				<button type="button" id="qaExplain">/explain</button>
+				<button type="button" id="composer">/composer</button>
 				<button type="button" class="mention-btn" data-insert="@file:">@file</button>
 				<button type="button" class="mention-btn" data-insert="@selection">@selection</button>
-				<button type="button" class="mention-btn" data-insert="@terminal">@terminal</button>
 			</div>
 			<div id="mentionMenu" style="display:none"></div>
-			<textarea id="input" rows="3" placeholder="Digite sua mensagem… (@file, @selection, Composer)"></textarea>
-			<div class="send-row">
-				<div class="tools">
-					<button class="icon-btn" id="index" type="button" title="Indexar workspace">Index</button>
-					<button class="icon-btn" id="composer" type="button" title="Composer multi-arquivo">Composer</button>
+			<div class="princy-input-box">
+				<textarea id="input" placeholder="Pergunte ao Princy IA…"></textarea>
+				<div class="princy-actions">
+					<span id="status" class="princy-status">Pronto</span>
+					<div class="princy-action-btns">
+						<button type="button" class="princy-secondary" id="index" title="Indexar workspace">Index</button>
+						<button type="button" class="princy-send" id="send">Enviar</button>
+					</div>
 				</div>
-				<button class="send" id="send" type="button" title="Enviar (Enter; Ctrl+Enter prioridade)">Enviar</button>
 			</div>
 		</footer>
 	</div>
@@ -445,6 +440,10 @@ function getChatPanelScript(): string {
 			if (empty) empty.style.display = 'none';
 		}
 
+		function setStatus(text) {
+			if (status) status.textContent = text || 'Pronto';
+		}
+
 		function postChatMessage(priority) {
 			const text = input.value.trim();
 			if (!text) return;
@@ -465,10 +464,11 @@ function getChatPanelScript(): string {
 		}
 
 		document.getElementById('send').addEventListener('click', () => postChatMessage('normal'));
-		document.getElementById('composer').addEventListener('click', () => {
+		document.getElementById('composer')?.addEventListener('click', () => {
 			const text = input.value.trim();
 			if (!text) { input.placeholder = 'Descreva mudança multi-arquivo…'; input.focus(); return; }
-			vscode.postMessage({ type: 'requestComposer', text, agent: agent.value });
+			const picked = agent.value === 'auto' ? 'deepseek' : agent.value;
+			vscode.postMessage({ type: 'requestComposer', text, agent: picked });
 			input.value = '';
 			autoResizeInput();
 		});
@@ -494,12 +494,11 @@ function getChatPanelScript(): string {
 				input.focus();
 			}
 			if (message.type === 'status' || message.type === 'intelligence_status') {
-				status.textContent = message.text || '';
+				setStatus(message.text || 'Pronto');
 			}
 			if (message.type === 'backendStatus' && backendDot) {
 				backendDot.classList.toggle('online', Boolean(message.online));
-				backendDot.textContent = message.online ? '● online' : '● offline';
-				backendDot.title = message.message || message.endpoint || 'Agent backend';
+				backendDot.title = (message.online ? 'Backend online' : 'Backend offline') + (message.endpoint ? ' — ' + message.endpoint : '');
 			}
 			if (message.type === 'defaultAgent' && message.agent && agent) {
 				agent.value = message.agent;
@@ -522,13 +521,13 @@ function getChatPanelScript(): string {
 			if (message.type === 'streamStart') {
 				hideEmpty();
 				streamingNode = document.createElement('div');
-				streamingNode.className = 'message assistant msg-assistant streaming';
-				const label = document.createElement('span');
-				label.className = 'label';
-				label.textContent = 'Princy Ai';
-				streamingBody = document.createElement('span');
-				streamingBody.className = 'body cursor-blink';
-				streamingNode.appendChild(label);
+				streamingNode.className = 'princy-message assistant msg-assistant streaming';
+				const header = document.createElement('div');
+				header.className = 'princy-message-header';
+				header.textContent = 'Princy IA';
+				streamingBody = document.createElement('div');
+				streamingBody.className = 'princy-bubble cursor-blink';
+				streamingNode.appendChild(header);
 				streamingNode.appendChild(streamingBody);
 				messages.appendChild(streamingNode);
 				scrollBottom();
@@ -541,11 +540,14 @@ function getChatPanelScript(): string {
 				if (streamingNode) {
 					const text = message.text || '';
 					streamingNode.replaceChildren();
-					const label = document.createElement('span');
-					label.className = 'label';
-					label.textContent = 'Princy Ai';
-					streamingNode.appendChild(label);
-					renderRichText(streamingNode, text);
+					const header = document.createElement('div');
+					header.className = 'princy-message-header';
+					header.textContent = 'Princy IA';
+					const bubble = document.createElement('div');
+					bubble.className = 'princy-bubble';
+					streamingNode.appendChild(header);
+					streamingNode.appendChild(bubble);
+					renderRichText(bubble, text);
 					if (message.suggestedCommands) {
 						for (const command of message.suggestedCommands) {
 							const button = document.createElement('button');
@@ -565,23 +567,30 @@ function getChatPanelScript(): string {
 		});
 
 		function appendUser(text) {
-			const wrap = document.createElement('div');
-			wrap.className = 'msg-user-wrap';
+			const item = document.createElement('div');
+			item.className = 'princy-message user';
+			const header = document.createElement('div');
+			header.className = 'princy-message-header';
+			header.textContent = 'Você';
 			const bubble = document.createElement('div');
-			bubble.className = 'message user';
+			bubble.className = 'princy-bubble';
 			bubble.textContent = text;
-			wrap.appendChild(bubble);
-			messages.appendChild(wrap);
+			item.appendChild(header);
+			item.appendChild(bubble);
+			messages.appendChild(item);
 		}
 
 		function appendAssistant(text, suggestedCommands) {
 			const item = document.createElement('div');
-			item.className = 'message assistant';
-			const label = document.createElement('span');
-			label.className = 'label';
-			label.textContent = 'Princy Ai';
-			item.appendChild(label);
-			renderRichText(item, text);
+			item.className = 'princy-message assistant';
+			const header = document.createElement('div');
+			header.className = 'princy-message-header';
+			header.textContent = 'Princy IA';
+			const bubble = document.createElement('div');
+			bubble.className = 'princy-bubble';
+			item.appendChild(header);
+			item.appendChild(bubble);
+			renderRichText(bubble, text);
 			if (suggestedCommands) {
 				for (const command of suggestedCommands) {
 					const button = document.createElement('button');
@@ -732,8 +741,13 @@ function getChatPanelScript(): string {
 		}
 
 		function renderThinking(steps) {
+			if (!thinking) return;
 			thinking.innerHTML = '';
-			if (!steps.length) return;
+			if (!steps.length) {
+				thinking.style.display = 'none';
+				return;
+			}
+			thinking.style.display = 'block';
 			for (const step of steps) {
 				const item = document.createElement('div');
 				item.className = 'step ' + step.state;

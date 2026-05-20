@@ -1,5 +1,28 @@
 # Corrigir chat no Code Web (3200) com backend OK na 3210
 
+## Service Worker / cache antigo
+
+Se o log mostrar `unexpected service worker version`:
+
+1. Abra `http://127.0.0.1:3200` → F12 → **Application**
+2. **Service Workers** → **Unregister**
+3. **Storage** → **Clear site data**
+4. Recarregue com **Ctrl+F5**
+
+O launcher usa `--user-data-dir C:\Apps\Editor\.princy-user-data` para evitar perfil quebrado.
+
+## Modo simples (backend)
+
+No `.env` do agent (`apps\ai-dashboard\.env`):
+
+```env
+PRINCY_SIMPLE_MODE=1
+PRINCY_RAG_ENABLED=0
+PRINCY_SHADOW_CONTEXT=0
+```
+
+Recompile: `npm run build:backend` e reinicie o agent.
+
 ## Erro CORS (o mais comum)
 
 Sintoma no console do browser:

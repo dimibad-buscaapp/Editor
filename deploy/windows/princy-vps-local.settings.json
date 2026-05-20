@@ -1,9 +1,13 @@
 {
 	"princyai.useSameOriginApi": true,
 	"princyai.agentEndpoint": "http://127.0.0.1:3200/princy-api",
+	"princyai.chat.simpleMode": true,
+	"princyai.workspaceIndex.onOpen": false,
 	"princyai.defaultAgent": "deepseek",
 	"princyai.ghostText.agent": "deepseek",
 	"princyai.apiToken": "",
 	"chat.disableAIFeatures": true,
+	"chat.agent.enabled": false,
+	"github.gitAuthentication": false,
 	"workbench.colorTheme": "Princy Black"
 }

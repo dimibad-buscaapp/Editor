@@ -43,7 +43,7 @@ function resolveSegment(body: AgentChatRequest): ModelSegment {
 
 function buildMessages(body: AgentChatRequest, chunks: Awaited<ReturnType<typeof retrieveAgentRelevantChunks>>): ChatMessage[] {
 	const selectedContext = body.selectedText ? `\n\nSelecao atual:\n${body.selectedText}` : '';
-	const silentContext = buildSilentContext(body.shadowContext, body.codeGraph);
+	const silentContext = config.shadowContext ? buildSilentContext(body.shadowContext, body.codeGraph) : '';
 	const contextLine = body.context ? `Contexto do projeto: ${body.context}\n\n` : '';
 	const attachmentsBlock = (body.contextAttachments ?? [])
 		.map(item => `\n\n### Contexto @${item.kind}: ${item.label}\n${item.content}`)
@@ -75,7 +75,7 @@ export async function generateAgentChatCore(
 }> {
 	const startedAt = Date.now();
 	const segment = resolveSegment(body);
-	const chunks = await retrieveAgentRelevantChunks(body.message);
+	const chunks = config.ragEnabled ? await retrieveAgentRelevantChunks(body.message) : [];
 	const messages = buildMessages(body, chunks);
 	const completion = await createChatCompletionDetailed(messages, body.agent, {
 		segment,
@@ -92,6 +92,22 @@ export async function generateAgentChatCore(
 
 export async function handleAgentChat(body: AgentChatRequest, plan?: readonly string[]): Promise<AgentChatResponse> {
 	const segment = resolveSegment(body);
+
+	if (config.simpleMode) {
+		const { startedAt, completion } = await generateAgentChatCore(body);
+		return {
+			...buildAgentChatResponse({
+				completion,
+				executionTimeMs: Date.now() - startedAt,
+				segment,
+				vpsCompileStatus: 'SKIPPED',
+				phase: 'completed',
+				suggestedCommands: extractCommands(completion.content)
+			}),
+			jobStatus: 'COMPLETED'
+		};
+	}
+
 	let executionPlan = plan;
 	if (!executionPlan && isHighComplexity(body.message)) {
 		executionPlan = await generateExecutionPlan({

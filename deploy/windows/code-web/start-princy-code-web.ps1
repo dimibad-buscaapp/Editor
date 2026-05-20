@@ -3,6 +3,7 @@ param(
 	[string]$WorkspacePath = "C:\Apps\Editor\workspaces\default",
 	[string]$HostName = "127.0.0.1",
 	[int]$Port = 3200,
+	[string]$UserDataDir = "",
 	[switch]$Rebuild
 )
 
@@ -102,19 +103,28 @@ Write-Host "Workbench UI: $workbenchDevHtml"
 Write-Host "Open the URL printed below as 'Web UI available at ...' (full VS Code in the browser)."
 
 # Copilot, GitHub PR and auth extensions slow boot and are unused (Princy webview chat only).
+if (-not $UserDataDir) {
+	$UserDataDir = Join-Path $ProjectRoot ".princy-user-data"
+}
+New-Item -ItemType Directory -Force $UserDataDir | Out-Null
+
 $disabledExtensions = @(
 	'GitHub.copilot',
 	'GitHub.copilot-chat',
 	'GitHub.vscode-pull-request-github',
 	'vscode.github-authentication',
-	'vscode.microsoft-authentication'
+	'vscode.microsoft-authentication',
+	'vscode.vscode-api-tests'
 )
 $extensionArgs = foreach ($ext in $disabledExtensions) { '--disable-extension'; $ext }
 Write-Host "Disabled extensions: $($disabledExtensions -join ', ')"
+Write-Host "User data dir: $UserDataDir"
 
 & $scriptPath @(
 	$WorkspacePath
 	'--host', $HostName
 	'--port', $Port
 	'--without-connection-token'
+	'--disable-workspace-trust'
+	'--user-data-dir', $UserDataDir
 ) + $extensionArgs

@@ -275,7 +275,7 @@ export class AgentClient {
 	}
 
 	public async chat(request: ChatRequest): Promise<ChatResponse> {
-		if (request.async !== false) {
+		if (request.async === true) {
 			const started = await this.startAgentJob(request);
 			return this.waitForAgentJob(started.jobId);
 		}

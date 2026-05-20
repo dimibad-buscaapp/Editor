@@ -4,6 +4,16 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+function envFlag(name: string, defaultValue: boolean): boolean {
+	const raw = process.env[name];
+	if (raw === undefined || raw === '') {
+		return defaultValue;
+	}
+	return raw === '1' || raw.toLowerCase() === 'true';
+}
+
+const simpleMode = envFlag('PRINCY_SIMPLE_MODE', false);
+
 export const config = {
 	appOrigin: process.env.APP_ORIGIN ?? 'http://127.0.0.1:3200',
 	apiHost: process.env.API_HOST ?? '0.0.0.0',
@@ -22,16 +32,22 @@ export const config = {
 	deepseekApiKey: process.env.DEEPSEEK_API_KEY ?? '',
 	deepseekBaseUrl: process.env.DEEPSEEK_BASE_URL ?? 'https://api.deepseek.com',
 	huggingfaceApiKey: process.env.HUGGINGFACE_API_KEY ?? '',
-	orchestratorEnabled: (process.env.PRINCY_ORCHESTRATOR_ENABLED ?? 'true').toLowerCase() !== 'false',
-	orchestratorConsensusEnabled: (process.env.PRINCY_ORCHESTRATOR_CONSENSUS ?? 'true').toLowerCase() !== 'false',
-	orchestratorAutoHeal: (process.env.PRINCY_ORCHESTRATOR_AUTO_HEAL ?? 'true').toLowerCase() !== 'false',
-	autoCompileValidate: (process.env.PRINCY_AUTO_COMPILE_VALIDATE ?? 'true').toLowerCase() !== 'false',
+	simpleMode,
+	ragEnabled: envFlag('PRINCY_RAG_ENABLED', !simpleMode),
+	terminalContext: envFlag('PRINCY_TERMINAL_CONTEXT', !simpleMode),
+	autoDiff: envFlag('PRINCY_AUTO_DIFF', !simpleMode),
+	requireApproval: envFlag('PRINCY_REQUIRE_APPROVAL', !simpleMode),
+	shadowContext: envFlag('PRINCY_SHADOW_CONTEXT', !simpleMode),
+	orchestratorEnabled: simpleMode ? false : (process.env.PRINCY_ORCHESTRATOR_ENABLED ?? 'true').toLowerCase() !== 'false',
+	orchestratorConsensusEnabled: simpleMode ? false : (process.env.PRINCY_ORCHESTRATOR_CONSENSUS ?? 'true').toLowerCase() !== 'false',
+	orchestratorAutoHeal: simpleMode ? false : (process.env.PRINCY_ORCHESTRATOR_AUTO_HEAL ?? 'true').toLowerCase() !== 'false',
+	autoCompileValidate: simpleMode ? false : (process.env.PRINCY_AUTO_COMPILE_VALIDATE ?? 'true').toLowerCase() !== 'false',
 	codeWebUrl: process.env.CODE_WEB_URL ?? 'http://127.0.0.1:3200',
 	editorProjectRoot: path.resolve(process.env.EDITOR_PROJECT_ROOT ?? 'C:/Apps/Editor'),
-	projectRagIndexingEnabled: (process.env.PRINCY_PROJECT_RAG_INDEXING ?? 'true').toLowerCase() !== 'false',
+	projectRagIndexingEnabled: simpleMode ? false : (process.env.PRINCY_PROJECT_RAG_INDEXING ?? 'true').toLowerCase() !== 'false',
 	projectRagMaxFiles: Number(process.env.PRINCY_PROJECT_RAG_MAX_FILES ?? '120'),
 	agentTestDrivenEnabled: (process.env.PRINCY_AGENT_TDA_ENABLED ?? 'true').toLowerCase() !== 'false',
-	agentAsyncJobsEnabled: (process.env.PRINCY_AGENT_ASYNC_JOBS ?? 'true').toLowerCase() !== 'false',
+	agentAsyncJobsEnabled: simpleMode ? false : (process.env.PRINCY_AGENT_ASYNC_JOBS ?? 'true').toLowerCase() !== 'false',
 	agentStreamTokens: (process.env.PRINCY_AGENT_STREAM_TOKENS ?? 'true').toLowerCase() !== 'false',
 	agentApiToken: process.env.AGENT_API_TOKEN ?? '',
 	agentWorkspaceName: process.env.AGENT_WORKSPACE_NAME ?? 'Code-OSS Web',

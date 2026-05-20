@@ -57,6 +57,11 @@ async function runAgentJobPipeline(jobId: string): Promise<void> {
 	updateJob(jobId, { state: 'THINKING', segment });
 	appendThinking(jobId, `Segmento: ${segment}`);
 
+	if (config.simpleMode) {
+		await runSimpleAgentJob(jobId, job, segment);
+		return;
+	}
+
 	if (config.projectRagIndexingEnabled) {
 		appendThinking(jobId, 'Indexando arquivos do projeto para memoria RAG...');
 		const indexedFiles = await indexEditorProject(config.projectRagMaxFiles);
@@ -172,6 +177,36 @@ async function runAgentJobPipeline(jobId: string): Promise<void> {
 		}
 	});
 	appendThinking(jobId, 'Job concluido com sucesso.');
+}
+
+async function runSimpleAgentJob(jobId: string, job: AgentJobRecord, segment: ModelSegment): Promise<void> {
+	updateJob(jobId, { state: 'GENERATING' });
+	appendThinking(jobId, 'Gerando resposta...');
+	const streamTokens = config.agentStreamTokens;
+	const { startedAt, segment: usedSegment, completion } = await generateAgentChatCore(
+		job.request,
+		streamTokens
+			? fullText => updateJob(jobId, { content: fullText })
+			: undefined
+	);
+	const response = buildAgentChatResponse({
+		completion,
+		executionTimeMs: Date.now() - startedAt,
+		segment: usedSegment,
+		vpsCompileStatus: 'SKIPPED',
+		phase: 'completed',
+		suggestedCommands: []
+	});
+	updateJob(jobId, {
+		state: 'SUCCESS',
+		status: 'COMPLETED',
+		content: response.content,
+		response: {
+			...response,
+			intelligence_status: formatIntelligenceStatus(response.metadata)
+		}
+	});
+	appendThinking(jobId, 'Resposta pronta.');
 }
 
 async function runHeal(

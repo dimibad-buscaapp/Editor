@@ -15,7 +15,7 @@ import { loadPrincyRules } from './princyRules';
 type ModelSegment = 'LOGIC' | 'FRONTEND' | 'BACKEND' | 'DEBUG';
 
 type WebviewMessage =
-	| { readonly type: 'sendMessage'; readonly text: string; readonly agent: AgentModel; readonly segmentMode?: ModelSegment; readonly priority?: 'normal' | 'high' }
+	| { readonly type: 'sendMessage'; readonly text: string; readonly agent: AgentModel | 'auto'; readonly segmentMode?: ModelSegment; readonly priority?: 'normal' | 'high' }
 	| { readonly type: 'requestComposer'; readonly text: string; readonly agent: AgentModel }
 	| { readonly type: 'applyComposerPlan'; readonly instruction: string; readonly agent: AgentModel; readonly plan: ComposerPlan; readonly operationIds: readonly string[] }
 	| { readonly type: 'insertCode'; readonly code: string }
@@ -64,7 +64,6 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 		webviewView.webview.html = this.getHtml(webviewView.webview);
 		webviewView.webview.onDidReceiveMessage(message => this.handleMessage(message as WebviewMessage));
 		void this.initializeChatPanel();
-		this.pushEditorContext();
 		vscode.window.onDidChangeActiveTextEditor(() => this.pushEditorContext());
 		vscode.window.onDidChangeTextEditorSelection(() => this.pushEditorContext());
 	}
@@ -177,31 +176,49 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 	private async initializeChatPanel(): Promise<void> {
 		const defaultAgent = vscode.workspace.getConfiguration('princyai').get<AgentModel>('defaultAgent', 'deepseek');
 		this.view?.webview.postMessage({ type: 'defaultAgent', agent: defaultAgent });
-
-		await this.client.resolveEndpoint();
-		const endpoint = this.client.getAgentEndpoint();
-		const status = await checkAgentBackend(this.client);
-		this.view?.webview.postMessage({
-			type: 'backendStatus',
-			online: status.online,
-			message: status.message,
-			endpoint
-		});
+		this.view?.webview.postMessage({ type: 'status', text: 'Pronto' });
 
 		try {
 			const models = await this.client.models();
 			this.view?.webview.postMessage({ type: 'agents', models });
-			if (status.online) {
-				this.view?.webview.postMessage({ type: 'status', text: '' });
-			}
-		} catch (error) {
-			const hint = formatConnectivityError(endpoint, error);
-			this.view?.webview.postMessage({
-				type: 'status',
-				text: `API offline — inicie o agent backend na porta 3210 e reinicie o editor. ${hint}`
-			});
+		} catch {
 			this.view?.webview.postMessage({ type: 'agents', models: defaultAgents });
 		}
+
+		void this.refreshBackendStatusLazy();
+	}
+
+	private async refreshBackendStatusLazy(): Promise<void> {
+		try {
+			await this.client.resolveEndpoint();
+			const endpoint = this.client.getAgentEndpoint();
+			const status = await checkAgentBackend(this.client);
+			this.view?.webview.postMessage({
+				type: 'backendStatus',
+				online: status.online,
+				message: status.message,
+				endpoint
+			});
+			if (!status.online) {
+				this.view?.webview.postMessage({
+					type: 'status',
+					text: 'Backend offline — inicie o agent na porta 3210'
+				});
+			}
+		} catch {
+			// ignore — user can still type; send will show error
+		}
+	}
+
+	private resolveAgentChoice(agent: AgentModel | 'auto'): AgentModel {
+		if (agent === 'auto') {
+			return vscode.workspace.getConfiguration('princyai').get<AgentModel>('defaultAgent', 'deepseek');
+		}
+		return agent;
+	}
+
+	private isSimpleChatMode(): boolean {
+		return vscode.workspace.getConfiguration('princyai').get<boolean>('chat.simpleMode', true);
 	}
 
 	private async requestComposerPlan(text: string, agent: AgentModel): Promise<void> {
@@ -210,12 +227,8 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 		}
 
 		this.view?.webview.postMessage({ type: 'append', role: 'user', text: `Composer: ${text}` });
-		this.view?.webview.postMessage({ type: 'thinking', steps: [
-			{ label: 'Analisando arquivos...', state: 'done' },
-			{ label: 'Lendo contexto do terminal...', state: 'active' },
-			{ label: 'Gerando diff de alteracao...', state: 'pending' },
-			{ label: 'Aguardando aprovacao...', state: 'pending' }
-		] });
+		this.view?.webview.postMessage({ type: 'status', text: 'Gerando plano…' });
+		this.view?.webview.postMessage({ type: 'thinking', steps: [] });
 		try {
 			const nativeContext = await this.collectNativeContext();
 			const { cleanMessage, attachments } = await resolveContextMentions(text, nativeContext.shadowContext);
@@ -278,28 +291,30 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 		}
 	}
 
-	private async sendChatMessage(text: string, agent: AgentModel, forceSegment?: ModelSegment, priority: 'normal' | 'high' = 'normal'): Promise<void> {
+	private async sendChatMessage(text: string, agent: AgentModel | 'auto', forceSegment?: ModelSegment, priority: 'normal' | 'high' = 'normal'): Promise<void> {
 		if (!text.trim()) {
 			return;
 		}
 
+		const resolvedAgent = this.resolveAgentChoice(agent);
 		const editor = vscode.window.activeTextEditor;
 		const selectedText = editor && !editor.selection.isEmpty ? editor.document.getText(editor.selection) : undefined;
 		const workspaceContext = vscode.workspace.workspaceFolders?.[0]?.name;
-		const processingSegment = forceSegment ?? 'BACKEND';
+		const simple = this.isSimpleChatMode();
 
 		this.view?.webview.postMessage({ type: 'append', role: 'user', text });
 		this.pushEditorContext();
 		this.view?.webview.postMessage({ type: 'streamStart' });
-		this.view?.webview.postMessage({
-			type: 'intelligence_status',
-			text: `Processando (${processingSegment})…`
-		});
-		this.view?.webview.postMessage({ type: 'thinking', steps: [
-			{ label: 'Coletando Shadow Context...', state: 'done' },
-			{ label: 'THINKING: plano e RAG...', state: 'active' },
-			{ label: 'GENERATING / COMPILING / TESTING...', state: 'pending' }
-		] });
+		this.view?.webview.postMessage({ type: 'status', text: 'Gerando…' });
+		if (!simple) {
+			this.view?.webview.postMessage({ type: 'thinking', steps: [
+				{ label: 'Coletando Shadow Context...', state: 'done' },
+				{ label: 'THINKING: plano e RAG...', state: 'active' },
+				{ label: 'GENERATING / COMPILING / TESTING...', state: 'pending' }
+			] });
+		} else {
+			this.view?.webview.postMessage({ type: 'thinking', steps: [] });
+		}
 
 		const backend = await checkAgentBackend(this.client);
 		if (!backend.online) {
@@ -309,42 +324,72 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 				role: 'assistant',
 				text: backend.message
 			});
-			this.view?.webview.postMessage({
-				type: 'intelligence_status',
-				text: '[Princy IA] Backend offline — veja a mensagem acima.'
-			});
+			this.view?.webview.postMessage({ type: 'status', text: 'Backend offline' });
 			this.view?.webview.postMessage({ type: 'backendStatus', online: false, message: backend.message, endpoint: backend.endpoint });
 			return;
 		}
 
 		try {
-			const nativeContext = await this.collectNativeContext();
-			const { cleanMessage, attachments } = await resolveContextMentions(text, nativeContext.shadowContext);
-			const rulesText = await loadPrincyRules();
+			let cleanMessage = text;
+			let attachments: Awaited<ReturnType<typeof resolveContextMentions>>['attachments'] = [];
+			let rulesText: string | undefined;
+			let shadowContext: import('./agentClient').ShadowContext | undefined;
+			let codeGraph: import('./agentClient').CodeGraphContext | undefined;
+
+			if (simple) {
+				const mentionResult = await resolveContextMentions(text, {});
+				cleanMessage = mentionResult.cleanMessage || text;
+				attachments = mentionResult.attachments;
+			} else {
+				const nativeContext = await this.collectNativeContext();
+				const mentionResult = await resolveContextMentions(text, nativeContext.shadowContext);
+				cleanMessage = mentionResult.cleanMessage || text;
+				attachments = mentionResult.attachments;
+				rulesText = await loadPrincyRules();
+				shadowContext = nativeContext.shadowContext;
+				codeGraph = nativeContext.codeGraph;
+			}
+
+			if (simple) {
+				const response = await this.client.chat({
+					agent: resolvedAgent,
+					message: cleanMessage,
+					context: workspaceContext,
+					async: false,
+					force_segment: forceSegment,
+					priority,
+					filePath: editor?.document.uri.toString(),
+					selectedText,
+					contextAttachments: attachments,
+					shadowContext,
+					codeGraph
+				});
+				this.view?.webview.postMessage({
+					type: 'streamEnd',
+					text: response.content ?? response.message ?? '',
+					suggestedCommands: response.suggestedCommands ?? []
+				});
+				this.view?.webview.postMessage({ type: 'status', text: 'Pronto' });
+				return;
+			}
+
 			const started = await this.client.startAgentJob({
-				agent,
-				message: cleanMessage || text,
+				agent: resolvedAgent,
+				message: cleanMessage,
 				context: workspaceContext,
 				force_segment: forceSegment,
 				priority,
 				trigger_compile: priority === 'high',
 				filePath: editor?.document.uri.toString(),
 				selectedText,
-				shadowContext: nativeContext.shadowContext,
-				codeGraph: nativeContext.codeGraph,
+				shadowContext,
+				codeGraph,
 				contextAttachments: attachments,
 				rulesText: rulesText || undefined
 			});
 
 			if (!started.jobId?.trim()) {
 				throw new Error('Backend nao retornou jobId. Atualize o agent backend no VPS (git pull + npm run build:backend).');
-			}
-
-			if (started.plan?.length) {
-				this.view?.webview.postMessage({
-					type: 'intelligence_status',
-					text: `[Princy IA] Plano: ${started.plan.join(' → ')}`
-				});
 			}
 
 			const response = await this.pollAgentJob(started.jobId);
@@ -356,15 +401,7 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 				text: planBlock + (response.content ?? response.message),
 				suggestedCommands: response.suggestedCommands ?? []
 			});
-			this.view?.webview.postMessage({ type: 'thinking', steps: [
-				{ label: 'Coletando Shadow Context...', state: 'done' },
-				{ label: 'Orquestrando motores por segmento...', state: 'done' },
-				{ label: 'Validando compilacao VPS...', state: 'done' }
-			] });
-			this.view?.webview.postMessage({
-				type: 'intelligence_status',
-				text: response.intelligence_status ?? this.formatMetadataStatus(response.metadata)
-			});
+			this.view?.webview.postMessage({ type: 'status', text: 'Pronto' });
 			if (response.metadata?.compile_job_id) {
 				this.pollCompileJob(response.metadata.compile_job_id);
 			}
@@ -377,10 +414,10 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 			});
 			const errText = error instanceof Error ? error.message : 'Erro desconhecido';
 			this.view?.webview.postMessage({
-				type: 'intelligence_status',
+				type: 'status',
 				text: errText.includes('Failed to fetch') || errText.includes('inacessivel')
-					? '[Princy IA] Falha de rede — confira se o agent backend (porta 3210) esta rodando.'
-					: `[Princy IA] Falha: ${errText.slice(0, 200)}${errText.length > 200 ? '…' : ''}`
+					? 'Falha de rede — agent backend (3210)?'
+					: `Erro: ${errText.slice(0, 120)}${errText.length > 120 ? '…' : ''}`
 			});
 		}
 	}
