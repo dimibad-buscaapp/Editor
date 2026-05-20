@@ -27,7 +27,8 @@ type WebviewMessage =
 	| { readonly type: 'mentionQuery'; readonly query: string }
 	| { readonly type: 'indexWorkspace' }
 	| { readonly type: 'quickFix' }
-	| { readonly type: 'quickExplain' };
+	| { readonly type: 'quickExplain' }
+	| { readonly type: 'bootError' };
 
 type ApplyComposerPlan = (
 	plan: ComposerPlan,
@@ -62,8 +63,14 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 			enableScripts: true,
 			localResourceRoots: [this.extensionUri]
 		};
-		webviewView.webview.html = this.getHtml(webviewView.webview);
+		this.reloadWebviewHtml(webviewView.webview);
 		webviewView.webview.onDidReceiveMessage(message => this.handleMessage(message as WebviewMessage));
+		webviewView.onDidChangeVisibility(() => {
+			if (webviewView.visible) {
+				void this.initializeChatPanel();
+				webviewView.webview.postMessage({ type: 'reloadPanel' });
+			}
+		});
 		void this.initializeChatPanel();
 		vscode.window.onDidChangeActiveTextEditor(() => this.pushEditorContext());
 		vscode.window.onDidChangeTextEditorSelection(() => this.pushEditorContext());
@@ -129,7 +136,17 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 			case 'quickExplain':
 				await this.sendQuickExplain();
 				break;
+			case 'bootError':
+				if (this.view) {
+					this.reloadWebviewHtml(this.view.webview);
+					void this.initializeChatPanel();
+				}
+				break;
 		}
+	}
+
+	private reloadWebviewHtml(webview: vscode.Webview): void {
+		webview.html = this.getHtml(webview);
 	}
 
 	private async sendQuickFix(): Promise<void> {

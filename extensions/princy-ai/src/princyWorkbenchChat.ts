@@ -33,6 +33,7 @@ async function applyPrincyDefaultChat(): Promise<void> {
 
 	const chat = vscode.workspace.getConfiguration('chat');
 	await chat.update('disableAIFeatures', true, target);
+	await chat.update('agentsControl.enabled', 'hidden', target);
 	await chat.update('agent.enabled', false, target);
 	await chat.update('viewSessions.enabled', false, target);
 	await chat.update('unifiedAgentsBar.enabled', false, target);

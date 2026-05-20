@@ -72,7 +72,8 @@ export function activate(context: vscode.ExtensionContext): void {
 		shadowContext,
 		vscode.window.registerWebviewViewProvider(PrincyChatViewProvider.viewType, provider, {
 			webviewOptions: {
-				retainContextWhenHidden: true
+				// false = evita DOM/JS antigo após compile-web (ids do painel mudaram)
+				retainContextWhenHidden: false
 			}
 		})
 	);

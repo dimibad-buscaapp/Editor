@@ -148,6 +148,8 @@ export function buildChatPanelHtml(cspSource: string, nonce: string): string {
 			padding: 8px 12px 12px;
 			background: var(--vscode-sideBar-background, #252526);
 			border-top: 1px solid var(--vscode-panel-border, #3c3c3c);
+			position: relative;
+			z-index: 2;
 		}
 		.chat-context-chips {
 			display: flex;
@@ -213,6 +215,7 @@ export function buildChatPanelHtml(cspSource: string, nonce: string): string {
 			background: var(--vscode-list-hoverBackground, #2a2d2e);
 		}
 		.chat-input-container {
+			position: relative;
 			border: 1px solid var(--vscode-input-border, #3c3c3c);
 			border-radius: 8px;
 			background: var(--vscode-input-background, #3c3c3c);
@@ -266,6 +269,17 @@ export function buildChatPanelHtml(cspSource: string, nonce: string): string {
 			clip: rect(0, 0, 0, 0);
 			white-space: nowrap;
 			border: 0;
+			pointer-events: none;
+		}
+		#princy-boot-error {
+			margin: 8px 12px;
+			padding: 10px 12px;
+			border-radius: 6px;
+			font-size: 12px;
+			line-height: 1.45;
+			color: var(--vscode-errorForeground, #f48771);
+			background: var(--vscode-inputValidation-errorBackground, #5a1d1d);
+			border: 1px solid var(--vscode-inputValidation-errorBorder, #be1100);
 		}
 		.chat-model-select {
 			height: 24px;
@@ -492,9 +506,10 @@ export function buildChatPanelHtml(cspSource: string, nonce: string): string {
 
 function getChatPanelScript(): string {
 	return `
+	(function bootPrincyChat() {
 		const vscode = acquireVsCodeApi();
-		const input = document.getElementById('princy-chat-input');
-		const agent = document.getElementById('princy-agent-select');
+		const input = document.getElementById('princy-chat-input') || document.getElementById('input');
+		const agent = document.getElementById('princy-agent-select') || document.getElementById('agent');
 		const segment = document.getElementById('segment');
 		const messages = document.getElementById('messages');
 		const scroll = document.getElementById('scroll');
@@ -507,6 +522,19 @@ function getChatPanelScript(): string {
 		const sendBtn = document.getElementById('send');
 		let streamingNode = null;
 		let streamingBody = null;
+
+		if (!input) {
+			const banner = document.createElement('div');
+			banner.id = 'princy-boot-error';
+			banner.textContent = 'Painel Princy IA desatualizado (cache). Feche e reabra o painel ou execute: Developer: Reload Window.';
+			document.querySelector('.chat-composer')?.prepend(banner) || document.body.prepend(banner);
+			vscode.postMessage({ type: 'bootError' });
+			return;
+		}
+
+		input.removeAttribute('readonly');
+		input.removeAttribute('disabled');
+		setTimeout(() => input.focus(), 50);
 
 		function insertAtInput(text) {
 			input.value = (input.value + (input.value.endsWith(' ') || !input.value ? '' : ' ') + text).trimStart();
@@ -554,8 +582,8 @@ function getChatPanelScript(): string {
 			vscode.postMessage({
 				type: 'sendMessage',
 				text,
-				agent: agent.value,
-				segmentMode: segment.value || undefined,
+				agent: agent?.value || 'auto',
+				segmentMode: segment?.value || undefined,
 				priority: priority || 'normal'
 			});
 			input.value = '';
@@ -575,7 +603,7 @@ function getChatPanelScript(): string {
 				input.focus();
 				return;
 			}
-			const picked = agent.value === 'auto' ? 'deepseek' : agent.value;
+			const picked = !agent || agent.value === 'auto' ? 'deepseek' : agent.value;
 			vscode.postMessage({ type: 'requestComposer', text, agent: picked });
 			input.value = '';
 			autoResizeInput();
@@ -612,6 +640,11 @@ function getChatPanelScript(): string {
 				if (Array.from(agent.options).some(o => o.value === message.agent)) {
 					agent.value = message.agent;
 				}
+			}
+			if (message.type === 'reloadPanel') {
+				input.removeAttribute('readonly');
+				input.removeAttribute('disabled');
+				input.focus();
 			}
 			if (message.type === 'agents') renderAgents(message.models || []);
 			if (message.type === 'thinking') renderThinking(message.steps || []);
@@ -740,6 +773,7 @@ function getChatPanelScript(): string {
 		}
 
 		function renderAgents(models) {
+			if (!agent) return;
 			const selected = agent.value || 'auto';
 			const autoOpt = agent.querySelector('option[value="auto"]');
 			agent.innerHTML = '';
@@ -900,5 +934,6 @@ function getChatPanelScript(): string {
 			line.textContent = text;
 			container.appendChild(line);
 		}
+	})();
 	`;
 }

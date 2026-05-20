@@ -32,6 +32,32 @@ git commit -m "sua mensagem"
 
 Resolucao manual (alternativa): abra `server.ts`, remova `<<<<<<<` / `=======` / `>>>>>>>`, mantenha a versao com `corsPolicy`, `git add`, commit com variaveis acima, `git pull`.
 
+## Nao da para digitar no chat / busca do VS Code
+
+Causas comuns:
+
+1. **Webview com cache antigo** — script procura `#princy-chat-input` mas o HTML em cache ainda tem `#input` → JS quebra e nada responde.
+2. **Barra de busca (Command Center)** — modo `compact` do chat nativo pode confundir a UI; use `"chat.agentsControl.enabled": "hidden"` nos settings.
+
+No VPS apos `git pull` e `npm run compile-web`:
+
+```powershell
+# Limpar cache do browser + perfil Princy
+Stop-Process -Name node -Force -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force C:\Apps\Editor\.princy-user-data\Cache -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force "C:\Apps\Editor\.princy-user-data\Service Worker" -ErrorAction SilentlyContinue
+
+Copy-Item C:\Apps\Editor\deploy\windows\princy-vps-local.settings.json "$env:APPDATA\Princy Ai\User\settings.json" -Force
+
+powershell -ExecutionPolicy Bypass -File C:\Apps\Editor\deploy\windows\code-web\start-princy-code-web.ps1
+```
+
+No browser: F12 → Application → Unregister Service Workers → Clear site data → **Ctrl+F5**.
+
+No editor: **Ctrl+Shift+P** → `Developer: Reload Window`. Reabra o painel **Princy IA**.
+
+Se aparecer banner vermelho no chat, o painel recarrega sozinho; se persistir, confirme `extensions\princy-ai\dist\browser\extension.js` com data recente.
+
 ## Service Worker / cache antigo
 
 Se o log mostrar `unexpected service worker version` (Found: 4, Expected: 5) no webview do **princy-ai**:
