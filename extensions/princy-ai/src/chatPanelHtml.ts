@@ -256,6 +256,17 @@ export function buildChatPanelHtml(cspSource: string, nonce: string): string {
 			min-width: 0;
 			flex: 1;
 		}
+		.chat-sr-only {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			padding: 0;
+			margin: -1px;
+			overflow: hidden;
+			clip: rect(0, 0, 0, 0);
+			white-space: nowrap;
+			border: 0;
+		}
 		.chat-model-select {
 			height: 24px;
 			max-width: 130px;
@@ -448,11 +459,13 @@ export function buildChatPanelHtml(cspSource: string, nonce: string): string {
 			</div>
 			<div id="mentionMenu"></div>
 			<div class="chat-input-container">
-				<textarea id="input" rows="1" placeholder="Pergunte ao Princy IA… (Enter para enviar, Shift+Enter nova linha)"></textarea>
+				<label class="chat-sr-only" for="princy-chat-input">Mensagem</label>
+				<textarea id="princy-chat-input" rows="1" placeholder="Pergunte ao Princy IA… (Enter para enviar, Shift+Enter nova linha)"></textarea>
 				<div class="chat-input-toolbar">
 					<div class="chat-toolbar-left">
 						<span class="chat-backend-dot" id="backendDot" title="Agent backend"></span>
-						<select id="agent" class="chat-model-select" title="Modelo" aria-label="Modelo">
+						<label class="chat-sr-only" for="princy-agent-select">Modelo</label>
+						<select id="princy-agent-select" class="chat-model-select" title="Modelo">
 							<option value="auto" selected>Auto</option>
 							<option value="deepseek">DeepSeek</option>
 							<option value="princy">Princy IA</option>
@@ -480,8 +493,8 @@ export function buildChatPanelHtml(cspSource: string, nonce: string): string {
 function getChatPanelScript(): string {
 	return `
 		const vscode = acquireVsCodeApi();
-		const input = document.getElementById('input');
-		const agent = document.getElementById('agent');
+		const input = document.getElementById('princy-chat-input');
+		const agent = document.getElementById('princy-agent-select');
 		const segment = document.getElementById('segment');
 		const messages = document.getElementById('messages');
 		const scroll = document.getElementById('scroll');
@@ -777,19 +790,23 @@ function getChatPanelScript(): string {
 				w.textContent = warning;
 				wrapper.appendChild(w);
 			}
-			for (const operation of plan.operations || []) {
+			for (let opIndex = 0; opIndex < (plan.operations || []).length; opIndex++) {
+				const operation = plan.operations[opIndex];
 				const block = document.createElement('div');
 				block.className = 'operation';
-				const row = document.createElement('label');
-				row.className = 'operation-row';
+				const fieldId = 'princy-op-' + opIndex + '-' + String(operation.id || 'op').replace(/[^a-zA-Z0-9_-]/g, '_');
 				const checkbox = document.createElement('input');
 				checkbox.type = 'checkbox';
+				checkbox.id = fieldId;
 				checkbox.checked = true;
 				checkbox.value = operation.id;
+				const row = document.createElement('label');
+				row.className = 'operation-row';
+				row.htmlFor = fieldId;
 				const text = document.createElement('span');
 				text.textContent = operation.type + ' · ' + (operation.filePath || operation.command);
-				row.append(checkbox, text);
-				block.appendChild(row);
+				row.appendChild(text);
+				block.append(checkbox, row);
 				const diff = renderOperationPreview(operation);
 				if (diff) block.appendChild(diff);
 				wrapper.appendChild(block);
