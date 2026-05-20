@@ -10,374 +10,465 @@ export function buildChatPanelHtml(cspSource: string, nonce: string): string {
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
-	<title>Princy Ai</title>
+	<title>Princy IA</title>
 	<style>
 		* { box-sizing: border-box; margin: 0; padding: 0; }
 		body {
-			margin: 0;
-			padding: 0;
 			overflow: hidden;
 			color: var(--vscode-foreground, #cccccc);
-			background: var(--vscode-editor-background, #1e1e1e);
+			background: var(--vscode-sideBar-background, #252526);
 			font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif);
 			font-size: var(--vscode-font-size, 13px);
+			line-height: 1.5;
 		}
-		.princy-root {
+		.chat-panel {
 			height: 100vh;
 			display: flex;
 			flex-direction: column;
-			background: var(--vscode-editor-background, #1e1e1e);
-		}
-		.princy-header {
-			height: 42px;
-			flex: 0 0 auto;
-			padding: 0 12px;
-			display: flex;
-			align-items: center;
-			justify-content: space-between;
-			border-bottom: 1px solid var(--vscode-panel-border, #3c3c3c);
 			background: var(--vscode-sideBar-background, #252526);
 		}
-		.princy-title {
-			display: flex;
-			align-items: center;
-			gap: 8px;
-			font-weight: 600;
-		}
-		.princy-dot {
-			width: 8px;
-			height: 8px;
-			border-radius: 999px;
-			background: var(--vscode-errorForeground, #f48771);
-			flex-shrink: 0;
-		}
-		.princy-dot.online {
-			background: var(--vscode-testing-iconPassed, #73c991);
-			box-shadow: 0 0 8px var(--vscode-testing-iconPassed, #73c991);
-		}
-		.princy-agent {
-			max-width: 140px;
-			height: 26px;
-			background: var(--vscode-dropdown-background, #3c3c3c);
-			color: var(--vscode-dropdown-foreground, #cccccc);
-			border: 1px solid var(--vscode-dropdown-border, #3c3c3c);
-			border-radius: 4px;
-			padding: 2px 8px;
-			outline: none;
-			font-size: 11px;
-		}
-		.princy-messages {
+		.chat-scroll {
 			flex: 1;
 			overflow-y: auto;
-			padding: 16px 14px;
+			overflow-x: hidden;
+			padding: 12px 16px 8px;
 		}
-		.princy-empty {
-			min-height: 220px;
+		.chat-welcome {
+			min-height: min(320px, 50vh);
 			display: flex;
 			flex-direction: column;
 			align-items: center;
 			justify-content: center;
 			text-align: center;
-			opacity: 0.9;
+			padding: 24px 16px;
+			gap: 8px;
 		}
-		.princy-logo {
-			width: 42px;
-			height: 42px;
-			margin-bottom: 10px;
-			border-radius: 12px;
+		.chat-welcome-icon {
+			width: 48px;
+			height: 48px;
+			border-radius: 10px;
 			display: grid;
 			place-items: center;
-			background: var(--vscode-editorWidget-background, #252526);
-			border: 1px solid var(--vscode-widget-border, #454545);
-			font-size: 20px;
+			font-size: 22px;
+			background: var(--vscode-badge-background, #4d4d4d);
+			color: var(--vscode-badge-foreground, #ffffff);
+			margin-bottom: 4px;
 		}
-		.princy-empty h2 { margin: 0 0 6px; font-size: 17px; font-weight: 600; }
-		.princy-empty p {
-			margin: 0;
-			max-width: 320px;
-			color: var(--vscode-descriptionForeground, #9d9d9d);
-			line-height: 1.45;
+		.chat-welcome h2 {
+			font-size: 18px;
+			font-weight: 600;
+			color: var(--vscode-foreground, #cccccc);
 		}
-		.princy-message { margin: 0 0 14px; line-height: 1.5; }
-		.princy-message-header {
-			margin-bottom: 6px;
+		.chat-welcome p {
+			max-width: 300px;
 			color: var(--vscode-descriptionForeground, #9d9d9d);
+			font-size: 13px;
+			line-height: 1.5;
+		}
+		.chat-turn-list {
+			display: flex;
+			flex-direction: column;
+			gap: 20px;
+		}
+		.chat-turn {
+			display: flex;
+			flex-direction: column;
+			gap: 6px;
+			max-width: 100%;
+		}
+		.chat-turn.user {
+			align-items: flex-end;
+		}
+		.chat-turn.assistant {
+			align-items: stretch;
+		}
+		.chat-turn-header {
+			display: flex;
+			align-items: center;
+			gap: 6px;
 			font-size: 11px;
+			font-weight: 600;
+			color: var(--vscode-descriptionForeground, #9d9d9d);
+			letter-spacing: 0.02em;
 		}
-		.princy-bubble {
-			padding: 10px 12px;
-			border-radius: 8px;
+		.chat-turn.user .chat-turn-header {
+			flex-direction: row-reverse;
+		}
+		.chat-turn-avatar {
+			width: 18px;
+			height: 18px;
+			border-radius: 4px;
+			display: grid;
+			place-items: center;
+			font-size: 10px;
+			flex-shrink: 0;
+			background: var(--vscode-input-background, #3c3c3c);
+			color: var(--vscode-foreground, #cccccc);
+		}
+		.chat-turn.assistant .chat-turn-avatar {
+			background: var(--vscode-button-background, #0e639c);
+			color: var(--vscode-button-foreground, #ffffff);
+		}
+		.chat-turn-body {
 			white-space: pre-wrap;
 			word-break: break-word;
+			line-height: 1.55;
+			font-size: 13px;
 		}
-		.princy-message.user .princy-bubble {
-			background: transparent;
+		.chat-turn.user .chat-turn-body {
+			max-width: 92%;
+			padding: 8px 12px;
+			border-radius: 8px;
+			background: var(--vscode-input-background, #3c3c3c);
 			border: 1px solid var(--vscode-input-border, #3c3c3c);
+			color: var(--vscode-input-foreground, #cccccc);
 		}
-		.princy-message.assistant .princy-bubble {
+		.chat-turn.assistant .chat-turn-body {
+			padding: 0 2px;
+			color: var(--vscode-foreground, #cccccc);
+		}
+		.chat-turn.assistant.streaming .chat-turn-body {
+			min-height: 1.2em;
+		}
+		.chat-thinking {
+			display: none;
+			margin: 8px 0;
+			padding: 8px 10px;
+			border-radius: 6px;
 			background: var(--vscode-editorWidget-background, #252526);
 			border: 1px solid var(--vscode-widget-border, #454545);
+			font-size: 12px;
+			color: var(--vscode-descriptionForeground, #9d9d9d);
 		}
-		.princy-composer {
-			flex: 0 0 auto;
-			padding: 10px;
-			border-top: 1px solid var(--vscode-panel-border, #3c3c3c);
+		.chat-thinking .step { line-height: 1.6; }
+		.chat-thinking .step.active { color: var(--vscode-foreground, #cccccc); }
+		.chat-thinking .step.done { color: var(--vscode-testing-iconPassed, #73c991); }
+		.chat-composer {
+			flex-shrink: 0;
+			padding: 8px 12px 12px;
 			background: var(--vscode-sideBar-background, #252526);
+			border-top: 1px solid var(--vscode-panel-border, #3c3c3c);
 		}
-		.princy-context-row, .chips {
+		.chat-context-chips {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 6px;
+			margin-bottom: 8px;
+			min-height: 0;
+		}
+		.chat-context-chips:empty { display: none; }
+		.chip {
+			height: 22px;
+			padding: 0 8px;
+			border-radius: 4px;
+			font-size: 11px;
+			line-height: 22px;
+			background: var(--vscode-badge-background, #4d4d4d);
+			color: var(--vscode-badge-foreground, #ffffff);
+		}
+		.chip.on {
+			background: var(--vscode-list-activeSelectionBackground, #094771);
+			color: var(--vscode-list-activeSelectionForeground, #ffffff);
+		}
+		.chat-followups {
 			display: flex;
 			flex-wrap: wrap;
 			gap: 6px;
 			margin-bottom: 8px;
 		}
-		.princy-context-row button, .chips .chip {
+		.chat-followups button {
 			height: 24px;
-			padding: 0 8px;
-			border-radius: 999px;
-			border: none;
-			background: var(--vscode-button-secondaryBackground, #3a3d41);
-			color: var(--vscode-button-secondaryForeground, #ffffff);
-			font-size: 11px;
-			cursor: pointer;
-		}
-		.chips .chip.on {
-			background: var(--vscode-list-activeSelectionBackground, #094771);
-		}
-		.princy-input-box {
-			border: 1px solid var(--vscode-input-border, #3c3c3c);
-			background: var(--vscode-input-background, #3c3c3c);
-			border-radius: 8px;
-			overflow: hidden;
-		}
-		.princy-input-box textarea {
-			width: 100%;
-			min-height: 78px;
-			max-height: 180px;
-			resize: vertical;
-			border: none;
-			outline: none;
-			padding: 10px;
-			display: block;
-			color: var(--vscode-input-foreground, #cccccc);
-			background: transparent;
-			font-family: inherit;
-			font-size: inherit;
-			line-height: 1.45;
-		}
-		.princy-actions {
-			min-height: 34px;
-			padding: 6px 8px;
-			display: flex;
-			align-items: center;
-			justify-content: space-between;
-			border-top: 1px solid var(--vscode-panel-border, #3c3c3c);
-		}
-		.princy-status {
-			color: var(--vscode-descriptionForeground, #9d9d9d);
-			font-size: 11px;
-		}
-		.princy-action-btns { display: flex; gap: 6px; }
-		.princy-secondary {
-			height: 26px;
 			padding: 0 10px;
 			border: none;
 			border-radius: 4px;
-			background: var(--vscode-button-secondaryBackground, #3a3d41);
-			color: var(--vscode-button-secondaryForeground, #fff);
 			font-size: 11px;
 			cursor: pointer;
+			background: var(--vscode-button-secondaryBackground, #3a3d41);
+			color: var(--vscode-button-secondaryForeground, #ffffff);
 		}
-		.princy-send {
-			height: 26px;
-			padding: 0 12px;
-			border: none;
-			border-radius: 4px;
-			background: var(--vscode-button-background, #0e639c);
-			color: var(--vscode-button-foreground, #ffffff);
-			cursor: pointer;
-			font-size: 12px;
+		.chat-followups button:hover {
+			background: var(--vscode-button-secondaryHoverBackground, #45494e);
 		}
-		.princy-send:hover { background: var(--vscode-button-hoverBackground, #1177bb); }
-		.thinking {
-			border-left: 2px solid var(--vscode-panel-border, #3c3c3c);
-			color: var(--vscode-descriptionForeground, #9d9d9d);
-			font-size: 12px;
-			margin: 8px 0;
-			padding-left: 10px;
-		}
-		.thinking .step { line-height: 1.6; }
-		.thinking .step.active { color: var(--vscode-foreground, #cccccc); }
-		.thinking .step.done { color: var(--vscode-testing-iconPassed, #73c991); }
 		#mentionMenu {
-			background: var(--vscode-editorWidget-background, #252526);
-			border: 1px solid var(--vscode-widget-border, #454545);
-			border-radius: 6px;
-			margin-bottom: 6px;
+			display: none;
+			margin-bottom: 8px;
 			max-height: 140px;
 			overflow: auto;
+			border-radius: 6px;
+			border: 1px solid var(--vscode-widget-border, #454545);
+			background: var(--vscode-editorWidget-background, #252526);
 		}
-		.msg-assistant.streaming .princy-bubble { border: none; background: transparent; }
-		.cursor-blink::after {
-			animation: blink 1s step-end infinite;
+		#mentionMenu button {
+			display: block;
+			width: 100%;
+			text-align: left;
+			padding: 6px 10px;
+			border: none;
+			background: transparent;
+			color: var(--vscode-foreground, #cccccc);
+			font-size: 12px;
+			cursor: pointer;
+		}
+		#mentionMenu button:hover {
+			background: var(--vscode-list-hoverBackground, #2a2d2e);
+		}
+		.chat-input-container {
+			border: 1px solid var(--vscode-input-border, #3c3c3c);
+			border-radius: 8px;
+			background: var(--vscode-input-background, #3c3c3c);
+			overflow: hidden;
+			box-shadow: 0 0 0 1px transparent;
+		}
+		.chat-input-container:focus-within {
+			border-color: var(--vscode-focusBorder, #007fd4);
+			box-shadow: 0 0 0 1px var(--vscode-focusBorder, #007fd4);
+		}
+		.chat-input-container textarea {
+			width: 100%;
+			min-height: 52px;
+			max-height: 200px;
+			resize: none;
+			border: none;
+			outline: none;
+			padding: 10px 12px 4px;
+			display: block;
+			background: transparent;
+			color: var(--vscode-input-foreground, #cccccc);
+			font-family: inherit;
+			font-size: 13px;
+			line-height: 1.45;
+		}
+		.chat-input-container textarea::placeholder {
+			color: var(--vscode-input-placeholderForeground, #9d9d9d);
+		}
+		.chat-input-toolbar {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 8px;
+			padding: 4px 8px 8px;
+			min-height: 32px;
+		}
+		.chat-toolbar-left {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			min-width: 0;
+			flex: 1;
+		}
+		.chat-model-select {
+			height: 24px;
+			max-width: 130px;
+			padding: 0 8px;
+			border-radius: 4px;
+			border: 1px solid var(--vscode-dropdown-border, #3c3c3c);
+			background: var(--vscode-dropdown-background, #3c3c3c);
+			color: var(--vscode-dropdown-foreground, #cccccc);
+			font-size: 11px;
+			outline: none;
+			cursor: pointer;
+		}
+		.chat-status {
+			font-size: 11px;
 			color: var(--vscode-descriptionForeground, #9d9d9d);
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+		.chat-backend-dot {
+			width: 6px;
+			height: 6px;
+			border-radius: 50%;
+			flex-shrink: 0;
+			background: var(--vscode-errorForeground, #f48771);
+		}
+		.chat-backend-dot.online {
+			background: var(--vscode-testing-iconPassed, #73c991);
+		}
+		.chat-toolbar-right {
+			display: flex;
+			align-items: center;
+			gap: 4px;
+		}
+		.chat-toolbar-btn {
+			height: 24px;
+			min-width: 24px;
+			padding: 0 8px;
+			border: none;
+			border-radius: 4px;
+			font-size: 11px;
+			cursor: pointer;
+			background: transparent;
+			color: var(--vscode-foreground, #cccccc);
+		}
+		.chat-toolbar-btn:hover {
+			background: var(--vscode-toolbar-hoverBackground, rgba(90, 93, 94, 0.31));
+		}
+		.chat-send-btn {
+			width: 28px;
+			height: 28px;
+			padding: 0;
+			border: none;
+			border-radius: 6px;
+			cursor: pointer;
+			display: grid;
+			place-items: center;
+			font-size: 14px;
+			font-weight: 600;
+			background: var(--vscode-button-background, #0e639c);
+			color: var(--vscode-button-foreground, #ffffff);
+		}
+		.chat-send-btn:hover {
+			background: var(--vscode-button-hoverBackground, #1177bb);
+		}
+		.chat-send-btn:disabled {
+			opacity: 0.45;
+			cursor: not-allowed;
+		}
+		.cursor-blink::after {
 			content: '▋';
 			margin-left: 1px;
+			animation: blink 1s step-end infinite;
+			color: var(--vscode-descriptionForeground, #9d9d9d);
 		}
 		@keyframes blink { 50% { opacity: 0; } }
 		.cmd-btn {
+			margin-top: 8px;
+			height: 24px;
+			padding: 0 10px;
+			border: none;
+			border-radius: 4px;
+			font-size: 11px;
+			cursor: pointer;
 			background: var(--vscode-button-secondaryBackground, #3a3d41);
 			color: var(--vscode-button-secondaryForeground, #ffffff);
-			border: none;
-			border-radius: 4px;
-			cursor: pointer;
-			font-size: 11px;
-			margin-top: 6px;
-			padding: 4px 10px;
 		}
-		.plan {
-			background: var(--vscode-editorWidget-background, #252526);
-			border: 1px solid var(--vscode-widget-border, #454545);
-			border-radius: 8px;
-			padding: 12px;
-		}
-		.plan > strong { display: block; margin-bottom: 8px; }
-		.operation { margin: 10px 0; }
-		.operation-row { align-items: flex-start; display: flex; gap: 8px; }
-		.operation span {
-			color: var(--vscode-descriptionForeground, #9d9d9d);
-			flex: 1;
-			font-size: 12px;
-			white-space: pre-wrap;
-		}
-		.diff {
-			background: var(--vscode-textCodeBlock-background, #0a0a0a);
-			border: 1px solid var(--vscode-panel-border, #3c3c3c);
-			border-radius: 6px;
-			font-family: var(--vscode-editor-font-family, Consolas, monospace);
-			font-size: 11px;
-			margin-top: 6px;
-			overflow: auto;
-			padding: 8px;
-		}
-		.diff-line.add { color: var(--vscode-gitDecoration-addedResourceForeground, #73c991); }
-		.diff-line.remove { color: var(--vscode-gitDecoration-deletedResourceForeground, #f48771); }
 		.code-block {
-			background: var(--vscode-textCodeBlock-background, #0a0a0a);
-			border: 1px solid var(--vscode-panel-border, #3c3c3c);
-			border-radius: 6px;
 			margin: 10px 0;
+			border-radius: 6px;
 			overflow: hidden;
+			border: 1px solid var(--vscode-panel-border, #3c3c3c);
+			background: var(--vscode-textCodeBlock-background, #1e1e1e);
 		}
 		.code-actions {
-			border-bottom: 1px solid var(--vscode-panel-border, #3c3c3c);
 			display: flex;
-			flex-wrap: wrap;
 			gap: 4px;
 			padding: 4px 6px;
+			border-bottom: 1px solid var(--vscode-panel-border, #3c3c3c);
 		}
 		.code-actions button {
-			background: transparent;
 			border: none;
-			border-radius: 4px;
+			background: transparent;
 			color: var(--vscode-descriptionForeground, #9d9d9d);
-			cursor: pointer;
 			font-size: 11px;
 			padding: 4px 8px;
+			border-radius: 4px;
+			cursor: pointer;
 		}
 		.code-actions button:hover {
 			background: var(--vscode-toolbar-hoverBackground, rgba(90, 93, 94, 0.31));
 			color: var(--vscode-foreground, #cccccc);
 		}
 		.code-block pre {
+			margin: 0;
+			padding: 10px 12px;
+			overflow: auto;
 			font-family: var(--vscode-editor-font-family, Consolas, monospace);
 			font-size: 12px;
 			line-height: 1.45;
-			margin: 0;
-			overflow: auto;
-			padding: 10px 12px;
 		}
-		.plan-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+		.plan {
+			padding: 12px;
+			border-radius: 8px;
+			border: 1px solid var(--vscode-widget-border, #454545);
+			background: var(--vscode-editorWidget-background, #252526);
+		}
+		.plan > strong { display: block; margin-bottom: 8px; }
+		.operation { margin: 10px 0; }
+		.operation-row { display: flex; gap: 8px; align-items: flex-start; }
+		.operation span {
+			flex: 1;
+			font-size: 12px;
+			color: var(--vscode-descriptionForeground, #9d9d9d);
+			white-space: pre-wrap;
+		}
+		.diff {
+			margin-top: 6px;
+			padding: 8px;
+			border-radius: 4px;
+			font-family: var(--vscode-editor-font-family, Consolas, monospace);
+			font-size: 11px;
+			background: var(--vscode-textCodeBlock-background, #1e1e1e);
+			border: 1px solid var(--vscode-panel-border, #3c3c3c);
+			overflow: auto;
+		}
+		.diff-line.add { color: var(--vscode-gitDecoration-addedResourceForeground, #73c991); }
+		.diff-line.remove { color: var(--vscode-gitDecoration-deletedResourceForeground, #f48771); }
+		.plan-actions {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 6px;
+			margin-top: 10px;
+		}
 		.plan-actions button {
-			background: var(--vscode-button-secondaryBackground, #3a3d41);
-			color: var(--vscode-button-secondaryForeground, #ffffff);
+			padding: 6px 12px;
 			border: none;
 			border-radius: 4px;
-			cursor: pointer;
 			font-size: 12px;
-			padding: 6px 12px;
+			cursor: pointer;
+			background: var(--vscode-button-secondaryBackground, #3a3d41);
+			color: var(--vscode-button-secondaryForeground, #ffffff);
 		}
 		.plan-actions button.primary {
 			background: var(--vscode-button-background, #0e639c);
 			color: var(--vscode-button-foreground, #ffffff);
 		}
-		.cursor-blink::after {
-			animation: blink 1s step-end infinite;
-			color: var(--vscode-descriptionForeground, #9d9d9d);
-			content: '▋';
-			margin-left: 1px;
-		}
-		@keyframes blink { 50% { opacity: 0; } }
-		.cmd-btn {
-			background: var(--vscode-button-secondaryBackground, #3a3d41);
-			color: var(--vscode-button-secondaryForeground, #ffffff);
-			border: none;
-			border-radius: 4px;
-			cursor: pointer;
-			font-size: 11px;
-			margin-top: 6px;
-			padding: 4px 10px;
-		}
 	</style>
 </head>
 <body>
-	<div class="princy-root">
-		<header class="princy-header">
-			<div class="princy-title">
-				<span class="princy-dot" id="backendDot" title="Agent backend"></span>
-				<span>Princy IA</span>
-			</div>
-			<select id="agent" class="princy-agent" title="Modelo" aria-label="Modelo">
-				<option value="auto" selected>Auto</option>
-				<option value="deepseek">DeepSeek</option>
-				<option value="princy">Princy IA</option>
-				<option value="qwen">Qwen</option>
-				<option value="codellama">CodeLlama</option>
-			</select>
-			<select id="segment" class="princy-agent" style="display:none" aria-hidden="true">
-				<option value="">Auto</option>
-			</select>
-		</header>
-		<main class="princy-messages" id="scroll">
-			<div class="princy-empty" id="empty">
-				<div class="princy-logo">✦</div>
+	<div class="chat-panel">
+		<div class="chat-scroll" id="scroll">
+			<div class="chat-welcome" id="empty">
+				<div class="chat-welcome-icon">✦</div>
 				<h2>Como posso ajudar?</h2>
-				<p>Peça para explicar, corrigir ou criar código no projeto atual.</p>
+				<p>Peça para explicar, corrigir ou criar código. Use @ para contexto ou /composer para mudanças multi-arquivo.</p>
 			</div>
-			<div id="messages"></div>
-			<div class="thinking" id="thinking" style="display:none"></div>
-		</main>
-		<footer class="princy-composer">
-			<div class="chips" id="contextBar"></div>
-			<div class="princy-context-row">
-				<button type="button" data-chip="workspace" id="qaWorkspace">@workspace</button>
+			<div class="chat-turn-list" id="messages"></div>
+			<div class="chat-thinking" id="thinking"></div>
+		</div>
+		<div class="chat-composer">
+			<div class="chat-context-chips" id="contextBar"></div>
+			<div class="chat-followups">
+				<button type="button" id="qaWorkspace">@workspace</button>
 				<button type="button" id="qaFix">/fix</button>
 				<button type="button" id="qaExplain">/explain</button>
 				<button type="button" id="composer">/composer</button>
 				<button type="button" class="mention-btn" data-insert="@file:">@file</button>
 				<button type="button" class="mention-btn" data-insert="@selection">@selection</button>
 			</div>
-			<div id="mentionMenu" style="display:none"></div>
-			<div class="princy-input-box">
-				<textarea id="input" placeholder="Pergunte ao Princy IA…"></textarea>
-				<div class="princy-actions">
-					<span id="status" class="princy-status">Pronto</span>
-					<div class="princy-action-btns">
-						<button type="button" class="princy-secondary" id="index" title="Indexar workspace">Index</button>
-						<button type="button" class="princy-send" id="send">Enviar</button>
+			<div id="mentionMenu"></div>
+			<div class="chat-input-container">
+				<textarea id="input" rows="1" placeholder="Pergunte ao Princy IA… (Enter para enviar, Shift+Enter nova linha)"></textarea>
+				<div class="chat-input-toolbar">
+					<div class="chat-toolbar-left">
+						<span class="chat-backend-dot" id="backendDot" title="Agent backend"></span>
+						<select id="agent" class="chat-model-select" title="Modelo" aria-label="Modelo">
+							<option value="auto" selected>Auto</option>
+							<option value="deepseek">DeepSeek</option>
+							<option value="princy">Princy IA</option>
+							<option value="qwen">Qwen</option>
+							<option value="codellama">CodeLlama</option>
+						</select>
+						<select id="segment" style="display:none" aria-hidden="true"><option value="">Auto</option></select>
+						<span class="chat-status" id="status">Pronto</span>
+					</div>
+					<div class="chat-toolbar-right">
+						<button type="button" class="chat-toolbar-btn" id="index" title="Indexar workspace">Index</button>
+						<button type="button" class="chat-send-btn" id="send" title="Enviar">↑</button>
 					</div>
 				</div>
 			</div>
-		</footer>
+		</div>
 	</div>
 	<script nonce="${nonce}">
 	${getChatPanelScript()}
@@ -400,6 +491,7 @@ function getChatPanelScript(): string {
 		const thinking = document.getElementById('thinking');
 		const contextBar = document.getElementById('contextBar');
 		const mentionMenu = document.getElementById('mentionMenu');
+		const sendBtn = document.getElementById('send');
 		let streamingNode = null;
 		let streamingBody = null;
 
@@ -425,8 +517,7 @@ function getChatPanelScript(): string {
 			autoResizeInput();
 			const at = input.value.lastIndexOf('@');
 			if (at >= 0 && !/\\s/.test(input.value.slice(at))) {
-				const query = input.value.slice(at + 1);
-				vscode.postMessage({ type: 'mentionQuery', query });
+				vscode.postMessage({ type: 'mentionQuery', query: input.value.slice(at + 1) });
 			} else if (mentionMenu) {
 				mentionMenu.style.display = 'none';
 			}
@@ -460,19 +551,23 @@ function getChatPanelScript(): string {
 
 		function autoResizeInput() {
 			input.style.height = 'auto';
-			input.style.height = Math.min(input.scrollHeight, 160) + 'px';
+			input.style.height = Math.min(input.scrollHeight, 200) + 'px';
 		}
 
-		document.getElementById('send').addEventListener('click', () => postChatMessage('normal'));
+		sendBtn?.addEventListener('click', () => postChatMessage('normal'));
 		document.getElementById('composer')?.addEventListener('click', () => {
 			const text = input.value.trim();
-			if (!text) { input.placeholder = 'Descreva mudança multi-arquivo…'; input.focus(); return; }
+			if (!text) {
+				input.placeholder = 'Descreva mudança multi-arquivo…';
+				input.focus();
+				return;
+			}
 			const picked = agent.value === 'auto' ? 'deepseek' : agent.value;
 			vscode.postMessage({ type: 'requestComposer', text, agent: picked });
 			input.value = '';
 			autoResizeInput();
 		});
-		document.getElementById('index').addEventListener('click', () => vscode.postMessage({ type: 'indexWorkspace' }));
+		document.getElementById('index')?.addEventListener('click', () => vscode.postMessage({ type: 'indexWorkspace' }));
 		input.addEventListener('keydown', event => {
 			if (event.key === 'Enter' && !event.shiftKey) {
 				event.preventDefault();
@@ -484,12 +579,12 @@ function getChatPanelScript(): string {
 			const message = event.data;
 			if (message.type === 'focusInput') input.focus();
 			if (message.type === 'focusComposer') {
-				input.placeholder = 'Descreva mudança multi-arquivo para o Composer…';
+				input.placeholder = 'Descreva mudança multi-arquivo…';
 				input.focus();
 			}
 			if (message.type === 'prefillComposer') {
 				input.value = message.text || '';
-				input.placeholder = 'Descreva mudança multi-arquivo para o Composer…';
+				input.placeholder = 'Descreva mudança multi-arquivo…';
 				autoResizeInput();
 				input.focus();
 			}
@@ -501,7 +596,9 @@ function getChatPanelScript(): string {
 				backendDot.title = (message.online ? 'Backend online' : 'Backend offline') + (message.endpoint ? ' — ' + message.endpoint : '');
 			}
 			if (message.type === 'defaultAgent' && message.agent && agent) {
-				agent.value = message.agent;
+				if (Array.from(agent.options).some(o => o.value === message.agent)) {
+					agent.value = message.agent;
+				}
 			}
 			if (message.type === 'agents') renderAgents(message.models || []);
 			if (message.type === 'thinking') renderThinking(message.steps || []);
@@ -520,15 +617,8 @@ function getChatPanelScript(): string {
 			if (message.type === 'mentionSuggestions') renderMentionMenu(message.items || []);
 			if (message.type === 'streamStart') {
 				hideEmpty();
-				streamingNode = document.createElement('div');
-				streamingNode.className = 'princy-message assistant msg-assistant streaming';
-				const header = document.createElement('div');
-				header.className = 'princy-message-header';
-				header.textContent = 'Princy IA';
-				streamingBody = document.createElement('div');
-				streamingBody.className = 'princy-bubble cursor-blink';
-				streamingNode.appendChild(header);
-				streamingNode.appendChild(streamingBody);
+				streamingNode = createTurn('assistant', 'Princy IA', true);
+				streamingBody = streamingNode.querySelector('.chat-turn-body');
 				messages.appendChild(streamingNode);
 				scrollBottom();
 			}
@@ -537,25 +627,13 @@ function getChatPanelScript(): string {
 				scrollBottom();
 			}
 			if (message.type === 'streamEnd') {
-				if (streamingNode) {
+				if (streamingNode && streamingBody) {
 					const text = message.text || '';
-					streamingNode.replaceChildren();
-					const header = document.createElement('div');
-					header.className = 'princy-message-header';
-					header.textContent = 'Princy IA';
-					const bubble = document.createElement('div');
-					bubble.className = 'princy-bubble';
-					streamingNode.appendChild(header);
-					streamingNode.appendChild(bubble);
-					renderRichText(bubble, text);
+					streamingBody.classList.remove('cursor-blink');
+					streamingBody.textContent = '';
+					renderRichText(streamingBody, text);
 					if (message.suggestedCommands) {
-						for (const command of message.suggestedCommands) {
-							const button = document.createElement('button');
-							button.className = 'cmd-btn';
-							button.textContent = '▶ ' + command;
-							button.addEventListener('click', () => vscode.postMessage({ type: 'runCommand', command }));
-							streamingNode.appendChild(button);
-						}
+						appendCommandButtons(streamingNode, message.suggestedCommands);
 					}
 				} else if (message.text) {
 					appendAssistant(message.text, message.suggestedCommands);
@@ -566,56 +644,60 @@ function getChatPanelScript(): string {
 			}
 		});
 
-		function appendUser(text) {
-			const item = document.createElement('div');
-			item.className = 'princy-message user';
+		function createTurn(role, label, streaming) {
+			const turn = document.createElement('div');
+			turn.className = 'chat-turn ' + role + (streaming ? ' streaming' : '');
 			const header = document.createElement('div');
-			header.className = 'princy-message-header';
-			header.textContent = 'Você';
-			const bubble = document.createElement('div');
-			bubble.className = 'princy-bubble';
-			bubble.textContent = text;
-			item.appendChild(header);
-			item.appendChild(bubble);
-			messages.appendChild(item);
+			header.className = 'chat-turn-header';
+			const avatar = document.createElement('span');
+			avatar.className = 'chat-turn-avatar';
+			avatar.textContent = role === 'user' ? 'V' : '✦';
+			const name = document.createElement('span');
+			name.textContent = label;
+			header.appendChild(avatar);
+			header.appendChild(name);
+			const body = document.createElement('div');
+			body.className = 'chat-turn-body' + (streaming ? ' cursor-blink' : '');
+			turn.appendChild(header);
+			turn.appendChild(body);
+			return turn;
+		}
+
+		function appendUser(text) {
+			const turn = createTurn('user', 'Você', false);
+			turn.querySelector('.chat-turn-body').textContent = text;
+			messages.appendChild(turn);
 		}
 
 		function appendAssistant(text, suggestedCommands) {
-			const item = document.createElement('div');
-			item.className = 'princy-message assistant';
-			const header = document.createElement('div');
-			header.className = 'princy-message-header';
-			header.textContent = 'Princy IA';
-			const bubble = document.createElement('div');
-			bubble.className = 'princy-bubble';
-			item.appendChild(header);
-			item.appendChild(bubble);
-			renderRichText(bubble, text);
-			if (suggestedCommands) {
-				for (const command of suggestedCommands) {
-					const button = document.createElement('button');
-					button.className = 'cmd-btn';
-					button.textContent = '▶ ' + command;
-					button.addEventListener('click', () => vscode.postMessage({ type: 'runCommand', command }));
-					item.appendChild(button);
-				}
+			const turn = createTurn('assistant', 'Princy IA', false);
+			const body = turn.querySelector('.chat-turn-body');
+			renderRichText(body, text);
+			if (suggestedCommands) appendCommandButtons(turn, suggestedCommands);
+			messages.appendChild(turn);
+		}
+
+		function appendCommandButtons(container, commands) {
+			for (const command of commands) {
+				const button = document.createElement('button');
+				button.className = 'cmd-btn';
+				button.textContent = '▶ ' + command;
+				button.addEventListener('click', () => vscode.postMessage({ type: 'runCommand', command }));
+				container.appendChild(button);
 			}
-			messages.appendChild(item);
 		}
 
 		function renderMentionMenu(items) {
 			if (!mentionMenu) return;
 			mentionMenu.innerHTML = '';
-			if (!items.length) { mentionMenu.style.display = 'none'; return; }
+			if (!items.length) {
+				mentionMenu.style.display = 'none';
+				return;
+			}
 			mentionMenu.style.display = 'block';
 			for (const item of items) {
 				const row = document.createElement('button');
 				row.type = 'button';
-				row.className = 'chip';
-				row.style.display = 'block';
-				row.style.width = '100%';
-				row.style.textAlign = 'left';
-				row.style.margin = '4px';
 				row.textContent = item.label || item.insert;
 				row.addEventListener('click', () => {
 					const at = input.value.lastIndexOf('@');
@@ -645,16 +727,23 @@ function getChatPanelScript(): string {
 		}
 
 		function renderAgents(models) {
-			const selected = agent.value || 'deepseek';
+			const selected = agent.value || 'auto';
+			const autoOpt = agent.querySelector('option[value="auto"]');
 			agent.innerHTML = '';
+			if (autoOpt) agent.appendChild(autoOpt);
+			else {
+				const o = document.createElement('option');
+				o.value = 'auto';
+				o.textContent = 'Auto';
+				agent.appendChild(o);
+			}
 			for (const model of models) {
 				const option = document.createElement('option');
 				option.value = model.id;
-				option.textContent = model.label;
+				option.textContent = model.label.replace(/^Princy Ai\\s*/i, '').trim() || model.label;
 				agent.appendChild(option);
 			}
 			if (Array.from(agent.options).some(o => o.value === selected)) agent.value = selected;
-			else if (agent.options.length) agent.value = agent.options[0].value;
 		}
 
 		function renderComposerPlan(instruction, agentName, plan) {
@@ -663,37 +752,28 @@ function getChatPanelScript(): string {
 			const title = document.createElement('strong');
 			title.textContent = plan.summary;
 			wrapper.appendChild(title);
-
-			if (plan.affectedFiles && plan.affectedFiles.length) {
+			if (plan.affectedFiles?.length) {
 				const files = document.createElement('div');
-				files.style.fontSize = '12px';
-				files.style.color = 'var(--vscode-descriptionForeground, #9d9d9d)';
-				files.style.margin = '8px 0';
+				files.style.cssText = 'font-size:12px;color:var(--vscode-descriptionForeground,#9d9d9d);margin:8px 0';
 				files.textContent = 'Arquivos: ' + plan.affectedFiles.join(', ');
 				wrapper.appendChild(files);
 			}
-
 			const topActions = document.createElement('div');
 			topActions.className = 'plan-actions';
 			const applyAll = document.createElement('button');
 			applyAll.className = 'primary';
 			applyAll.textContent = 'Apply All';
 			applyAll.addEventListener('click', () => {
-				const operationIds = (plan.operations || []).map(o => o.id);
-				vscode.postMessage({ type: 'applyComposerPlan', instruction, agent: agentName, plan, operationIds });
+				vscode.postMessage({ type: 'applyComposerPlan', instruction, agent: agentName, plan, operationIds: (plan.operations || []).map(o => o.id) });
 			});
 			const rejectAll = document.createElement('button');
 			rejectAll.textContent = 'Reject All';
 			rejectAll.addEventListener('click', () => wrapper.remove());
-			topActions.appendChild(applyAll);
-			topActions.appendChild(rejectAll);
+			topActions.append(applyAll, rejectAll);
 			wrapper.appendChild(topActions);
-
 			for (const warning of plan.warnings || []) {
 				const w = document.createElement('div');
-				w.style.color = 'var(--vscode-descriptionForeground, #9d9d9d)';
-				w.style.fontSize = '12px';
-				w.style.marginTop = '6px';
+				w.style.cssText = 'font-size:12px;color:var(--vscode-descriptionForeground,#9d9d9d);margin-top:6px';
 				w.textContent = warning;
 				wrapper.appendChild(w);
 			}
@@ -708,16 +788,8 @@ function getChatPanelScript(): string {
 				checkbox.value = operation.id;
 				const text = document.createElement('span');
 				text.textContent = operation.type + ' · ' + (operation.filePath || operation.command);
-				row.appendChild(checkbox);
-				row.appendChild(text);
+				row.append(checkbox, text);
 				block.appendChild(row);
-				if (operation.type === 'modify' || operation.type === 'create') {
-					const preview = document.createElement('button');
-					preview.className = 'cmd-btn';
-					preview.textContent = 'Diff no editor';
-					preview.addEventListener('click', () => vscode.postMessage({ type: 'previewComposerOperation', operation }));
-					block.appendChild(preview);
-				}
 				const diff = renderOperationPreview(operation);
 				if (diff) block.appendChild(diff);
 				wrapper.appendChild(block);
@@ -728,14 +800,12 @@ function getChatPanelScript(): string {
 			apply.className = 'primary';
 			apply.textContent = 'Apply';
 			apply.addEventListener('click', () => {
-				const operationIds = Array.from(wrapper.querySelectorAll('input:checked')).map(i => i.value);
-				vscode.postMessage({ type: 'applyComposerPlan', instruction, agent: agentName, plan, operationIds });
+				vscode.postMessage({ type: 'applyComposerPlan', instruction, agent: agentName, plan, operationIds: Array.from(wrapper.querySelectorAll('input:checked')).map(i => i.value) });
 			});
 			const reject = document.createElement('button');
 			reject.textContent = 'Reject';
 			reject.addEventListener('click', () => wrapper.remove());
-			actions.appendChild(apply);
-			actions.appendChild(reject);
+			actions.append(apply, reject);
 			wrapper.appendChild(actions);
 			messages.appendChild(wrapper);
 		}
@@ -788,8 +858,7 @@ function getChatPanelScript(): string {
 			}
 			const pre = document.createElement('pre');
 			pre.textContent = code;
-			wrapper.appendChild(actions);
-			wrapper.appendChild(pre);
+			wrapper.append(actions, pre);
 			return wrapper;
 		}
 
