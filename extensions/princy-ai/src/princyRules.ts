@@ -5,14 +5,6 @@
 
 import * as vscode from 'vscode';
 
-declare const TextDecoder: {
-	new(): { decode(input: Uint8Array): string };
-};
-
-declare const TextEncoder: {
-	new(): { encode(input: string): Uint8Array };
-};
-
 const MAX_RULES_CHARS = 32_000;
 
 export async function loadPrincyRules(): Promise<string> {
