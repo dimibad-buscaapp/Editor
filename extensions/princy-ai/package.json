@@ -191,7 +191,6 @@
       "editor.fontFamily": "'JetBrains Mono', 'Cascadia Code', Consolas, monospace",
       "workbench.activityBar.location": "top",
       "editor.minimap.enabled": false,
-      "window.menuBarVisibility": "compact",
       "workbench.layoutControl.enabled": false,
       "workbench.startupEditor": "none",
       "princyai.defaultAgent": "deepseek",

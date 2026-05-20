@@ -1,39 +1,64 @@
 # Corrigir chat no Code Web (3200) com backend OK na 3210
 
-## Conflito apos `git stash pop` (server.ts)
+## Conflito apos `git stash pop` (server.ts / chatView corrompido)
 
-Se `git pull` falhar com *unmerged files* em `apps/ai-dashboard/backend/src/server.ts`:
-
-1. Abra o arquivo e resolva os marcadores `<<<<<<<` / `=======` / `>>>>>>>`.
-2. Mantenha a versao do **upstream** (CORS + `corsPolicy`) e re-aplique so o que o stash precisava (porta, paths locais do VPS).
-3. Marque resolvido e puxe de novo:
+Se `git pull` falhar, `compile-web` mostrar 9 erros antigos ou **dezenas de erros em `chatView.ts`** (ex.: `2   hasSelection`, `private private readonly`), o stash deixou arquivos inconsistentes. **Nao commite** — volte ao `main` remoto:
 
 ```powershell
 cd C:\Apps\Editor
-git add apps/ai-dashboard/backend/src/server.ts
-git commit -m "merge: resolver server.ts apos stash vps"
-git pull origin main
+git fetch origin main
+git reset --hard origin/main
+git stash drop
 ```
 
-Se nao precisar das alteracoes do stash no backend:
+Isso restaura `server.ts`, `extensions/princy-ai/*` (incl. fix `495c7c99`) e remove o estado de merge. O script `diagnostico-princy.ps1` (untracked) permanece.
+
+Depois:
 
 ```powershell
-git checkout --theirs apps/ai-dashboard/backend/src/server.ts
-git add apps/ai-dashboard/backend/src/server.ts
-git stash drop
 git pull origin main
+npm run compile-web
 ```
+
+**So se precisar commitar no VPS** (evite `git config --global`):
+
+```powershell
+$env:GIT_AUTHOR_NAME = "VPS Princy"
+$env:GIT_AUTHOR_EMAIL = "vps@princyai.local"
+$env:GIT_COMMITTER_NAME = $env:GIT_AUTHOR_NAME
+$env:GIT_COMMITTER_EMAIL = $env:GIT_AUTHOR_EMAIL
+git commit -m "sua mensagem"
+```
+
+Resolucao manual (alternativa): abra `server.ts`, remova `<<<<<<<` / `=======` / `>>>>>>>`, mantenha a versao com `corsPolicy`, `git add`, commit com variaveis acima, `git pull`.
 
 ## Service Worker / cache antigo
 
-Se o log mostrar `unexpected service worker version`:
+Se o log mostrar `unexpected service worker version` (Found: 4, Expected: 5) no webview do **princy-ai**:
 
-1. Abra `http://127.0.0.1:3200` → F12 → **Application**
-2. **Service Workers** → **Unregister**
-3. **Storage** → **Clear site data**
-4. Recarregue com **Ctrl+F5**
+1. Feche todas as abas de `http://127.0.0.1:3200` (e `https://princyai.com` se usar).
+2. F12 → **Application** → **Service Workers** → **Unregister** (todas).
+3. **Storage** → **Clear site data** (marcar tudo).
+4. Opcional no VPS: apague cache do perfil Princy e reinicie o servidor:
 
-O launcher usa `--user-data-dir C:\Apps\Editor\.princy-user-data` para evitar perfil quebrado.
+```powershell
+Stop-Process -Name node -Force -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force C:\Apps\Editor\.princy-user-data\Cache -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force C:\Apps\Editor\.princy-user-data\Service Worker -ErrorAction SilentlyContinue
+powershell -ExecutionPolicy Bypass -File C:\Apps\Editor\deploy\windows\code-web\start-princy-code-web.ps1
+```
+
+5. Abra de novo e **Ctrl+F5** (hard reload).
+
+O launcher usa `--user-data-dir C:\Apps\Editor\.princy-user-data` para evitar perfil misturado com builds antigos.
+
+## Extension host reconnect / code 1006
+
+Logs como `socket timeout`, `reconnect`, `CloseEvent code: 1006`, `Extension host is unresponsive` costumam ser **efeito** do SW/cache antigo ou do servidor Code Web reiniciando. Depois de limpar cache e manter um unico `node` na 3200, devem parar de repetir.
+
+`[LEAKED DISPOSABLE]` no reconnect e ruido conhecido do VS Code Web em dev — ignore se o host voltar a `responsive`.
+
+WARN `Cannot register configuration defaults for 'window.menuBarVisibility'` — removido dos defaults da extensao; o menu compacto continua via `workbenchUi.ts` ao ativar a extensao.
 
 ## Modo simples (backend)
 
