@@ -147,9 +147,9 @@ export class DefaultAccountService extends Disposable implements IDefaultAccount
 					enterpriseProviderUriSetting: '',
 					scopes: []
 				},
-				entitlementUrl: undefined,
-				tokenEntitlementUrl: undefined,
-				mcpRegistryDataUrl: undefined
+				entitlementUrl: '',
+				tokenEntitlementUrl: '',
+				mcpRegistryDataUrl: ''
 			};
 	}
 

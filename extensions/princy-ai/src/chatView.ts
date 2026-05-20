@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { AgentClient, AgentDefinition, AgentModel, ComposerPlan, TerminalCommandResult } from './agentClient';
-import { checkAgentBackend, formatConnectivityError } from './agentConnectivity';
+import { checkAgentBackend } from './agentConnectivity';
 import { focusPrincyChatPanel } from './princyWorkbenchChat';
 import { buildChatPanelHtml } from './chatPanelHtml';
 import { getMentionSuggestions, resolveContextMentions } from './contextMentions';
@@ -420,20 +420,6 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 					: `Erro: ${errText.slice(0, 120)}${errText.length > 120 ? '…' : ''}`
 			});
 		}
-	}
-
-	private formatMetadataStatus(metadata: import('./agentClient').ChatMetadata): string {
-		const engines = [metadata.primary_engine, ...metadata.fallback_engines].filter(Boolean).join(' ➔ ');
-		if (metadata.phase === 'auto_healing') {
-			return `[Princy IA] ⚠️ DEBUG | Auto-correcao aplicada | Motores: [${engines}] | ${metadata.execution_time}`;
-		}
-		if (metadata.vps_compile_status === 'READY') {
-			return `[Princy IA] ✅ ${metadata.segment_used} | Motores: [${engines}] | ${metadata.execution_time} | Compiled & Ready`;
-		}
-		if (metadata.vps_compile_status === 'FAILED') {
-			return `[Princy IA] ⚠️ ${metadata.segment_used} | Motores: [${engines}] | Compilador 3200 com pendencias`;
-		}
-		return `[Princy IA] ✅ ${metadata.segment_used} | Motores: [${engines}] | ${metadata.execution_time}`;
 	}
 
 	private async pollAgentJob(jobId: string): Promise<import('./agentClient').ChatResponse> {

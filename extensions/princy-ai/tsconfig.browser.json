@@ -1,8 +1,8 @@
 {
 	"extends": "./tsconfig.json",
 	"compilerOptions": {},
-	"files": [
-		"./src/extension.ts",
-		"./src/timers.d.ts"
+	"include": [
+		"src/**/*",
+		"../../src/vscode-dts/vscode.d.ts"
 	]
 }
