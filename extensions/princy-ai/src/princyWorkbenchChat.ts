@@ -77,12 +77,19 @@ async function migrateWebAgentEndpoint(): Promise<void> {
 	const current = (princy.get<string>('agentEndpoint', '') ?? '').trim();
 	const legacy = new Set(['', 'http://127.0.0.1:3210', 'http://localhost:3210']);
 	const wrongProxyOn3210 = /:3210\/princy-api\/?$/i.test(current);
-	if (!legacy.has(current) && !wrongProxyOn3210) {
+	const wrongRoot3200 = /^https?:\/\/[^/]+:3200\/?$/i.test(current);
+	const wrongPublicApi = /^https:\/\/api\.princyai\.com/i.test(current);
+	if (!legacy.has(current) && !wrongProxyOn3210 && !wrongRoot3200 && !wrongPublicApi) {
 		return;
 	}
 
-	await princy.update('agentEndpoint', 'http://127.0.0.1:3200/princy-api', vscode.ConfigurationTarget.Global);
 	await princy.update('useSameOriginApi', true, vscode.ConfigurationTarget.Global);
+	// Em producao (princyai.com/webeditor) o proxy e /princy-api na mesma origem; local :3200 igual.
+	const location = (globalThis as { location?: { origin?: string } }).location;
+	const endpoint = location?.origin && !location.origin.includes('127.0.0.1')
+		? `${location.origin}/princy-api`
+		: 'http://127.0.0.1:3200/princy-api';
+	await princy.update('agentEndpoint', endpoint, vscode.ConfigurationTarget.Global);
 }
 
 /** Abre o container Princy Ai — não chama princyai.chat.focus (evita loop com provider.focus). */

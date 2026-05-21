@@ -57,9 +57,12 @@ export async function buildDiagnosticReport(): Promise<DiagnosticReport> {
 	checks.push(await probeUrl('agent-health', `http://127.0.0.1:${config.apiPort}`, '/api/health'));
 	checks.push(await probeUrl('agent-models', `http://127.0.0.1:${config.apiPort}`, '/api/agent/models'));
 	checks.push(await probeUrl('code-web', config.codeWebUrl, '/'));
-	checks.push(await probeUrl('code-web-proxy', config.codeWebUrl, '/princy-api/api/health'));
+	checks.push(await probeUrl('code-web-proxy', config.codeWebInternalUrl, '/princy-api/api/health'));
 
 	const hints: string[] = [];
+	if (!checks.find(c => c.id === 'code-web')?.ok) {
+		hints.push(`Editor em ${config.codeWebUrl}/ — confira --server-base-path ${config.editorBasePath} e Caddy handle /webeditor* (nao handle_path).`);
+	}
 	if (!checks.find(c => c.id === 'code-web-proxy')?.ok) {
 		hints.push('Proxy /princy-api no Code Web (3200): rode npm run compile-incremental na raiz do Editor e reinicie o Code Web.');
 	}

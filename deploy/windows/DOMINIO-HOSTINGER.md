@@ -87,24 +87,23 @@ Copy-Item C:\Apps\Editor\deploy\windows\code-web\Caddyfile C:\Caddy\Caddyfile -F
 notepad C:\Caddy\Caddyfile
 ```
 
-Conteudo esperado (`deploy/windows/code-web/Caddyfile`):
+Use o Caddyfile do repo (nao encaminhe tudo para 3200 na raiz):
 
-```text
-princyai.com, www.princyai.com {
-	encode zstd gzip
-	handle_path /princy-api/* {
-		reverse_proxy 127.0.0.1:3210
-	}
-	reverse_proxy 127.0.0.1:3200
-}
-
-api.princyai.com {
-	encode zstd gzip
-	reverse_proxy 127.0.0.1:3210
-}
+```powershell
+Copy-Item C:\Apps\Editor\deploy\windows\code-web\Caddyfile C:\Caddy\Caddyfile -Force
 ```
 
-O caminho `/princy-api` no **mesmo dominio** do editor evita `Failed to fetch` por CORS no chat.
+Rotas:
+
+| Path | Porta |
+|------|-------|
+| `/` landing | 3210 |
+| `/webeditor/*` editor | 3200 (`handle /webeditor*`, **nao** `handle_path`) |
+| `/princy-api/*` agent | 3210 |
+
+Editor: `https://princyai.com/webeditor/` com `--server-base-path /webeditor`.
+
+Verificacao: `powershell -File deploy\windows\verify-princy-webeditor.ps1`
 
 Inicie o Caddy (**PowerShell como Administrador** — portas 80 e 443):
 
@@ -167,7 +166,8 @@ Arquivo: `C:\Apps\Editor\apps\ai-dashboard\.env`
 
 ```env
 APP_ORIGIN="https://princyai.com"
-CODE_WEB_URL="https://princyai.com"
+CODE_WEB_URL="http://127.0.0.1:3200/webeditor"
+CODE_WEB_INTERNAL_URL="http://127.0.0.1:3200"
 API_HOST="127.0.0.1"
 API_PORT="3210"
 PRINCY_CORS_ORIGINS="https://api.princyai.com"

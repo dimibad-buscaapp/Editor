@@ -6,10 +6,6 @@
 import * as vscode from 'vscode';
 import { ComposerOperation } from './agentClient';
 
-declare const TextDecoder: {
-	new(): { decode(input: Uint8Array): string };
-};
-
 export async function previewComposerOperation(operation: ComposerOperation): Promise<void> {
 	if (operation.type === 'runCommand' || operation.type === 'delete') {
 		vscode.window.showInformationMessage(

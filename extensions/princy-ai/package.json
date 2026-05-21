@@ -195,6 +195,7 @@
       "editor.minimap.enabled": false,
       "workbench.layoutControl.enabled": false,
       "workbench.startupEditor": "none",
+      "workbench.welcomePage.experimentalOnboarding": false,
       "princyai.defaultAgent": "deepseek",
       "princyai.ghostText.agent": "deepseek"
     },

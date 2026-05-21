@@ -10,7 +10,6 @@ import { isCancellationError } from '../../../../base/common/errors.js';
 import { StopWatch } from '../../../../base/common/stopwatch.js';
 import { URI } from '../../../../base/common/uri.js';
 import { isWindows, isMacintosh, isLinux } from '../../../../base/common/platform.js';
-import { assertDefined } from '../../../../base/common/types.js';
 import { FileAccess } from '../../../../base/common/network.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { KeyCode } from '../../../../base/common/keyCodes.js';
@@ -70,7 +69,7 @@ type OnboardingActionEvent = {
 	argument: string | undefined;
 };
 
-assertDefined(product.defaultChatAgent, 'Onboarding requires a default chat agent product configuration.');
+// Princy Ai: no defaultChatAgent (Copilot removed). Skip Copilot onboarding instead of crashing the workbench.
 const defaultChat = product.defaultChatAgent;
 
 /**
@@ -158,6 +157,11 @@ export class OnboardingVariationA extends Disposable implements IOnboardingServi
 	}
 
 	show(): void {
+		if (!defaultChat) {
+			this._onDidDismiss.fire();
+			return;
+		}
+
 		if (this.overlay) {
 			return;
 		}

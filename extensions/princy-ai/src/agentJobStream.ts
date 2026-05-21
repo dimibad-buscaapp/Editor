@@ -13,10 +13,6 @@ interface FetchResponse {
 
 declare const fetch: (input: string, init?: { readonly headers?: Record<string, string> }) => Promise<FetchResponse>;
 
-declare const TextDecoder: {
-	new(): { decode(input: Uint8Array): string };
-};
-
 export interface AgentJobStreamHandlers {
 	readonly onDelta: (text: string) => void;
 	readonly onState?: (state: string) => void;

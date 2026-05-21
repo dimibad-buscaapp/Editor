@@ -4,7 +4,7 @@ param(
 	[string]$HostName = "127.0.0.1",
 	[int]$Port = 3200,
 	[string]$UserDataDir = "",
-	[string]$ServerBasePath = "",
+	[string]$ServerBasePath = "/webeditor",
 	[switch]$Rebuild
 )
 

@@ -14,9 +14,43 @@ function envFlag(name: string, defaultValue: boolean): boolean {
 
 const simpleMode = envFlag('PRINCY_SIMPLE_MODE', false);
 
+/** Subpath publico do Code Web (migracao: antes o editor era a raiz do dominio). */
+const editorBasePath = normalizeEditorBasePath(process.env.PRINCY_EDITOR_BASE_PATH ?? '/webeditor');
+const codeWebInternalUrl = stripTrailingSlash(process.env.CODE_WEB_INTERNAL_URL ?? 'http://127.0.0.1:3200');
+
+function stripTrailingSlash(value: string): string {
+	return value.replace(/\/+$/, '');
+}
+
+function normalizeEditorBasePath(value: string): string {
+	const trimmed = value.trim() || '/webeditor';
+	return trimmed.startsWith('/') ? trimmed.replace(/\/+$/, '') : `/${trimmed.replace(/\/+$/, '')}`;
+}
+
+/** Garante /webeditor em URLs de producao que ainda apontam so para o dominio ou :3200 na raiz. */
+function resolveCodeWebEditorUrl(raw: string | undefined): string {
+	const fallback = `${codeWebInternalUrl}${editorBasePath}`;
+	if (!raw?.trim()) {
+		return fallback;
+	}
+	try {
+		const url = new URL(stripTrailingSlash(raw.trim()));
+		const isEditorHost =
+			url.port === '3200'
+			|| (url.hostname === 'princyai.com' || url.hostname === 'www.princyai.com')
+			|| url.hostname === '127.0.0.1'
+			|| url.hostname === 'localhost';
+		if (isEditorHost && !url.pathname.startsWith(editorBasePath)) {
+			url.pathname = editorBasePath;
+		}
+		return stripTrailingSlash(url.toString());
+	} catch {
+		return fallback;
+	}
+}
+
 export const config = {
-	appOrigin: process.env.APP_ORIGIN ?? 'http://127.0.0.1:3200',
-	apiHost: process.env.API_HOST ?? '0.0.0.0',
+	appOrigin: process.env.APP_ORIGIN ?? 'http://127.0.0.1:3200',	apiHost: process.env.API_HOST ?? '0.0.0.0',
 	apiPort: Number(process.env.API_PORT ?? '3210'),
 	databaseUrl: process.env.DATABASE_URL,
 	aiProvider: process.env.AI_PROVIDER ?? 'ollama',
@@ -46,7 +80,11 @@ export const config = {
 	orchestratorConsensusEnabled: simpleMode ? false : (process.env.PRINCY_ORCHESTRATOR_CONSENSUS ?? 'true').toLowerCase() !== 'false',
 	orchestratorAutoHeal: simpleMode ? false : (process.env.PRINCY_ORCHESTRATOR_AUTO_HEAL ?? 'true').toLowerCase() !== 'false',
 	autoCompileValidate: simpleMode ? false : (process.env.PRINCY_AUTO_COMPILE_VALIDATE ?? 'true').toLowerCase() !== 'false',
-	codeWebUrl: process.env.CODE_WEB_URL ?? 'http://127.0.0.1:3200',
+	/** URL do editor (com /webeditor). Probes de HTML do workbench. */
+	codeWebUrl: resolveCodeWebEditorUrl(process.env.CODE_WEB_URL),
+	/** Origem do processo Code Web na porta 3200 (proxy /princy-api fica na raiz :3200). */
+	codeWebInternalUrl,
+	editorBasePath,
 	editorProjectRoot: path.resolve(process.env.EDITOR_PROJECT_ROOT ?? 'C:/Apps/Editor'),
 	projectRagIndexingEnabled: simpleMode ? false : (process.env.PRINCY_PROJECT_RAG_INDEXING ?? 'true').toLowerCase() !== 'false',
 	projectRagMaxFiles: Number(process.env.PRINCY_PROJECT_RAG_MAX_FILES ?? '120'),

@@ -22,7 +22,21 @@ Copy-Item deploy\windows\code-web\Caddyfile C:\Caddy\Caddyfile -Force
 powershell -File deploy\windows\install-princy-production-services.ps1
 
 Restart-Service PrincyCaddy, PrincyAiCodeWeb
+
+# Verificacao automatica (raiz vs /webeditor)
+powershell -File deploy\windows\verify-princy-webeditor.ps1
 ```
+
+## Migracao raiz -> /webeditor
+
+| Antes (dominio na raiz) | Agora |
+|-------------------------|--------|
+| `https://princyai.com` = editor | `https://princyai.com/` = landing (3210) |
+| Caddy `reverse_proxy 3200` em tudo | `handle /webeditor*` -> 3200 |
+| Sem `--server-base-path` | `--server-base-path /webeditor` |
+| `.env` `CODE_WEB_URL=https://princyai.com` | `CODE_WEB_URL=http://127.0.0.1:3200/webeditor` |
+
+Bloqueios comuns: Caddy parado (timeout), `handle_path /webeditor`, servico sem base path, cache/SW da era raiz, onboarding Copilot (corrigido no codigo).
 
 ## Testes
 
@@ -33,9 +47,23 @@ Invoke-WebRequest https://princyai.com/webeditor/ -UseBasicParsing
 Get-Content C:\Apps\Editor\logs\code-web.err.log -Tail 40
 ```
 
-No navegador (F12 > Rede): nao deve haver 404 em arquivos sob `/webeditor/`.
+No navegador (F12 > Rede): nao deve haver 404 em arquivos sob `/webeditor/static/...`.
+
+Teste de asset (nome correto — nao e `workbench.web.main.js`):
+
+```powershell
+Invoke-WebRequest "http://127.0.0.1:3200/webeditor/static/out/vs/code/browser/workbench/workbench.js" -UseBasicParsing -Method Head
+```
 
 ## URL correta
 
 - https://princyai.com/webeditor/ (com barra final)
 - Raiz https://princyai.com/ e a landing do dashboard (3210), nao o editor.
+
+## Erro no console: `Onboarding requires a default chat agent`
+
+Princy remove `defaultChatAgent` (Copilot). O onboarding 2026 do VS Code quebrava o boot.
+
+- Correcao no codigo: `onboardingVariationA.ts` ignora onboarding sem Copilot.
+- Settings: `workbench.welcomePage.experimentalOnboarding": false` em `princy-production.settings.json`.
+- Apos `git pull`: recompile o Code Web (`npm run compile-web`) e reinicie `PrincyAiCodeWeb`.

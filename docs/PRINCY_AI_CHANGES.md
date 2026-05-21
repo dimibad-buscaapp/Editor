@@ -9,6 +9,15 @@ Este documento consolida as mudancas recentes do Princy Ai para deploy no VPS Wi
 - O backend de agentes roda separado na porta `3210`.
 - O MVP `apps/ai-dashboard` permanece como laboratorio/backend, mas nao e mais a pagina principal do produto.
 
+## Editor em `/webeditor` (nao mais na raiz do dominio)
+
+- Caddy: `handle /webeditor*` -> 3200 (sem `handle_path` — nao remover o prefixo).
+- Code Web: `--server-base-path /webeditor` em `run-princy-code-web.ps1` e NSSM.
+- Landing `https://princyai.com/` -> backend 3210; editor em `https://princyai.com/webeditor/`.
+- `.env`: `CODE_WEB_URL=http://127.0.0.1:3200/webeditor` (probes internos).
+- Scripts: `verify-princy-webeditor.ps1`, `check-princy-ports.ps1`.
+- Onboarding Copilot desativado sem `defaultChatAgent` (`onboardingVariationA.ts`).
+
 ## Lockdown do Copilot
 
 - O launcher `deploy/windows/code-web/start-princy-code-web.ps1` inicia o editor com:

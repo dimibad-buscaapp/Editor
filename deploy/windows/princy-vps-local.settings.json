@@ -14,5 +14,7 @@
   "princyai.ui.minimalWorkbench": true,
   "window.commandCenter": true,
 	"github.gitAuthentication": false,
-	"workbench.colorTheme": "Princy Black"
+	"workbench.colorTheme": "Princy Black",
+	"workbench.welcomePage.experimentalOnboarding": false,
+	"workbench.startupEditor": "none"
 }

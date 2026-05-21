@@ -2,5 +2,7 @@
 	"princyai.useSameOriginApi": true,
 	"princyai.agentEndpoint": "https://princyai.com/princy-api",
 	"princyai.apiToken": "",
-	"workbench.colorTheme": "Princy Black"
+	"workbench.colorTheme": "Princy Black",
+	"workbench.welcomePage.experimentalOnboarding": false,
+	"workbench.startupEditor": "none"
 }

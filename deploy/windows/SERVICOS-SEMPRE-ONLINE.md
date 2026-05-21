@@ -8,7 +8,7 @@ Problemas no arquivo atual:
 |------|----------|----------|
 | `OLLAMA_*` | Duplicado (com e sem aspas) | Uma linha so: `OLLAMA_BASE_URL="http://127.0.0.1:11434"` |
 | `API_HOST` | `127.0.0.1` | Use `0.0.0.0` (Caddy ainda usa 127.0.0.1) |
-| `CODE_WEB_URL` | `http://127.0.0.1:3200` | Em producao: `https://princyai.com` |
+| `CODE_WEB_URL` | `http://127.0.0.1:3200/webeditor` | Nao use `https://princyai.com` sozinho (e a landing) |
 | `PRINCY_CORS_ORIGINS` | Falta dashboard | Inclua `https://dashboard.princyai.com` |
 | `PRINCY_PUBLIC_CHAT` | Ausente | `PRINCY_PUBLIC_CHAT="true"` |
 | `SESSION_SECRET` | Placeholder | Troque por segredo longo aleatorio |

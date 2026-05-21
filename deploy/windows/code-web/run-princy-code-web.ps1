@@ -32,6 +32,15 @@ if (-not $UserDataDir) {
 }
 New-Item -ItemType Directory -Force $UserDataDir | Out-Null
 
+$productionSettings = Join-Path $ProjectRoot "deploy\windows\princy-production.settings.json"
+$userSettingsDir = Join-Path $UserDataDir "User"
+$userSettingsFile = Join-Path $userSettingsDir "settings.json"
+if (Test-Path $productionSettings) {
+	New-Item -ItemType Directory -Force $userSettingsDir | Out-Null
+	Copy-Item $productionSettings $userSettingsFile -Force
+	Write-Host "Settings: $userSettingsFile (from princy-production.settings.json)"
+}
+
 $disabledExtensions = @(
 	'GitHub.copilot',
 	'GitHub.copilot-chat',

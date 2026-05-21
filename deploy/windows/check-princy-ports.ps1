@@ -1,9 +1,12 @@
 param(
 	[int]$CodeWebPort = 3200,
-	[int]$AgentPort = 3210
+	[int]$AgentPort = 3210,
+	[string]$EditorBasePath = "/webeditor"
 )
 
 $ErrorActionPreference = "Continue"
+$basePath = $EditorBasePath.Trim()
+if (-not $basePath.StartsWith('/')) { $basePath = "/$basePath" }
 
 function Test-PortListening {
 	param([int]$Port)
@@ -19,31 +22,39 @@ $agent = Test-PortListening -Port $AgentPort
 $caddy80 = Test-PortListening -Port 80
 $caddy443 = Test-PortListening -Port 443
 
-Write-Host ("Code Web (princyai.com)  :{0} porta {1}" -f $(if ($codeWeb) { ' OK ' } else { ' OFF' }), $CodeWebPort)
+Write-Host ("Code Web (editor)        :{0} porta {1}" -f $(if ($codeWeb) { ' OK ' } else { ' OFF' }), $CodeWebPort)
 Write-Host ("Agent backend (dashboard):{0} porta {1}" -f $(if ($agent) { ' OK ' } else { ' OFF' }), $AgentPort)
 Write-Host ("Caddy HTTP               :{0} porta 80" -f $(if ($caddy80) { ' OK ' } else { ' OFF' }))
 Write-Host ("Caddy HTTPS              :{0} porta 443" -f $(if ($caddy443) { ' OK ' } else { ' OFF' }))
 Write-Host ""
+Write-Host "Editor publico: https://princyai.com$basePath/" -ForegroundColor Cyan
+Write-Host ""
 
 if (-not $codeWeb) {
-	Write-Host "502 em https://princyai.com -> suba o Code Web:" -ForegroundColor Yellow
-	Write-Host "  powershell -ExecutionPolicy Bypass -File C:\Apps\Editor\deploy\windows\code-web\start-princy-code-web.ps1"
+	Write-Host "Editor OFF -> Restart-Service PrincyAiCodeWeb" -ForegroundColor Yellow
 }
 if (-not $agent) {
-	Write-Host "Chat/dashboard 502 -> suba o backend:" -ForegroundColor Yellow
-	Write-Host "  powershell -ExecutionPolicy Bypass -File C:\Apps\Editor\deploy\windows\agent-backend\start-princy-agent-backend.ps1"
+	Write-Host "Backend OFF -> Restart-Service PrincyAiAgentBackend" -ForegroundColor Yellow
 }
 if (-not ($caddy80 -and $caddy443)) {
-	Write-Host "Dominio recusado -> suba o Caddy (Admin):" -ForegroundColor Yellow
-	Write-Host "  C:\Caddy\caddy.exe run --config C:\Caddy\Caddyfile"
+	Write-Host "Dominio timeout -> Start-Service PrincyCaddy (Admin)" -ForegroundColor Yellow
 }
 
 if ($codeWeb) {
+	foreach ($path in @('/', $basePath + '/')) {
+		try {
+			$r = Invoke-WebRequest "http://127.0.0.1:$CodeWebPort$path" -UseBasicParsing -TimeoutSec 8
+			$wb = $r.Content -match 'WORKBENCH_WEB_CONFIGURATION|serverBasePath'
+			Write-Host "HTTP 127.0.0.1:$CodeWebPort$path -> $($r.StatusCode) ($($r.Content.Length) bytes) workbench=$wb" -ForegroundColor $(if ($wb) { 'Green' } else { 'Yellow' })
+		} catch {
+			Write-Host "HTTP 127.0.0.1:$CodeWebPort$path -> falhou: $_" -ForegroundColor Red
+		}
+	}
 	try {
-		$r = Invoke-WebRequest "http://127.0.0.1:$CodeWebPort" -UseBasicParsing -TimeoutSec 5
-		Write-Host "HTTP 127.0.0.1:$CodeWebPort -> $($r.StatusCode) ($($r.Content.Length) bytes)" -ForegroundColor Green
+		$r = Invoke-WebRequest "http://127.0.0.1:$CodeWebPort/princy-api/api/health" -UseBasicParsing -TimeoutSec 8
+		Write-Host "HTTP 127.0.0.1:$CodeWebPort/princy-api/api/health -> $($r.StatusCode)" -ForegroundColor Green
 	} catch {
-		Write-Host "Porta $CodeWebPort aberta mas HTTP falhou: $_" -ForegroundColor Red
+		Write-Host "Proxy /princy-api falhou: $_" -ForegroundColor Red
 	}
 }
 
@@ -59,9 +70,9 @@ if ($agent) {
 $workbench = "C:\Apps\Editor\out\vs\code\browser\workbench\workbench-dev.html"
 if (-not (Test-Path $workbench)) {
 	Write-Host ""
-	Write-Host "Compile do editor ausente. Rode em C:\Apps\Editor:" -ForegroundColor Yellow
-	Write-Host '  $env:NODE_OPTIONS = "--max-old-space-size=8192"'
-	Write-Host '  $env:PRINCY_SKIP_GULP_CLEAN = "1"'
-	Write-Host "  npm run compile-incremental"
-	Write-Host "  npm run compile-web"
+	Write-Host "Compile ausente. Rode:" -ForegroundColor Yellow
+	Write-Host '  cd C:\Apps\Editor; $env:NODE_OPTIONS="--max-old-space-size=8192"; npm run compile-web'
 }
+
+Write-Host ""
+Write-Host "Verificacao completa: deploy\windows\verify-princy-webeditor.ps1" -ForegroundColor Cyan

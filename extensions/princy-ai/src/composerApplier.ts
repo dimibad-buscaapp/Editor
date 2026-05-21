@@ -7,14 +7,6 @@ import * as vscode from 'vscode';
 import { ComposerOperation, TerminalCommandResult } from './agentClient';
 import { TerminalRunner } from './terminalRunner';
 
-declare const TextEncoder: {
-	new(): { encode(input: string): Uint8Array };
-};
-
-declare const TextDecoder: {
-	new(): { decode(input: Uint8Array): string };
-};
-
 export interface ComposerApplyResult {
 	readonly appliedFiles: readonly string[];
 	readonly commandResults: readonly TerminalCommandResult[];
