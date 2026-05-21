@@ -26,8 +26,12 @@ export const config = {
 	ollamaBaseUrl: process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434',
 	ollamaChatModel: process.env.OLLAMA_CHAT_MODEL ?? 'deepseek-coder',
 	ollamaEmbeddingModel: process.env.OLLAMA_EMBEDDING_MODEL ?? 'nomic-embed-text',
+	/** Limita tokens gerados (menor = resposta mais rapida no Ollama). */
+	ollamaNumPredict: Number(process.env.PRINCY_OLLAMA_NUM_PREDICT ?? '2048'),
+	ollamaNumCtx: Number(process.env.PRINCY_OLLAMA_NUM_CTX ?? '4096'),
 	groqApiKey: process.env.GROQ_API_KEY ?? '',
 	groqBaseUrl: process.env.GROQ_BASE_URL ?? 'https://api.groq.com/openai/v1',
+	groqChatModel: process.env.GROQ_CHAT_MODEL ?? 'llama-3.1-8b-instant',
 	googleAiApiKey: process.env.GOOGLE_AI_API_KEY ?? '',
 	deepseekApiKey: process.env.DEEPSEEK_API_KEY ?? '',
 	deepseekBaseUrl: process.env.DEEPSEEK_BASE_URL ?? 'https://api.deepseek.com',

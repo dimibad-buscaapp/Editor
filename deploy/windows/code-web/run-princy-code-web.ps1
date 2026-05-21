@@ -3,7 +3,8 @@ param(
 	[string]$WorkspacePath = "C:\Apps\Editor\workspaces\default",
 	[string]$HostName = "127.0.0.1",
 	[int]$Port = 3200,
-	[string]$UserDataDir = ""
+	[string]$UserDataDir = "",
+	[string]$ServerBasePath = "/webeditor"
 )
 
 $ErrorActionPreference = "Stop"
@@ -43,11 +44,18 @@ $extensionArgs = foreach ($ext in $disabledExtensions) { '--disable-extension'; 
 
 Write-Host "Princy Code Web (run) http://${HostName}:$Port"
 
-& $scriptPath @(
+$serverArgs = @(
 	$WorkspacePath
 	'--host', $HostName
 	'--port', $Port
 	'--without-connection-token'
 	'--disable-workspace-trust'
 	'--user-data-dir', $UserDataDir
-) + $extensionArgs
+)
+if ($ServerBasePath) {
+	$base = $ServerBasePath.Trim()
+	if (-not $base.StartsWith('/')) { $base = "/$base" }
+	$serverArgs += '--server-base-path', $base
+}
+
+& $scriptPath @serverArgs + $extensionArgs

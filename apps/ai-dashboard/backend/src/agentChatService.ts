@@ -1,4 +1,4 @@
-import { agentConfigs, createChatCompletionDetailed, type AgentModel, type ChatMessage } from './ai.js';
+import { agentConfigs, createChatCompletionDetailed, getDirectCloudProvider, type AgentModel, type ChatMessage } from './ai.js';
 import { buildAgentChatResponse, type AgentChatResponse } from './agentMetadata.js';
 import { validateVpsEnvironment } from './compileService.js';
 import { config } from './config.js';
@@ -84,6 +84,7 @@ export async function generateAgentChatCore(
 			? String((body.shadowContext as { activeLanguageId?: string }).activeLanguageId ?? '')
 			: undefined,
 		stream: Boolean(onToken),
+		maxTokens: config.simpleMode || getDirectCloudProvider() ? config.ollamaNumPredict : undefined,
 		onToken: onToken ? (_chunk, fullText) => onToken(fullText) : undefined
 	});
 

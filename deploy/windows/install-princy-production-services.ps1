@@ -80,7 +80,7 @@ powershell -ExecutionPolicy Bypass -File (Join-Path $ProjectRoot "deploy\windows
 Install-NssmService -Nssm $nssm -Name "PrincyAiCodeWeb" `
 	-AppDirectory $ProjectRoot `
 	-Runner $codeRunner `
-	-RunnerArgs "-ProjectRoot `"$ProjectRoot`"" `
+	-RunnerArgs "-ProjectRoot `"$ProjectRoot`" -ServerBasePath /webeditor" `
 	-StdoutLog (Join-Path $logsDir "code-web.out.log") `
 	-StderrLog (Join-Path $logsDir "code-web.err.log")
 

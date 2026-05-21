@@ -135,7 +135,8 @@ export async function createChatCompletion(messages: ChatMessage[], agent: Agent
 export async function createChatCompletionDetailed(messages: ChatMessage[], agent: AgentModel = 'princy', options?: ChatCompletionOptions): Promise<ChatCompletionResult> {
 	const agentConfig = agentConfigs[agent] ?? agentConfigs.princy;
 	const preparedMessages = withAgentSystemPrompt(messages, agentConfig.systemPrompt);
-	const useOrchestrator = !options?.stream && (options?.useOrchestrator ?? (config.orchestratorEnabled && (agent === 'princy' || agent === 'deepseek')));
+	const directCloud = getDirectCloudProvider();
+	const useOrchestrator = !directCloud && !options?.stream && (options?.useOrchestrator ?? (config.orchestratorEnabled && (agent === 'princy' || agent === 'deepseek')));
 
 	if (useOrchestrator) {
 		try {
@@ -159,21 +160,84 @@ export async function createChatCompletionDetailed(messages: ChatMessage[], agen
 				}
 			};
 		} catch (orchestratorError) {
-			console.warn('[princy-ai] Orquestrador falhou, usando Ollama direto:', orchestratorError instanceof Error ? orchestratorError.message : orchestratorError);
-			return {
-				content: await createOllamaChatCompletion(preparedMessages, config.ollamaChatModel, options)
-			};
+			console.warn('[princy-ai] Orquestrador falhou, tentando fallback:', orchestratorError instanceof Error ? orchestratorError.message : orchestratorError);
+			return createDirectChatCompletion(preparedMessages, agentConfig, options);
 		}
 	}
 
-	if (!agentConfig.isLocal || config.aiProvider === 'openai') {
+	return createDirectChatCompletion(preparedMessages, agentConfig, options);
+}
+
+type DirectCloudProvider = 'groq' | 'openai';
+
+export function getDirectCloudProvider(): DirectCloudProvider | null {
+	const provider = config.aiProvider.toLowerCase();
+	if (provider === 'groq' && config.groqApiKey) {
+		return 'groq';
+	}
+	if (provider === 'openai' && config.openAiApiKey) {
+		return 'openai';
+	}
+	return null;
+}
+
+function resolveChatModelName(agentConfig: AgentConfig, cloud: DirectCloudProvider | null): string {
+	if (cloud === 'groq') {
+		return config.groqChatModel;
+	}
+	if (cloud === 'openai') {
+		return agentConfig.isLocal ? config.openAiChatModel : agentConfig.modelName;
+	}
+	return agentConfig.modelName;
+}
+
+async function createDirectChatCompletion(
+	messages: ChatMessage[],
+	agentConfig: AgentConfig,
+	options?: ChatCompletionOptions
+): Promise<ChatCompletionResult> {
+	const cloud = getDirectCloudProvider();
+	const modelName = resolveChatModelName(agentConfig, cloud);
+
+	if (cloud === 'groq') {
+		const startedAt = Date.now();
+		const content = await createGroqChatCompletion(messages, modelName, options);
 		return {
-			content: await createOpenAiChatCompletion(preparedMessages, agentConfig.modelName, options)
+			content,
+			orchestrator: buildDirectCloudOrchestratorMeta('groq', modelName, options?.segment, Date.now() - startedAt)
+		};
+	}
+
+	if (cloud === 'openai' || !agentConfig.isLocal) {
+		const startedAt = Date.now();
+		const content = await createOpenAiChatCompletion(messages, modelName, options);
+		return {
+			content,
+			orchestrator: cloud === 'openai'
+				? buildDirectCloudOrchestratorMeta('openai', modelName, options?.segment, Date.now() - startedAt)
+				: undefined
 		};
 	}
 
 	return {
-		content: await createOllamaChatCompletion(preparedMessages, agentConfig.modelName, options)
+		content: await createOllamaChatCompletion(messages, modelName, options)
+	};
+}
+
+function buildDirectCloudOrchestratorMeta(
+	provider: DirectCloudProvider,
+	modelName: string,
+	segment: ModelSegment | undefined,
+	executionTimeMs: number
+): ChatCompletionResult['orchestrator'] {
+	return {
+		segment: segment ?? 'LOGIC',
+		enginesUsed: [`${provider}@${modelName}`],
+		primaryEngine: provider,
+		fallbackEngines: [],
+		consensusApplied: false,
+		status: 'COMPLETED',
+		executionTimeMs
 	};
 }
 
@@ -194,7 +258,8 @@ async function createOllamaChatCompletionStream(
 			stream: true,
 			options: {
 				temperature: options?.temperature ?? 0.2,
-				...(options?.maxTokens !== undefined ? { num_predict: options.maxTokens } : {})
+				num_ctx: config.ollamaNumCtx,
+				num_predict: options?.maxTokens ?? config.ollamaNumPredict
 			}
 		})
 	});
@@ -242,20 +307,19 @@ async function createOllamaChatCompletionStream(
 	return full || 'A LLM local nao retornou conteudo.';
 }
 
-async function createOpenAiChatCompletionStream(
+async function createOpenAiCompatibleChatCompletionStream(
+	baseUrl: string,
+	apiKey: string,
+	providerLabel: string,
 	messages: ChatMessage[],
 	modelName: string,
 	options: ChatCompletionOptions | undefined,
 	onToken: (chunk: string, fullText: string) => void
 ): Promise<string> {
-	if (!config.openAiApiKey) {
-		throw new Error('OPENAI_API_KEY is required when AI_PROVIDER=openai');
-	}
-
-	const response = await fetch('https://api.openai.com/v1/chat/completions', {
+	const response = await fetch(`${baseUrl.replace(/\/$/, '')}/chat/completions`, {
 		method: 'POST',
 		headers: {
-			Authorization: `Bearer ${config.openAiApiKey}`,
+			Authorization: `Bearer ${apiKey}`,
 			'Content-Type': 'application/json'
 		},
 		body: JSON.stringify({
@@ -268,12 +332,12 @@ async function createOpenAiChatCompletionStream(
 	});
 
 	if (!response.ok) {
-		throw new Error(`OpenAI chat stream failed: ${await response.text()}`);
+		throw new Error(`${providerLabel} chat stream failed: ${await response.text()}`);
 	}
 
 	const reader = response.body?.getReader();
 	if (!reader) {
-		throw new Error('OpenAI stream body unavailable');
+		throw new Error(`${providerLabel} stream body unavailable`);
 	}
 
 	const decoder = new TextDecoder();
@@ -316,6 +380,55 @@ async function createOpenAiChatCompletionStream(
 	return full || 'A LLM nao retornou conteudo.';
 }
 
+async function createOpenAiCompatibleChatCompletion(
+	baseUrl: string,
+	apiKey: string,
+	providerLabel: string,
+	messages: ChatMessage[],
+	modelName: string,
+	options?: ChatCompletionOptions
+): Promise<string> {
+	if (options?.stream && options.onToken) {
+		return createOpenAiCompatibleChatCompletionStream(baseUrl, apiKey, providerLabel, messages, modelName, options, options.onToken);
+	}
+
+	const response = await fetch(`${baseUrl.replace(/\/$/, '')}/chat/completions`, {
+		method: 'POST',
+		headers: {
+			Authorization: `Bearer ${apiKey}`,
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify({
+			model: modelName,
+			messages,
+			max_tokens: options?.maxTokens,
+			temperature: options?.temperature ?? 0.2
+		})
+	});
+
+	if (!response.ok) {
+		throw new Error(`${providerLabel} chat failed: ${await response.text()}`);
+	}
+
+	const payload = await response.json() as OpenAiChatResponse;
+	return payload.choices[0]?.message?.content ?? 'A LLM nao retornou conteudo.';
+}
+
+async function createGroqChatCompletion(messages: ChatMessage[], modelName: string, options?: ChatCompletionOptions): Promise<string> {
+	if (!config.groqApiKey) {
+		throw new Error('GROQ_API_KEY is required when AI_PROVIDER=groq');
+	}
+
+	return createOpenAiCompatibleChatCompletion(
+		config.groqBaseUrl,
+		config.groqApiKey,
+		'Groq',
+		messages,
+		modelName,
+		options
+	);
+}
+
 async function createOpenAiEmbedding(input: string): Promise<number[]> {
 	if (!config.openAiApiKey) {
 		throw new Error('OPENAI_API_KEY is required when AI_PROVIDER=openai');
@@ -347,34 +460,18 @@ async function createOpenAiEmbedding(input: string): Promise<number[]> {
 }
 
 async function createOpenAiChatCompletion(messages: ChatMessage[], modelName: string, options?: ChatCompletionOptions): Promise<string> {
-	if (options?.stream && options.onToken) {
-		return createOpenAiChatCompletionStream(messages, modelName, options, options.onToken);
-	}
-
 	if (!config.openAiApiKey) {
 		throw new Error('OPENAI_API_KEY is required when AI_PROVIDER=openai');
 	}
 
-	const response = await fetch('https://api.openai.com/v1/chat/completions', {
-		method: 'POST',
-		headers: {
-			Authorization: `Bearer ${config.openAiApiKey}`,
-			'Content-Type': 'application/json'
-		},
-		body: JSON.stringify({
-			model: modelName,
-			messages,
-			max_tokens: options?.maxTokens,
-			temperature: options?.temperature ?? 0.2
-		})
-	});
-
-	if (!response.ok) {
-		throw new Error(`OpenAI chat failed: ${await response.text()}`);
-	}
-
-	const payload = await response.json() as OpenAiChatResponse;
-	return payload.choices[0]?.message?.content ?? 'A LLM nao retornou conteudo.';
+	return createOpenAiCompatibleChatCompletion(
+		'https://api.openai.com/v1',
+		config.openAiApiKey,
+		'OpenAI',
+		messages,
+		modelName,
+		options
+	);
 }
 
 async function createOllamaEmbedding(input: string): Promise<number[]> {
@@ -418,7 +515,8 @@ async function createOllamaChatCompletion(messages: ChatMessage[], modelName: st
 			stream: false,
 			options: {
 				temperature: options?.temperature ?? 0.2,
-				...(options?.maxTokens !== undefined ? { num_predict: options.maxTokens } : {})
+				num_ctx: config.ollamaNumCtx,
+				num_predict: options?.maxTokens ?? config.ollamaNumPredict
 			}
 		})
 	});

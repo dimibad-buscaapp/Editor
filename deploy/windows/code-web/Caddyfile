@@ -1,8 +1,6 @@
-# Copie para C:\Caddy\Caddyfile no VPS.
-# princyai.com/           -> pagina inicial (hub, porta 3210)
-# princyai.com/webeditor/ -> Code-OSS Web (porta 3200)
-# princyai.com/princy-api -> agent backend (porta 3210)
-# dashboard.princyai.com  -> chat + dashboard (porta 3210)
+# princyai.com/           -> pagina inicial (3210)
+# princyai.com/webeditor/ -> Code-OSS Web (3200) — requer --server-base-path /webeditor no Code Web
+# princyai.com/princy-api -> agent (3210)
 
 {
 	email dimi.bad@gmail.com
@@ -20,12 +18,12 @@ princyai.com, www.princyai.com {
 		redir /webeditor/ permanent
 	}
 
-	handle_path /webeditor/* {
+	# NAO usar handle_path aqui: o Code Web precisa receber /webeditor/... completo
+	handle /webeditor* {
 		reverse_proxy 127.0.0.1:3200 {
 			header_up Host {host}
 			header_up X-Forwarded-Host {host}
 			header_up X-Forwarded-Proto {scheme}
-			header_up X-Forwarded-Prefix /webeditor
 		}
 	}
 

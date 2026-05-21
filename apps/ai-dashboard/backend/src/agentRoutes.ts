@@ -172,6 +172,8 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 		needsToken: Boolean(config.agentApiToken) && !config.publicChatEnabled,
 		defaultAgent: 'deepseek',
 		simpleMode: config.simpleMode,
+		aiProvider: config.aiProvider,
+		chatModel: config.aiProvider === 'groq' ? config.groqChatModel : config.ollamaChatModel,
 		streamPath: '/api/agent/chat/stream',
 		chatPath: '/api/agent/chat'
 	}));

@@ -4,6 +4,7 @@ param(
 	[string]$HostName = "127.0.0.1",
 	[int]$Port = 3200,
 	[string]$UserDataDir = "",
+	[string]$ServerBasePath = "",
 	[switch]$Rebuild
 )
 
@@ -120,11 +121,19 @@ $extensionArgs = foreach ($ext in $disabledExtensions) { '--disable-extension'; 
 Write-Host "Disabled extensions: $($disabledExtensions -join ', ')"
 Write-Host "User data dir: $UserDataDir"
 
-& $scriptPath @(
+$serverArgs = @(
 	$WorkspacePath
 	'--host', $HostName
 	'--port', $Port
 	'--without-connection-token'
 	'--disable-workspace-trust'
 	'--user-data-dir', $UserDataDir
-) + $extensionArgs
+)
+if ($ServerBasePath) {
+	$base = $ServerBasePath.Trim()
+	if (-not $base.StartsWith('/')) { $base = "/$base" }
+	$serverArgs += '--server-base-path', $base
+	Write-Host "Server base path: $base (URL publica: https://princyai.com$base/)"
+}
+
+& $scriptPath @serverArgs + $extensionArgs

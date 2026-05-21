@@ -54,7 +54,9 @@ Apos alterar o Caddyfile: `Copy-Item ...\Caddyfile C:\Caddy\Caddyfile -Force` e 
 
 Se **/webeditor** abrir mas **/** ficar em branco: falta build do frontend no backend (`npm run build` em apps\ai-dashboard).
 
-Se **/webeditor** ficar em branco: Code Web na **3200** parado ou compile incompleto.
+Se **/webeditor** ficar em branco: veja [WEBEDITOR-BLANK.md](./WEBEDITOR-BLANK.md) (base path + Caddy). Tambem: Code Web na **3200** parado ou compile incompleto.
+
+O Code Web em producao deve usar `--server-base-path /webeditor` (script `run-princy-code-web.ps1` / servico NSSM).
 
 Antes (só 3200 na raiz): HTTPS encaminhava tudo para o Code Web. Pagina branca quase sempre significava:
 
@@ -64,7 +66,7 @@ Antes (só 3200 na raiz): HTTPS encaminhava tudo para o Code Web. Pagina branca 
 ### 1) Subir o editor (obrigatorio)
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File C:\Apps\Editor\deploy\windows\code-web\start-princy-code-web.ps1
+powershell -ExecutionPolicy Bypass -File C:\Apps\Editor\deploy\windows\code-web\start-princy-code-web.ps1 -ServerBasePath /webeditor
 ```
 
 Espere a linha tipo `Web UI available at http://127.0.0.1:3200`.
