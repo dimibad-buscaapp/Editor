@@ -22,12 +22,20 @@ princyai.com, www.princyai.com {
 		reverse_proxy 127.0.0.1:3210
 	}
 
-	reverse_proxy 127.0.0.1:3200
+	reverse_proxy 127.0.0.1:3200 {
+		header_up Host {host}
+		header_up X-Forwarded-Host {host}
+		header_up X-Forwarded-Proto {scheme}
+	}
 }
 
 dashboard.princyai.com {
 	encode zstd gzip
-	reverse_proxy 127.0.0.1:3210
+	reverse_proxy 127.0.0.1:3210 {
+		header_up Host {host}
+		header_up X-Forwarded-Host {host}
+		header_up X-Forwarded-Proto {scheme}
+	}
 }
 
 # Descomente quando existir registro DNS A para api.princyai.com:

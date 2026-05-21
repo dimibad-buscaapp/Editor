@@ -39,10 +39,13 @@ const chatSchema = z.object({
 });
 
 export async function registerRoutes(app: FastifyInstance): Promise<void> {
-	app.get('/', async () => ({
+	/** Metadados da API (nao use GET / — raiz serve o dashboard SPA quando dist/frontend existe). */
+	app.get('/api/meta', async () => ({
 		ok: true,
 		service: 'Princy Ai Agent Backend',
 		health: '/api/health',
+		dashboard: '/#/login',
+		logs: '/#/logs',
 		models: '/api/agent/models',
 		openAiCompatible: '/v1/models'
 	}));

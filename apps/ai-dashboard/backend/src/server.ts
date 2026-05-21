@@ -76,15 +76,18 @@ await registerAgentRoutes(app);
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const frontendDist = path.resolve(currentDir, '../frontend');
-if (fs.existsSync(frontendDist)) {
+	if (fs.existsSync(frontendDist)) {
 	await app.register(staticFiles, {
 		root: frontendDist,
 		prefix: '/',
+		index: ['index.html'],
 		allowedPath: (_pathName, _root, request) => {
 			const url = request.url.split('?')[0] ?? request.url;
 			return !url.startsWith('/api/') && !url.startsWith('/v1/');
 		}
 	});
+
+	app.get('/', async (_request, reply) => reply.sendFile('index.html'));
 
 	app.setNotFoundHandler((request, reply) => {
 		if (request.url.startsWith('/api/') || request.url.startsWith('/v1/')) {
