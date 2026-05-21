@@ -49,7 +49,7 @@ function renderContent(text: string): ReactElement {
 const EDITOR_URL = typeof window !== 'undefined'
 	&& (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost')
 	? 'http://127.0.0.1:3200'
-	: 'https://princyai.com';
+	: `${window.location.origin}/webeditor/`;
 
 export function ChatPage(): ReactElement {
 	const [models, setModels] = useState<readonly AgentModelInfo[]>([]);

@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactElement } from 'react';
 import { api, type User } from './api.js';
 import { DashboardPage } from './pages/DashboardPage.js';
+import { HomePage } from './pages/HomePage.js';
 import { HubPage } from './pages/HubPage.js';
 import { LoginPage } from './pages/LoginPage.js';
 import { ChatPage } from './pages/ChatPage.js';
@@ -38,6 +39,10 @@ export function App(): ReactElement {
 	}
 
 	if (route === 'hub') {
+		const host = typeof window !== 'undefined' ? window.location.hostname.toLowerCase() : '';
+		if (host === 'princyai.com' || host === 'www.princyai.com') {
+			return <HomePage />;
+		}
 		return <HubPage />;
 	}
 

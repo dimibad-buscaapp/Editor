@@ -1,12 +1,10 @@
 import type { ReactElement } from 'react';
 import { navigate } from '../router.js';
 
-const EDITOR_HTTPS = 'https://princyai.com';
-
 export function HubPage(): ReactElement {
 	const editorUrl = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost'
 		? 'http://127.0.0.1:3200'
-		: EDITOR_HTTPS;
+		: `${window.location.origin}/webeditor/`;
 
 	return (
 		<main className="hub-shell">

@@ -1,9 +1,23 @@
 export type AppRoute = 'chat' | 'hub' | 'login' | 'dashboard' | 'logs';
 
+function defaultRouteForHost(): AppRoute {
+	if (typeof window === 'undefined') {
+		return 'hub';
+	}
+	const host = window.location.hostname.toLowerCase();
+	if (host === 'dashboard.princyai.com') {
+		return 'chat';
+	}
+	return 'hub';
+}
+
 export function parseHashRoute(): AppRoute {
 	const hash = window.location.hash.replace(/^#\/?/, '').split('?')[0]?.toLowerCase() ?? '';
-	if (hash === 'chat' || hash === '') {
+	if (hash === 'chat') {
 		return 'chat';
+	}
+	if (hash === '') {
+		return defaultRouteForHost();
 	}
 	if (hash === 'login') {
 		return 'login';
@@ -21,9 +35,13 @@ export function parseHashRoute(): AppRoute {
 }
 
 export function navigate(route: AppRoute): void {
-	if (route === 'chat') {
+	if (route === 'hub') {
 		window.location.hash = '#/';
 		return;
 	}
-	window.location.hash = route === 'hub' ? '#/hub' : `#/${route}`;
+	if (route === 'chat') {
+		window.location.hash = '#/chat';
+		return;
+	}
+	window.location.hash = `#/${route}`;
 }

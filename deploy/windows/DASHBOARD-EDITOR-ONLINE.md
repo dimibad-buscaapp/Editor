@@ -39,9 +39,24 @@ Metadados da API: `https://dashboard.princyai.com/api/meta`
 
 ---
 
+## Rotas publicas (Caddy)
+
+| URL | Destino |
+|-----|---------|
+| https://princyai.com/ | Pagina inicial (hub, porta 3210) |
+| https://princyai.com/webeditor/ | Code-OSS Web (porta 3200) |
+| https://princyai.com/princy-api/ | Agent API (porta 3210) |
+| https://dashboard.princyai.com/ | Chat + dashboard (porta 3210) |
+
+Apos alterar o Caddyfile: `Copy-Item ...\Caddyfile C:\Caddy\Caddyfile -Force` e `Restart-Service PrincyCaddy`.
+
 ## princyai.com fica em branco
 
-HTTPS no dominio so encaminha para o **Code Web na porta 3200**. Pagina branca quase sempre significa:
+Se **/webeditor** abrir mas **/** ficar em branco: falta build do frontend no backend (`npm run build` em apps\ai-dashboard).
+
+Se **/webeditor** ficar em branco: Code Web na **3200** parado ou compile incompleto.
+
+Antes (só 3200 na raiz): HTTPS encaminhava tudo para o Code Web. Pagina branca quase sempre significava:
 
 1. **Code Web nao esta rodando** na 3200, ou
 2. **Compilacao incompleta** (falta `out\vs\code\browser\workbench\workbench-dev.html`).
