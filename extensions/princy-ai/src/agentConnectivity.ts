@@ -49,5 +49,22 @@ export function formatConnectivityError(endpoint: string, error: unknown): strin
 		return `Token invalido para ${endpoint}. Ajuste princyai.apiToken ou AGENT_API_TOKEN no .env.`;
 	}
 
+	if (lower.includes('not found') || lower.includes('404')) {
+		if (endpoint.includes(':3210') && endpoint.includes('princy-api')) {
+			return [
+				'URL incorreta: /princy-api so existe no Code Web (porta 3200), nao na 3210.',
+				'Use princyai.agentEndpoint = http://127.0.0.1:3200/princy-api',
+				'Backend direto: http://127.0.0.1:3210/api/health (sem /princy-api).'
+			].join(' ');
+		}
+		if (endpoint.endsWith('/princy-api') || endpoint.endsWith('/princy-api/')) {
+			return [
+				`404 em ${endpoint} — teste ${endpoint}/api/health (nao so /princy-api).`,
+				'Se falhar: recompile o Code Web (npm run compile-incremental) para ativar o proxy /princy-api.',
+				'Confirme o agent na 3210: http://127.0.0.1:3210/api/health'
+			].join(' ');
+		}
+	}
+
 	return `Backend ${endpoint}: ${detail}`;
 }

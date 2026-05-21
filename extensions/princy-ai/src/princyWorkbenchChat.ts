@@ -76,7 +76,8 @@ async function migrateWebAgentEndpoint(): Promise<void> {
 	const princy = vscode.workspace.getConfiguration('princyai');
 	const current = (princy.get<string>('agentEndpoint', '') ?? '').trim();
 	const legacy = new Set(['', 'http://127.0.0.1:3210', 'http://localhost:3210']);
-	if (!legacy.has(current)) {
+	const wrongProxyOn3210 = /:3210\/princy-api\/?$/i.test(current);
+	if (!legacy.has(current) && !wrongProxyOn3210) {
 		return;
 	}
 
