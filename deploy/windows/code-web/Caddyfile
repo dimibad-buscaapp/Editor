@@ -1,11 +1,23 @@
 # Copie para C:\Caddy\Caddyfile no VPS.
-# DNS Hostinger: A @, A www, A api → IP do VPS.
-# Veja deploy/windows/DOMINIO-HOSTINGER.md
+# DNS Hostinger (OBRIGATORIO apontar para o IP deste VPS, ex. 108.181.169.40):
+#   A  @      -> IP do VPS
+#   A  www    -> IP do VPS
+#   A  dashboard -> IP do VPS
+#   A  api    -> IP do VPS  (descomente bloco api.* abaixo depois)
+#
+# Teste: nslookup princyai.com  deve retornar o IP do VPS (nao outro IP).
+# Se Let's Encrypt mostrar IP 2.57.91.91, o DNS ainda aponta para outro servidor.
+#
+# Antes do Caddy: backend :3210 e Code Web :3200 rodando.
+# Veja deploy/windows/DOMINIO-HOSTINGER.md e PRINCY-ONLINE.md
+
+{
+	email dimi.bad@gmail.com
+}
 
 princyai.com, www.princyai.com {
 	encode zstd gzip
 
-	# Mesma origem que o editor — evita CORS / Failed to fetch no chat
 	handle_path /princy-api/* {
 		reverse_proxy 127.0.0.1:3210
 	}
@@ -13,13 +25,13 @@ princyai.com, www.princyai.com {
 	reverse_proxy 127.0.0.1:3200
 }
 
-api.princyai.com {
-	encode zstd gzip
-	reverse_proxy 127.0.0.1:3210
-}
-
-# Login, dashboard e pagina de logs (#/logs)
 dashboard.princyai.com {
 	encode zstd gzip
 	reverse_proxy 127.0.0.1:3210
 }
+
+# Descomente quando existir registro DNS A para api.princyai.com:
+# api.princyai.com {
+# 	encode zstd gzip
+# 	reverse_proxy 127.0.0.1:3210
+# }
