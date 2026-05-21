@@ -43,6 +43,7 @@ async function applyNativeChatDisabledSettings(): Promise<void> {
 	await chat.update('agent.enabled', false, target);
 	await chat.update('viewSessions.enabled', false, target);
 	await chat.update('unifiedAgentsBar.enabled', false, target);
+	await chat.update('agentHost.enabled', false, target);
 	await chat.update('generalPurposeAgent.enabled', false, target);
 	await chat.update('exploreAgent.defaultModel', undefined, target);
 	await chat.update('planAgent.defaultModel', undefined, target);

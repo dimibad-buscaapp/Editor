@@ -5,7 +5,8 @@
 
 import * as vscode from 'vscode';
 
-const PRINCY_CHAT_VIEW = 'workbench.view.extension.princyai';
+export const PRINCY_CHAT_VIEW_ID = 'workbench.view.extension.princyai';
+const PRINCY_CHAT_VIEW = PRINCY_CHAT_VIEW_ID;
 const PLATFORM_CHAT_CONTAINER = 'workbench.panel.chat';
 
 /** Desativa UI de chat nativa e abre o painel Princy Ai (estilo Cursor). */
@@ -20,8 +21,6 @@ export function registerPrincyDefaultChat(context: vscode.ExtensionContext): voi
 
 	void applyPrincyDefaultChat();
 	void migrateWebAgentEndpoint();
-	setTimeout(() => void focusPrincyChatPanel(), 400);
-	setTimeout(() => void focusPrincyChatPanel(), 1200);
 }
 
 async function applyPrincyDefaultChat(): Promise<void> {
@@ -39,6 +38,7 @@ async function applyPrincyDefaultChat(): Promise<void> {
 	await chat.update('unifiedAgentsBar.enabled', false, target);
 	await chat.update('restoreLastPanelSession', false, target);
 	await chat.update('titleBar.signIn.enabled', false, target);
+	await chat.update('agentHost.enabled', false, target);
 
 	const workbench = vscode.workspace.getConfiguration('workbench');
 	await workbench.update('secondarySideBar.defaultVisibility', 'visible', target);
@@ -84,10 +84,10 @@ async function migrateWebAgentEndpoint(): Promise<void> {
 	await princy.update('useSameOriginApi', true, vscode.ConfigurationTarget.Global);
 }
 
+/** Abre o container Princy Ai — não chama princyai.chat.focus (evita loop com provider.focus). */
 export async function focusPrincyChatPanel(): Promise<void> {
 	try {
 		await vscode.commands.executeCommand(PRINCY_CHAT_VIEW);
-		await vscode.commands.executeCommand('princyai.chat.focus');
 	} catch {
 		// view ainda não registrada
 	}

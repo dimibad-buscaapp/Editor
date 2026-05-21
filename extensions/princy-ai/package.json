@@ -180,6 +180,7 @@
       "chat.disableAIFeatures": true,
       "chat.agentsControl.enabled": "hidden",
       "chat.agent.enabled": false,
+      "chat.agentHost.enabled": false,
       "chat.generalPurposeAgent.enabled": false,
       "chat.viewSessions.enabled": false,
       "chat.unifiedAgentsBar.enabled": false,

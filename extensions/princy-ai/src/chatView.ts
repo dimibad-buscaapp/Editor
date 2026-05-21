@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { AgentClient, AgentDefinition, AgentModel, ComposerPlan, TerminalCommandResult } from './agentClient';
 import { checkAgentBackend } from './agentConnectivity';
-import { focusPrincyChatPanel } from './princyWorkbenchChat';
+import { focusPrincyChatPanel, PRINCY_CHAT_VIEW_ID } from './princyWorkbenchChat';
 import { buildChatPanelHtml } from './chatPanelHtml';
 import { getMentionSuggestions, resolveContextMentions } from './contextMentions';
 import type { NativeContextBundle } from './nativeContext';
@@ -77,12 +77,16 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 	}
 
 	public async focus(): Promise<void> {
-		await focusPrincyChatPanel();
+		if (!this.view) {
+			await vscode.commands.executeCommand(PRINCY_CHAT_VIEW_ID);
+		}
 		this.view?.webview.postMessage({ type: 'focusInput' });
 	}
 
 	public async focusComposer(): Promise<void> {
-		await focusPrincyChatPanel();
+		if (!this.view) {
+			await vscode.commands.executeCommand(PRINCY_CHAT_VIEW_ID);
+		}
 		this.view?.webview.postMessage({ type: 'focusComposer' });
 	}
 
@@ -181,7 +185,8 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 		const selection = editor && !editor.selection.isEmpty
 			? editor.document.getText(editor.selection)
 			: undefined;
-		const filePath = editor?.document.uri.fsPath ?? editor?.document.uri.toString();
+		const uri = editor?.document?.uri;
+		const filePath = uri?.fsPath ?? uri?.toString();
 		const fileName = filePath ? filePath.split(/[\\/]/).pop() : undefined;
 		this.view?.webview.postMessage({
 			type: 'context',

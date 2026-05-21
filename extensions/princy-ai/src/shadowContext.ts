@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { ShadowContext, TerminalCommandResult } from './agentClient';
+import { collectOpenTabLabels } from './tabUri';
 
 const MAX_ACTIVE_CONTENT_LENGTH = 40000;
 const MAX_DIAGNOSTICS = 40;
@@ -17,7 +18,8 @@ export const EMPTY_SHADOW_CONTEXT: ShadowContext = {
 
 export class ShadowContextManager implements vscode.Disposable {
 	private readonly disposables: vscode.Disposable[] = [];
-	private timer: unknown | undefined;
+	private timer: ReturnType<typeof setTimeout> | undefined;
+	private disposed = false;
 	private snapshot: ShadowContext = {
 		openTabs: [],
 		diagnostics: []
@@ -39,8 +41,10 @@ export class ShadowContextManager implements vscode.Disposable {
 	}
 
 	public dispose(): void {
+		this.disposed = true;
 		if (this.timer) {
 			clearTimeout(this.timer);
+			this.timer = undefined;
 		}
 		for (const disposable of this.disposables) {
 			disposable.dispose();
@@ -60,35 +64,38 @@ export class ShadowContextManager implements vscode.Disposable {
 	}
 
 	private scheduleRefresh(): void {
+		if (this.disposed) {
+			return;
+		}
 		if (this.timer) {
 			clearTimeout(this.timer);
 		}
 
-		this.timer = setTimeout(() => this.refresh(), 2000);
+		this.timer = setTimeout(() => {
+			this.timer = undefined;
+			if (!this.disposed) {
+				this.refresh();
+			}
+		}, 2000);
 	}
 
 	private refresh(): void {
-		const editor = vscode.window.activeTextEditor;
-		const activeContent = editor?.document.getText();
-		this.snapshot = {
-			activeFilePath: editor?.document.uri.toString(),
-			activeLanguageId: editor?.document.languageId,
-			activeContent: activeContent ? activeContent.slice(0, MAX_ACTIVE_CONTENT_LENGTH) : undefined,
-			openTabs: collectOpenTabs(),
-			diagnostics: collectDiagnostics(),
-			lastTerminalResult: this.lastTerminalResult
-		};
+		try {
+			const editor = vscode.window.activeTextEditor;
+			const document = editor?.document;
+			const activeContent = document?.getText();
+			this.snapshot = {
+				activeFilePath: document?.uri.toString(),
+				activeLanguageId: document?.languageId,
+				activeContent: activeContent ? activeContent.slice(0, MAX_ACTIVE_CONTENT_LENGTH) : undefined,
+				openTabs: collectOpenTabLabels(30),
+				diagnostics: collectDiagnostics(),
+				lastTerminalResult: this.lastTerminalResult
+			};
+		} catch {
+			// web: tabs/editors podem estar incompletos — não derrubar o extension host
+		}
 	}
-}
-
-function collectOpenTabs(): string[] {
-	const tabs = vscode.window.tabGroups?.all.flatMap(group => group.tabs) ?? [];
-	return tabs
-		.map(tab => {
-			const input = tab.input as { readonly uri?: vscode.Uri; readonly modified?: vscode.Uri; readonly original?: vscode.Uri };
-			return input.uri?.toString() ?? input.modified?.toString() ?? input.original?.toString() ?? tab.label;
-		})
-		.slice(0, 30);
 }
 
 function collectDiagnostics(): string[] {

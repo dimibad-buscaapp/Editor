@@ -56,7 +56,7 @@ function appendSymbol(symbol: vscode.DocumentSymbol | vscode.SymbolInformation, 
 		return;
 	}
 
-	output.push(`${vscode.SymbolKind[symbol.kind]} ${symbol.name} ${symbol.location.uri.toString()}`);
+	output.push(`${vscode.SymbolKind[symbol.kind]} ${symbol.name} ${symbol.location?.uri?.toString() ?? ''}`);
 }
 
 async function collectLocations(command: string, uri: vscode.Uri, position: vscode.Position): Promise<string[]> {
@@ -69,6 +69,6 @@ async function collectLocations(command: string, uri: vscode.Uri, position: vsco
 		if ('targetUri' in item) {
 			return `${item.targetUri.toString()}:${item.targetRange.start.line + 1}`;
 		}
-		return `${item.uri.toString()}:${item.range.start.line + 1}`;
+		return `${item.uri?.toString() ?? ''}:${item.range.start.line + 1}`;
 	}).slice(0, MAX_ITEMS);
 }
