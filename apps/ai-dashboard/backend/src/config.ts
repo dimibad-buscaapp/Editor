@@ -50,6 +50,8 @@ export const config = {
 	agentAsyncJobsEnabled: simpleMode ? false : (process.env.PRINCY_AGENT_ASYNC_JOBS ?? 'true').toLowerCase() !== 'false',
 	agentStreamTokens: (process.env.PRINCY_AGENT_STREAM_TOKENS ?? 'true').toLowerCase() !== 'false',
 	agentApiToken: process.env.AGENT_API_TOKEN ?? '',
+	/** Permite chat no dashboard (3210) sem Bearer quando AGENT_API_TOKEN estiver definido. */
+	publicChatEnabled: envFlag('PRINCY_PUBLIC_CHAT', true),
 	agentWorkspaceName: process.env.AGENT_WORKSPACE_NAME ?? 'Code-OSS Web',
 	corsOrigins: (process.env.PRINCY_CORS_ORIGINS ?? '')
 		.split(',')

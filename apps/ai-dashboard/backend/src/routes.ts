@@ -44,6 +44,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 		ok: true,
 		service: 'Princy Ai Agent Backend',
 		health: '/api/health',
+		chat: '/#/chat',
 		dashboard: '/#/login',
 		logs: '/#/logs',
 		models: '/api/agent/models',

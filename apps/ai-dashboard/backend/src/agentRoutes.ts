@@ -144,16 +144,37 @@ const openAiChatCompletionSchema = z.object({
 	stream: z.boolean().optional()
 });
 
+const publicAgentPathsWhenDashboardChat = new Set([
+	'/api/agent/health',
+	'/api/agent/bootstrap',
+	'/api/agent/models',
+	'/api/agent/chat',
+	'/api/agent/chat/stream'
+]);
+
 export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 	app.addHook('preHandler', async (request, reply) => {
 		const path = request.url.split('?')[0] ?? request.url;
-		if (path === '/api/agent/health') {
+		if (path === '/api/agent/health' || path === '/api/agent/bootstrap') {
+			return;
+		}
+		if (config.publicChatEnabled && publicAgentPathsWhenDashboardChat.has(path)) {
 			return;
 		}
 		if (request.url.startsWith('/api/agent/') || request.url.startsWith('/v1/')) {
 			authorizeAgentRequest(request, reply);
 		}
 	});
+
+	app.get('/api/agent/bootstrap', async () => ({
+		ok: true,
+		publicChat: config.publicChatEnabled,
+		needsToken: Boolean(config.agentApiToken) && !config.publicChatEnabled,
+		defaultAgent: 'deepseek',
+		simpleMode: config.simpleMode,
+		streamPath: '/api/agent/chat/stream',
+		chatPath: '/api/agent/chat'
+	}));
 
 	app.get('/api/agent/health', async () => ({
 		ok: true,

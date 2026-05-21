@@ -3,6 +3,7 @@ import { api, type User } from './api.js';
 import { DashboardPage } from './pages/DashboardPage.js';
 import { HubPage } from './pages/HubPage.js';
 import { LoginPage } from './pages/LoginPage.js';
+import { ChatPage } from './pages/ChatPage.js';
 import { LogsPage } from './pages/LogsPage.js';
 import { navigate, parseHashRoute, type AppRoute } from './router.js';
 
@@ -26,6 +27,10 @@ export function App(): ReactElement {
 	function onAuthenticated(next: User): void {
 		setUser(next);
 		navigate('dashboard');
+	}
+
+	if (route === 'chat') {
+		return <ChatPage />;
 	}
 
 	if (route === 'logs') {

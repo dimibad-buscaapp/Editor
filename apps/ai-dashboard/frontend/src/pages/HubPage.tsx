@@ -15,7 +15,8 @@ export function HubPage(): ReactElement {
 				<h1>Plataforma online</h1>
 				<p className="muted">Editor Code Web, agent backend, login e painel de diagnostico.</p>
 				<div className="hub-actions">
-					<a className="hub-btn primary" href={editorUrl} target="_blank" rel="noreferrer">Abrir editor (HTTPS)</a>
+					<button type="button" className="hub-btn primary" onClick={() => navigate('chat')}>Chat IA (estilo Cursor)</button>
+					<a className="hub-btn" href={editorUrl} target="_blank" rel="noreferrer">Abrir editor (HTTPS)</a>
 					<button type="button" className="hub-btn" onClick={() => navigate('login')}>Entrar / criar conta</button>
 					<button type="button" className="hub-btn" onClick={() => navigate('dashboard')}>Dashboard</button>
 					<button type="button" className="hub-btn warn" onClick={() => navigate('logs')}>Logs e diagnostico</button>
