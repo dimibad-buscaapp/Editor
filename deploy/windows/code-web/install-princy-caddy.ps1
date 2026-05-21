@@ -18,7 +18,7 @@ function Get-CaddyExecutable {
 	return $null
 }
 
-Write-Host "Princy Ai — instalar/configurar Caddy"
+Write-Host "Princy Ai - instalar/configurar Caddy"
 Write-Host "Pasta: $CaddyDir"
 
 New-Item -ItemType Directory -Force $CaddyDir | Out-Null
@@ -35,7 +35,9 @@ if (-not $caddyExe) {
 	Write-Host "Caddy nao encontrado. Tentando winget ..."
 	try {
 		winget install --id CaddyServer.Caddy -e --accept-source-agreements --accept-package-agreements
-		$env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+		$machinePath = [System.Environment]::GetEnvironmentVariable('Path', 'Machine')
+		$userPath = [System.Environment]::GetEnvironmentVariable('Path', 'User')
+		$env:Path = $machinePath + ';' + $userPath
 		$caddyExe = Get-CaddyExecutable
 	} catch {
 		Write-Host "winget falhou: $_"
@@ -59,11 +61,12 @@ if (-not (Test-Path $caddyExe)) {
 Write-Host "Caddy: $caddyExe"
 & $caddyExe version
 
+$configPath = Join-Path $CaddyDir "Caddyfile"
 Write-Host ""
-Write-Host "Proximo passo (PowerShell como Administrador — portas 80/443):"
-Write-Host "  & `"$caddyExe`" run --config `"$CaddyDir\Caddyfile`""
+Write-Host "Proximo passo (PowerShell como Administrador, portas 80 e 443):"
+Write-Host ('  & "' + $caddyExe + '" run --config "' + $configPath + '"')
 Write-Host ""
 Write-Host "Ou em segundo plano:"
-Write-Host "  Start-Process -FilePath `"$caddyExe`" -ArgumentList 'run','--config',`"$CaddyDir\Caddyfile`" -WindowStyle Hidden"
+Write-Host ('  Start-Process -FilePath "' + $caddyExe + '" -ArgumentList run,--config,' + $configPath + ' -WindowStyle Hidden')
 Write-Host ""
 Write-Host "Antes disso: backend na 3210 e Code Web na 3200 devem estar rodando."
