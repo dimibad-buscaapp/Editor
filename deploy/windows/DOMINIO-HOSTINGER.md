@@ -61,19 +61,29 @@ New-NetFirewallRule -DisplayName "Princy HTTP"  -Direction Inbound -LocalPort 80
 
 ### Instalar Caddy (Windows)
 
-Baixe em [caddyserver.com/download](https://caddyserver.com/download) ou:
+A pasta `C:\Caddy` **nao existe** ate voce criar/instalar. Use o script do repo (cria pasta, baixa Caddy se preciso, copia Caddyfile):
 
 ```powershell
+cd C:\Apps\Editor
+powershell -ExecutionPolicy Bypass -File .\deploy\windows\code-web\install-princy-caddy.ps1
+```
+
+Ou manualmente:
+
+```powershell
+New-Item -ItemType Directory -Force C:\Caddy
 winget install CaddyServer.Caddy
 ```
 
+Feche e abra o PowerShell depois do `winget` para o comando `caddy` entrar no PATH.
+
 ### Configuracao
 
-Copie o Caddyfile do repositorio:
+Se ja rodou o script acima, o Caddyfile ja esta em `C:\Caddy\Caddyfile`. Senao:
 
 ```powershell
-Set-Location C:\Apps\Editor
-Copy-Item .\deploy\windows\code-web\Caddyfile C:\Caddy\Caddyfile -Force
+New-Item -ItemType Directory -Force C:\Caddy
+Copy-Item C:\Apps\Editor\deploy\windows\code-web\Caddyfile C:\Caddy\Caddyfile -Force
 notepad C:\Caddy\Caddyfile
 ```
 
@@ -96,11 +106,17 @@ api.princyai.com {
 
 O caminho `/princy-api` no **mesmo dominio** do editor evita `Failed to fetch` por CORS no chat.
 
-Inicie o Caddy (como Administrador):
+Inicie o Caddy (**PowerShell como Administrador** — portas 80 e 443):
 
 ```powershell
+# Se winget instalou no PATH:
 caddy run --config C:\Caddy\Caddyfile
+
+# Se o script baixou para C:\Caddy\caddy.exe:
+C:\Caddy\caddy.exe run --config C:\Caddy\Caddyfile
 ```
+
+Se `caddy` nao for reconhecido, use sempre `C:\Caddy\caddy.exe` apos rodar `install-princy-caddy.ps1`.
 
 Ou registre como servico Windows (NSSM / `caddy install`).
 

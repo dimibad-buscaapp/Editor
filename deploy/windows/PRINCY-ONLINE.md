@@ -60,8 +60,11 @@ Invoke-WebRequest "http://127.0.0.1:3200/princy-api/api/health" -UseBasicParsing
 ## Caddy (HTTPS)
 
 ```powershell
-Copy-Item C:\Apps\Editor\deploy\windows\code-web\Caddyfile C:\Caddy\Caddyfile -Force
-caddy run --config C:\Caddy\Caddyfile
+cd C:\Apps\Editor
+powershell -ExecutionPolicy Bypass -File .\deploy\windows\code-web\install-princy-caddy.ps1
+
+# Depois, como Administrador:
+C:\Caddy\caddy.exe run --config C:\Caddy\Caddyfile
 ```
 
 Firewall: abrir **80** e **443** apenas.
