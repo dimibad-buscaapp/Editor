@@ -21,5 +21,6 @@ Write-Host "URL: http://127.0.0.1:$Port"
 
 npm run prisma:generate
 npm run prisma:deploy
-npm run build:backend
+npm run build
+Write-Host "Dashboard + login: http://127.0.0.1:$Port  |  Logs: http://127.0.0.1:$Port/#/logs"
 npm run start

@@ -17,6 +17,31 @@ export type WorkspaceFile = {
 	updatedAt: string;
 };
 
+export type DiagnosticCheck = {
+	readonly id: string;
+	readonly label: string;
+	readonly ok: boolean;
+	readonly detail: string;
+};
+
+export type RequestLogEntry = {
+	readonly at: string;
+	readonly method: string;
+	readonly url: string;
+	readonly statusCode: number;
+	readonly durationMs: number;
+};
+
+export type DiagnosticReport = {
+	readonly generatedAt: string;
+	readonly appOrigin: string;
+	readonly codeWebUrl: string;
+	readonly apiPort: number;
+	readonly checks: readonly DiagnosticCheck[];
+	readonly recentRequests: readonly RequestLogEntry[];
+	readonly hints: readonly string[];
+};
+
 export type ChatResponse = {
 	sessionId: string;
 	message: {
@@ -74,5 +99,7 @@ export const api = {
 	chat: (input: { workspaceId?: string; sessionId?: string; message: string }) => request<ChatResponse>('/api/chat', {
 		method: 'POST',
 		body: JSON.stringify(input)
-	})
+	}),
+	diagnostic: () => request<DiagnosticReport>('/api/diagnostic'),
+	clearLogs: () => request<{ ok: boolean }>('/api/logs/clear', { method: 'POST' })
 };

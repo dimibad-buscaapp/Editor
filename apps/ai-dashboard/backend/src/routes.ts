@@ -5,6 +5,8 @@ import { clearSession, createSession, getAuthenticatedUser, hashPassword, requir
 import { prisma } from './prisma.js';
 import { buildRagSystemPrompt, indexWorkspaceFiles, retrieveRelevantChunks } from './rag.js';
 import { config } from './config.js';
+import { buildDiagnosticReport } from './diagnostic.js';
+import { clearRequestLogs, getRecentRequestLogs } from './requestLog.js';
 import { createWorkspaceRoot, listWorkspaceFiles, normalizeWorkspacePath, readWorkspaceFile, writeWorkspaceFile } from './storage.js';
 
 const credentialsSchema = z.object({
@@ -56,6 +58,18 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 			asyncJobs: config.agentAsyncJobsEnabled
 		}
 	}));
+
+	/** Diagnóstico público — use em https://dashboard.princyai.com/#/logs */
+	app.get('/api/diagnostic', async () => buildDiagnosticReport());
+
+	app.get('/api/logs', async () => ({
+		entries: getRecentRequestLogs(100)
+	}));
+
+	app.post('/api/logs/clear', async () => {
+		clearRequestLogs();
+		return { ok: true };
+	});
 
 	app.post('/api/auth/register', async (request, reply) => {
 		const body = credentialsSchema.parse(request.body);

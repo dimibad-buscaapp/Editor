@@ -17,3 +17,9 @@ api.princyai.com {
 	encode zstd gzip
 	reverse_proxy 127.0.0.1:3210
 }
+
+# Login, dashboard e pagina de logs (#/logs)
+dashboard.princyai.com {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:3210
+}

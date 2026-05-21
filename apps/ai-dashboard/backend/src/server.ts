@@ -10,6 +10,7 @@ import { config } from './config.js';
 import { resolveCorsOrigin } from './corsPolicy.js';
 import { prisma } from './prisma.js';
 import { registerAgentRoutes } from './agentRoutes.js';
+import { recordRequest } from './requestLog.js';
 import { registerRoutes } from './routes.js';
 
 const app = Fastify({
@@ -53,6 +54,21 @@ app.setErrorHandler((error, request, reply) => {
 		message: isAgentRoute ? errorMessage : statusCode >= 500 ? 'Internal server error' : errorMessage,
 		detail: isAgentRoute && error instanceof Error ? error.stack : undefined
 	});
+});
+
+app.addHook('onResponse', async (request, reply) => {
+	const start = (request as { _princyStart?: number })._princyStart;
+	const durationMs = typeof start === 'number' ? Date.now() - start : 0;
+	recordRequest({
+		method: request.method,
+		url: request.url,
+		statusCode: reply.statusCode,
+		durationMs
+	});
+});
+
+app.addHook('onRequest', async request => {
+	(request as { _princyStart?: number })._princyStart = Date.now();
 });
 
 await registerRoutes(app);
