@@ -22,8 +22,9 @@ powershell -ExecutionPolicy Bypass -File .\deploy\windows\agent-backend\start-pr
 
 Depois abra:
 
+- **Chat IA (porta 3210):** `https://dashboard.princyai.com/` ou `https://dashboard.princyai.com/#/chat`
 - Login: `https://dashboard.princyai.com/#/login`
-- Hub: `https://dashboard.princyai.com/#/`
+- Hub: `https://dashboard.princyai.com/#/hub`
 - Logs: `https://dashboard.princyai.com/#/logs`
 
 Teste local:

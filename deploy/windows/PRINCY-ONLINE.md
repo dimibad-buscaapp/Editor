@@ -69,6 +69,37 @@ C:\Caddy\caddy.exe run --config C:\Caddy\Caddyfile
 
 Firewall: abrir **80** e **443** apenas.
 
+### Erro `bind: ... forbidden` na porta 80
+
+1. Feche o Caddy (Ctrl+C) e abra **PowerShell como Administrador**.
+2. Veja quem usa a 80:
+
+```powershell
+netstat -ano | findstr ":80 "
+netstat -ano | findstr ":443 "
+```
+
+3. Se for IIS (`W3SVC` / PID 4 / `http.sys`), pare o site padrao:
+
+```powershell
+Stop-Service W3SVC -Force -ErrorAction SilentlyContinue
+Stop-Service WAS -Force -ErrorAction SilentlyContinue
+```
+
+4. Suba o Caddy de novo:
+
+```powershell
+C:\Caddy\caddy.exe run --config C:\Caddy\Caddyfile
+```
+
+5. Se ainda falhar, portas reservadas pelo Hyper-V:
+
+```powershell
+netsh interface ipv4 show excludedportrange protocol=tcp
+```
+
+Reinicie o VPS ou desative reserva dinamica de portas do Hyper-V (documentacao Microsoft).
+
 ---
 
 ## Settings do editor (HTTPS)
