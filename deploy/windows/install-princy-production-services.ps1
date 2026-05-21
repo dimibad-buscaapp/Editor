@@ -70,17 +70,12 @@ if (-not $SkipBuild) {
 	Write-Host "Se out\server-main.js nao existir, rode start-princy-code-web.ps1 uma vez ate compilar."
 }
 
-$agentRunner = Join-Path $ProjectRoot "deploy\windows\agent-backend\run-princy-agent-backend.ps1"
 $codeRunner = Join-Path $ProjectRoot "deploy\windows\code-web\run-princy-code-web.ps1"
 $caddyExe = Join-Path $CaddyDir "caddy.exe"
 $caddyConfig = Join-Path $CaddyDir "Caddyfile"
 
-Install-NssmService -Nssm $nssm -Name "PrincyAiAgentBackend" `
-	-AppDirectory (Join-Path $ProjectRoot "apps\ai-dashboard") `
-	-Runner $agentRunner `
-	-RunnerArgs "-ProjectRoot `"$ProjectRoot`"" `
-	-StdoutLog (Join-Path $logsDir "agent-backend.out.log") `
-	-StderrLog (Join-Path $logsDir "agent-backend.err.log")
+Write-Host "=== Agent backend (node.exe direto) ===" -ForegroundColor Cyan
+powershell -ExecutionPolicy Bypass -File (Join-Path $ProjectRoot "deploy\windows\agent-backend\fix-princy-agent-backend-service.ps1") -ProjectRoot $ProjectRoot
 
 Install-NssmService -Nssm $nssm -Name "PrincyAiCodeWeb" `
 	-AppDirectory $ProjectRoot `
