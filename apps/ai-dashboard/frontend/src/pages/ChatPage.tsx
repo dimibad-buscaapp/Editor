@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactElement } from 'rea
 import {
 	type AgentId,
 	type AgentModelInfo,
+	fetchAgentHealth,
 	fetchBootstrap,
 	fetchModels,
 	getAgentToken,
@@ -66,6 +67,7 @@ export function ChatPage(): ReactElement {
 	const [needsToken, setNeedsToken] = useState(false);
 	const [tokenDraft, setTokenDraft] = useState(() => getAgentToken());
 	const [showToken, setShowToken] = useState(false);
+	const [backendOnline, setBackendOnline] = useState<boolean | null>(null);
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -88,16 +90,21 @@ export function ChatPage(): ReactElement {
 				}
 				setNeedsToken(boot.needsToken);
 				setAgent(boot.defaultAgent);
+				await fetchAgentHealth();
+				if (!cancelled) {
+					setBackendOnline(true);
+				}
 				const list = await fetchModels();
 				if (!cancelled) {
 					setModels(list);
 				}
 			} catch (error) {
 				if (!cancelled) {
+					setBackendOnline(false);
 					setMessages(prev => [...prev, {
 						id: newId(),
 						role: 'system',
-						content: error instanceof Error ? error.message : 'Falha ao conectar ao backend'
+						content: error instanceof Error ? error.message : 'Falha ao conectar ao backend na porta 3210'
 					}]);
 				}
 			}
@@ -238,6 +245,11 @@ export function ChatPage(): ReactElement {
 					<h1>Assistente</h1>
 					{statusLine ? <span className="chat-status">{statusLine}</span> : null}
 				</header>
+				{backendOnline === false ? (
+					<div className="chat-banner error">
+						Backend offline na 3210. Rode start-princy-agent-backend.ps1 e confira Ollama (ollama pull deepseek-coder).
+					</div>
+				) : null}
 
 				<div className="chat-thread" ref={scrollRef}>
 					{messages.map(msg => (

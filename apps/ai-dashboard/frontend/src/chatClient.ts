@@ -22,6 +22,29 @@ export function setAgentToken(token: string): void {
 	}
 }
 
+function formatChatHttpError(status: number, body: string): string {
+	if (status === 502 || status === 503) {
+		return [
+			`Erro ${status}: backend da IA nao respondeu.`,
+			'1) Inicie: deploy\\windows\\agent-backend\\start-princy-agent-backend.ps1',
+			'2) Teste: http://127.0.0.1:3210/api/agent/health',
+			'3) Ollama: ollama pull deepseek-coder e servico em http://127.0.0.1:11434'
+		].join(' ');
+	}
+	if (status === 401) {
+		return 'Token da API invalido. Ajuste AGENT_API_TOKEN ou salve o token na sidebar do chat.';
+	}
+	try {
+		const json = JSON.parse(body) as { message?: string };
+		if (json.message) {
+			return json.message;
+		}
+	} catch {
+		// not json
+	}
+	return body.trim() || `Erro HTTP ${status}`;
+}
+
 function buildHeaders(): HeadersInit {
 	const headers: Record<string, string> = {
 		'Content-Type': 'application/json',
@@ -42,6 +65,14 @@ export type BootstrapInfo = {
 	readonly simpleMode: boolean;
 };
 
+export async function fetchAgentHealth(): Promise<{ ok: boolean; service?: string }> {
+	const response = await fetch('/api/agent/health', { headers: buildHeaders() });
+	if (!response.ok) {
+		throw new Error(formatChatHttpError(response.status, await response.text()));
+	}
+	return response.json() as Promise<{ ok: boolean; service?: string }>;
+}
+
 export async function fetchBootstrap(): Promise<BootstrapInfo> {
 	const response = await fetch('/api/agent/bootstrap');
 	if (!response.ok) {
@@ -54,7 +85,7 @@ export async function fetchModels(): Promise<readonly AgentModelInfo[]> {
 	const response = await fetch('/api/agent/models', { headers: buildHeaders() });
 	if (!response.ok) {
 		const text = await response.text();
-		throw new Error(response.status === 401 ? 'Token da API invalido ou ausente' : text || `Models ${response.status}`);
+		throw new Error(formatChatHttpError(response.status, text));
 	}
 	const data = await response.json() as { models: AgentModelInfo[] };
 	return data.models;
@@ -81,7 +112,7 @@ export async function postAgentChat(input: {
 	});
 	if (!response.ok) {
 		const text = await response.text();
-		throw new Error(response.status === 401 ? 'Token da API invalido' : text || `Chat ${response.status}`);
+		throw new Error(formatChatHttpError(response.status, text));
 	}
 	return response.json() as Promise<AgentChatResult>;
 }
@@ -109,7 +140,7 @@ export async function streamAgentChat(input: {
 
 	if (!response.ok || !response.body) {
 		const text = await response.text();
-		throw new Error(response.status === 401 ? 'Token da API invalido' : text || `Stream ${response.status}`);
+		throw new Error(formatChatHttpError(response.status, text));
 	}
 
 	const reader = response.body.getReader();
@@ -144,6 +175,8 @@ export async function streamAgentChat(input: {
 					handlers.onDelta(payload.text);
 				} else if (payload.type === 'intelligence_status' && typeof payload.text === 'string') {
 					handlers.onStatus?.(payload.text);
+				} else if (payload.type === 'error' && typeof payload.text === 'string') {
+					throw new Error(payload.text);
 				} else if (payload.type === 'done') {
 					handlers.onDone({ content: finalText, message: finalText });
 				}

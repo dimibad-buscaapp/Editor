@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { agentConfigs, createChatCompletion, createChatCompletionDetailed, type AgentModel, type ChatMessage } from './ai.js';
 import { getAgentJobSnapshot, startAgentJob } from './agentJob/runner.js';
-import { handleAgentChat } from './agentChatService.js';
+import { generateAgentChatCore, handleAgentChat } from './agentChatService.js';
 import { indexEditorProject } from './workspaceIndexer.js';
 import { buildAgentChatResponse, formatIntelligenceStatus } from './agentMetadata.js';
 import { getCompileJobStatus } from './compileService.js';
@@ -471,54 +471,60 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 	app.post('/api/agent/chat/stream', async (request, reply) => {
 		const body = chatSchema.parse(request.body);
 		const startedAt = Date.now();
-		const segment = (body.force_segment ?? body.segment ?? 'BACKEND') as ModelSegment;
-		const chunks = await retrieveAgentRelevantChunks(body.message);
-		const messages: ChatMessage[] = [
-			{
-				role: 'system',
-				content: `${buildRagSystemPrompt(chunks)}\n\nAgente: ${agentConfigs[body.agent].label}.`
-			},
-			{
-				role: 'user',
-				content: body.message
-			}
-		];
 
-		reply.raw.writeHead(200, {
-			'Content-Type': 'text/event-stream',
-			'Cache-Control': 'no-cache',
-			Connection: 'keep-alive'
-		});
-
-		const send = (payload: unknown) => {
+		const writeSse = (payload: unknown) => {
 			reply.raw.write(`data: ${JSON.stringify(payload)}\n\n`);
 		};
 
-		let fullText = '';
-		const completion = await createChatCompletionDetailed(messages, body.agent, {
-			segment,
-			filePath: body.filePath,
-			stream: true,
-			onToken: (_chunk, full) => {
+		try {
+			reply.hijack();
+			reply.raw.writeHead(200, {
+				'Content-Type': 'text/event-stream',
+				'Cache-Control': 'no-cache',
+				Connection: 'keep-alive'
+			});
+
+			let fullText = '';
+			const { segment, completion } = await generateAgentChatCore({
+				agent: body.agent,
+				message: body.message,
+				context: body.context,
+				force_segment: (body.force_segment ?? body.segment) as ModelSegment | undefined,
+				priority: body.priority,
+				filePath: body.filePath,
+				selectedText: body.selectedText,
+				shadowContext: body.shadowContext,
+				codeGraph: body.codeGraph,
+				stream: true
+			}, full => {
 				fullText = full;
-				send({ type: 'delta', text: full });
+				writeSse({ type: 'delta', text: full });
+			});
+
+			const response = buildAgentChatResponse({
+				completion,
+				executionTimeMs: Date.now() - startedAt,
+				segment,
+				vpsCompileStatus: 'SKIPPED',
+				phase: 'completed',
+				suggestedCommands: extractCommands(fullText || completion.content)
+			});
+
+			writeSse({ type: 'metadata', metadata: response.metadata });
+			writeSse({ type: 'message', text: response.content });
+			writeSse({ type: 'intelligence_status', text: formatIntelligenceStatus(response.metadata) });
+			writeSse({ type: 'done' });
+			reply.raw.end();
+		} catch (error) {
+			const message = formatAgentChatError(error);
+			request.log.error({ err: error }, 'agent chat stream failed');
+			if (!reply.raw.headersSent) {
+				return reply.code(503).send({ message });
 			}
-		});
-
-		const response = buildAgentChatResponse({
-			completion,
-			executionTimeMs: Date.now() - startedAt,
-			segment,
-			vpsCompileStatus: 'SKIPPED',
-			phase: 'completed',
-			suggestedCommands: extractCommands(fullText || completion.content)
-		});
-
-		send({ type: 'metadata', metadata: response.metadata });
-		send({ type: 'message', text: response.content });
-		send({ type: 'intelligence_status', text: formatIntelligenceStatus(response.metadata) });
-		send({ type: 'done' });
-		reply.raw.end();
+			writeSse({ type: 'error', text: message });
+			writeSse({ type: 'done' });
+			reply.raw.end();
+		}
 	});
 
 	app.get('/v1/models', async () => {
@@ -731,6 +737,18 @@ function normalizeInlineCompletion(raw: string, prefix: string, linePrefix: stri
 	}
 
 	return completion.replace(/\r\n/g, '\n');
+}
+
+function formatAgentChatError(error: unknown): string {
+	const detail = error instanceof Error ? error.message : String(error);
+	const lower = detail.toLowerCase();
+	if (lower.includes('econnrefused') || lower.includes('fetch failed') || lower.includes('ollama')) {
+		return 'Ollama offline ou modelo ausente. No VPS: instale Ollama, rode "ollama pull deepseek-coder" e confirme http://127.0.0.1:11434';
+	}
+	if (lower.includes('openai_api_key')) {
+		return 'OPENAI_API_KEY ausente no .env do backend.';
+	}
+	return detail || 'Falha ao gerar resposta do agente';
 }
 
 function extractCommands(value: string): string[] {
