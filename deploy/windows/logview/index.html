@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Princy LogView — landing → webeditor</title>
+	<style>
+		:root {
+			--bg: #0a0a0b;
+			--card: #141416;
+			--border: #2a2a2e;
+			--text: #ececec;
+			--muted: #8b8b93;
+			--accent: #7c6af7;
+			--ok: #3dd68c;
+			--warn: #e5c07b;
+			--err: #f14c4c;
+		}
+		* { box-sizing: border-box; }
+		body { margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); font-size: 13px; min-height: 100vh; }
+		header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--border); background: #101012; }
+		header h1 { margin: 0; font-size: 18px; font-weight: 600; }
+		.eyebrow { color: var(--accent); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 4px; }
+		.toolbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 20px; border-bottom: 1px solid var(--border); background: #0e0e10; }
+		button, a.btn { border: 1px solid var(--border); background: var(--card); color: var(--text); padding: 7px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; text-decoration: none; }
+		button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+		.layout { display: grid; grid-template-columns: 280px 1fr; grid-template-rows: auto 1fr; gap: 12px; padding: 12px; height: calc(100vh - 108px); }
+		@media (max-width: 1000px) { .layout { grid-template-columns: 1fr; height: auto; } }
+		.cards { display: flex; flex-direction: column; gap: 8px; }
+		.card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+		.card h3 { margin: 0 0 6px; font-size: 11px; color: var(--muted); text-transform: uppercase; }
+		.probe { font-size: 12px; padding: 6px 0; border-bottom: 1px solid #222; }
+		.probe:last-child { border: none; }
+		.badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; margin-right: 6px; }
+		.badge.ok { background: #1a3d2e; color: var(--ok); }
+		.badge.err { background: #3d1a1a; color: var(--err); }
+		.badge.warn { background: #3d351a; color: var(--warn); }
+		.main { display: grid; grid-template-rows: 1fr 200px; gap: 10px; min-height: 0; }
+		.panel { background: var(--card); border: 1px solid var(--border); border-radius: 8px; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+		.panel h2 { margin: 0; padding: 8px 12px; font-size: 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+		.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); animation: pulse 1.5s infinite; }
+		@keyframes pulse { 50% { opacity: 0.3; } }
+		#serverLog { flex: 1; margin: 0; padding: 10px 12px; overflow: auto; font-family: Consolas, monospace; font-size: 11px; line-height: 1.5; background: #080809; color: #b5b5bc; white-space: pre-wrap; word-break: break-all; border: none; }
+		#timeline { flex: 1; overflow: auto; padding: 4px 0; font-family: Consolas, monospace; font-size: 11px; }
+		.trow { padding: 4px 12px; border-bottom: 1px solid #1e1e22; }
+		.trow.err { color: var(--err); }
+		.trow.ok { color: var(--ok); }
+		.trow.run { color: var(--accent); }
+		.trow.warn { color: var(--warn); }
+		.clock { color: var(--muted); font-size: 12px; }
+	</style>
+</head>
+<body>
+	<header>
+		<div>
+			<p class="eyebrow">Princy Ai · diagnostico</p>
+			<h1>LogView — index → VS Code Web</h1>
+		</div>
+		<span class="clock" id="clock">--:--:--</span>
+	</header>
+	<div class="toolbar">
+		<button type="button" class="primary" id="btnTransition">Simular: Landing → Abrir Editor</button>
+		<button type="button" id="btnProbes">Atualizar probes VPS</button>
+		<button type="button" id="btnCopy">Copiar log completo</button>
+		<label style="color:var(--muted);display:flex;align-items:center;gap:6px;font-size:12px">
+			<input type="checkbox" id="live" checked /> Tempo real (2s)
+		</label>
+		<a class="btn" href="https://princyai.com/" target="_blank" rel="noreferrer">Landing</a>
+		<a class="btn" href="https://princyai.com/webeditor/" target="_blank" rel="noreferrer" id="linkEditor">Web Editor</a>
+	</div>
+	<div class="layout">
+		<aside class="cards">
+			<div class="card">
+				<h3>Stack (probes no VPS)</h3>
+				<div id="probes">Carregando...</div>
+			</div>
+			<div class="card">
+				<h3>Portas esperadas</h3>
+				<p style="margin:0;font-size:11px;color:var(--muted);line-height:1.5">
+					3220 index<br>3200 Code-OSS<br>3210 API<br>443 Caddy HTTPS
+				</p>
+			</div>
+		</aside>
+		<div class="main">
+			<section class="panel">
+				<h2><span class="dot" id="liveDot"></span> Log servidor (tempo real)</h2>
+				<pre id="serverLog">Conectando...</pre>
+			</section>
+			<section class="panel">
+				<h2>Timeline (clique → editor)</h2>
+				<div id="timeline"></div>
+			</section>
+		</div>
+	</div>
+	<script>
+	(function () {
+		const API = '/princy-api';
+		const T0_KEY = 'princy_logview_t0';
+		const serverLog = document.getElementById('serverLog');
+		const timeline = document.getElementById('timeline');
+		const probesEl = document.getElementById('probes');
+		const liveDot = document.getElementById('liveDot');
+
+		let t0 = 0;
+		let events = [];
+		let serverText = '';
+		let pollId = null;
+
+		function wall() { return new Date().toLocaleTimeString('pt-BR'); }
+		setInterval(function () { document.getElementById('clock').textContent = wall(); }, 400);
+
+		function log(kind, msg, detail) {
+			const ms = t0 ? Math.round(performance.now() - t0) : 0;
+			events.push({ kind, msg, detail: detail || '', ms, wall: wall() });
+			const d = document.createElement('div');
+			d.className = 'trow ' + kind;
+			d.textContent = '[' + wall() + '] +' + ms + 'ms ' + msg + (detail ? ' — ' + detail : '');
+			timeline.appendChild(d);
+			timeline.scrollTop = timeline.scrollHeight;
+		}
+
+		function formatLogs(data) {
+			let o = '=== Princy LogView ' + new Date(data.ts).toLocaleString('pt-BR') + ' ===\n\n';
+			Object.keys(data.logs || {}).forEach(function (name) {
+				o += '--- ' + name + ' ---\n' + (data.logs[name] || []).join('\n') + '\n\n';
+			});
+			return o;
+		}
+
+		async function pullLogs() {
+			try {
+				const r = await fetch(API + '/api/editor/runtime-log?lines=120', { cache: 'no-store' });
+				if (!r.ok) throw new Error('runtime-log HTTP ' + r.status);
+				const data = await r.json();
+				const text = formatLogs(data);
+				if (text !== serverText) {
+					const atEnd = serverLog.scrollHeight - serverLog.scrollTop < serverLog.clientHeight + 50;
+					serverLog.textContent = text;
+					serverText = text;
+					if (atEnd) serverLog.scrollTop = serverLog.scrollHeight;
+				}
+				liveDot.style.background = 'var(--ok)';
+			} catch (e) {
+				liveDot.style.background = 'var(--err)';
+				serverLog.textContent += '\n[ERRO poll] ' + (e && e.message) + '\n';
+			}
+		}
+
+		async function pullProbes() {
+			try {
+				const r = await fetch(API + '/api/editor/stack-probes', { cache: 'no-store' });
+				const data = await r.json();
+				probesEl.innerHTML = '';
+				(data.probes || []).forEach(function (p) {
+					const div = document.createElement('div');
+					div.className = 'probe';
+					const b = p.ok ? 'ok' : 'err';
+					div.innerHTML = '<span class="badge ' + b + '">' + (p.ok ? 'OK' : 'FAIL') + '</span><strong>' + p.name + '</strong><br><small style="color:var(--muted)">' + p.status + ' · ' + p.ms + 'ms · ' + p.hint + '</small>';
+					probesEl.appendChild(div);
+				});
+				log('ok', 'Probes VPS atualizados', (data.probes || []).length + ' itens');
+			} catch (e) {
+				probesEl.textContent = 'Falha: ' + (e && e.message);
+				log('err', 'Probes falharam', e && e.message);
+			}
+		}
+
+		function startPoll() {
+			if (pollId) clearInterval(pollId);
+			pullLogs();
+			pollId = setInterval(function () {
+				if (document.getElementById('live').checked) pullLogs();
+			}, 2000);
+		}
+
+		async function simulateTransition() {
+			timeline.innerHTML = '';
+			events = [];
+			t0 = performance.now();
+			sessionStorage.setItem(T0_KEY, String(Date.now()));
+			log('run', 'T0 — usuario clicou Abrir Editor (simulado)');
+
+			log('run', 'GET landing /');
+			try {
+				const r0 = await fetch('/', { cache: 'no-store' });
+				log(r0.ok ? 'ok' : 'err', 'Landing HTTP ' + r0.status);
+			} catch (e) { log('err', 'Landing', e.message); }
+
+			log('run', 'GET /webeditor/ (transicao)');
+			try {
+				const r1 = await fetch('/webeditor/', { cache: 'no-store' });
+				const t = await r1.text();
+				const wb = /WORKBENCH_WEB_CONFIGURATION/.test(t);
+				log(r1.ok && wb ? 'ok' : (r1.ok ? 'warn' : 'err'), 'Webeditor HTTP ' + r1.status, wb ? 'workbench no HTML' : t.slice(0, 80));
+			} catch (e) { log('err', 'Webeditor', e.message); }
+
+			log('run', 'GET /princy-api health');
+			try {
+				const r2 = await fetch(API + '/api/agent/health', { cache: 'no-store' });
+				log(r2.ok ? 'ok' : 'err', 'API health ' + r2.status);
+			} catch (e) { log('err', 'API', e.message); }
+
+			await pullProbes();
+			log('ok', 'Simulacao concluida — abra /webeditor/ numa aba se ainda travar');
+		}
+
+		document.getElementById('btnTransition').addEventListener('click', simulateTransition);
+		document.getElementById('btnProbes').addEventListener('click', pullProbes);
+		document.getElementById('btnCopy').addEventListener('click', function () {
+			const boot = events.map(function (e) {
+				return '[' + e.wall + '] +' + e.ms + 'ms ' + e.kind + ' ' + e.msg + (e.detail ? ' | ' + e.detail : '');
+			}).join('\n');
+			navigator.clipboard.writeText('=== TIMELINE ===\n' + boot + '\n\n=== SERVER ===\n' + serverText);
+			log('ok', 'Copiado para clipboard');
+		});
+		document.getElementById('live').addEventListener('change', startPoll);
+
+		log('ok', 'LogView carregado', location.href);
+		startPoll();
+		pullProbes();
+		if (new URLSearchParams(location.search).get('autostart') === '1') {
+			setTimeout(simulateTransition, 500);
+		}
+	})();
+	</script>
+</body>
+</html>

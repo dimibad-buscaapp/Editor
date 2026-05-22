@@ -10,6 +10,7 @@ import { listSegmentEngines } from './orchestrator/engines.js';
 import type { ModelSegment } from './orchestrator/types.js';
 import { config } from './config.js';
 import { readRuntimeLogs } from './editorRuntimeLog.js';
+import { probeEditorStack } from './editorProbes.js';
 import { buildRagSystemPrompt, indexAgentFile, retrieveAgentRelevantChunks } from './rag.js';
 
 const agentModelSchema = z.enum(['princy', 'deepseek', 'qwen', 'codellama', 'llama3', 'mistral', 'openai']);
@@ -156,7 +157,7 @@ const publicAgentPathsWhenDashboardChat = new Set([
 export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 	app.addHook('preHandler', async (request, reply) => {
 		const path = request.url.split('?')[0] ?? request.url;
-		if (path === '/api/agent/health' || path === '/api/agent/bootstrap' || path === '/api/editor/runtime-log') {
+		if (path === '/api/agent/health' || path === '/api/agent/bootstrap' || path.startsWith('/api/editor/')) {
 			return;
 		}
 		if (config.publicChatEnabled && publicAgentPathsWhenDashboardChat.has(path)) {
@@ -193,6 +194,8 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 		const lines = Math.min(200, Math.max(10, Number(query.lines ?? 80) || 80));
 		return readRuntimeLogs(lines);
 	});
+
+	app.get('/api/editor/stack-probes', async () => probeEditorStack());
 
 	app.get('/api/agent/models', async () => {
 		return {

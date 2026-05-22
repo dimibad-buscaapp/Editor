@@ -10,6 +10,7 @@ import { config } from './config.js';
 import { resolveCorsOrigin } from './corsPolicy.js';
 import { prisma } from './prisma.js';
 import { registerAgentRoutes } from './agentRoutes.js';
+import { registerLogviewRoutes } from './logviewRoutes.js';
 import { recordRequest } from './requestLog.js';
 import { registerRoutes } from './routes.js';
 
@@ -73,6 +74,7 @@ app.addHook('onRequest', async request => {
 
 await registerRoutes(app);
 await registerAgentRoutes(app);
+await registerLogviewRoutes(app);
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const frontendDist = path.resolve(currentDir, '../frontend');
@@ -83,7 +85,7 @@ const frontendDist = path.resolve(currentDir, '../frontend');
 		index: ['index.html'],
 		allowedPath: (_pathName, _root, request) => {
 			const url = request.url.split('?')[0] ?? request.url;
-			return !url.startsWith('/api/') && !url.startsWith('/v1/');
+			return !url.startsWith('/api/') && !url.startsWith('/v1/') && !url.startsWith('/logview');
 		}
 	});
 

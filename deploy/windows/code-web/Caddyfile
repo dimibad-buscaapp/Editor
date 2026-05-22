@@ -14,6 +14,16 @@ princyai.com, www.princyai.com {
 		reverse_proxy 127.0.0.1:3210
 	}
 
+	# LogView dashboard (HTML no agent :3210 — nao depende do Code Web)
+	@logview path /logview /logview/
+	handle @logview {
+		reverse_proxy 127.0.0.1:3210 {
+			header_up Host {host}
+			header_up X-Forwarded-Host {host}
+			header_up X-Forwarded-Proto {scheme}
+		}
+	}
+
 	# Chat/dashboard em princyai.com/#/chat chama /api/agent/* (nao cair na landing :3220)
 	handle /api/* {
 		reverse_proxy 127.0.0.1:3210 {
