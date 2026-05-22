@@ -98,9 +98,10 @@ Rotas:
 
 | Path | Porta |
 |------|-------|
-| `/` landing | 3210 |
+| `/` landing | 3220 |
 | `/webeditor/*` editor | 3200 (`handle /webeditor*`, **nao** `handle_path`) |
 | `/princy-api/*` agent | 3210 |
+| `dashboard.princyai.com` | 3210 |
 
 Editor: `https://princyai.com/webeditor/` com `--server-base-path /webeditor`.
 
@@ -167,8 +168,10 @@ Arquivo: `C:\Apps\Editor\apps\ai-dashboard\.env`
 
 ```env
 APP_ORIGIN="https://princyai.com"
-CODE_WEB_URL="http://127.0.0.1:3200/webeditor"
-CODE_WEB_INTERNAL_URL="http://127.0.0.1:3200"
+CODE_WEB_URL="http://108.181.169.40:3200/webeditor"
+CODE_WEB_INTERNAL_URL="http://108.181.169.40:3200"
+INDEX_PORT="3220"
+PRINCY_VPS_HOST="108.181.169.40"
 API_HOST="127.0.0.1"
 API_PORT="3210"
 PRINCY_CORS_ORIGINS="https://api.princyai.com"
