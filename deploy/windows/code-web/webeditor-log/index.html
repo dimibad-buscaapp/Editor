@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Princy — Boot log /webeditor</title>
+	<style>
+		:root { --bg: #0d0d0d; --panel: #161616; --border: #2a2a2a; --text: #e8e8e8; --muted: #888; --ok: #3dd68c; --warn: #e5c07b; --err: #f14c4c; --accent: #7c6af7; }
+		* { box-sizing: border-box; }
+		body { margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); font-size: 13px; }
+		header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+		h1 { margin: 0; font-size: 18px; font-weight: 600; }
+		.meta { color: var(--muted); font-size: 12px; }
+		main { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 12px; min-height: calc(100vh - 120px); }
+		@media (max-width: 1100px) { main { grid-template-columns: 1fr; } }
+		.panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; }
+		.panel h2 { margin: 0; padding: 10px 14px; font-size: 13px; border-bottom: 1px solid var(--border); background: #1a1a1a; }
+		#timeline { flex: 1; overflow: auto; max-height: 55vh; padding: 8px 0; }
+		.row { display: grid; grid-template-columns: 72px 28px 1fr; gap: 8px; padding: 6px 14px; border-bottom: 1px solid #222; align-items: start; }
+		.row.ok .st { color: var(--ok); }
+		.row.warn .st { color: var(--warn); }
+		.row.err .st { color: var(--err); }
+		.row.run .st { color: var(--accent); }
+		.ms { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 11px; }
+		.st { font-weight: 700; font-size: 11px; }
+		.msg { word-break: break-word; }
+		.msg small { color: var(--muted); display: block; margin-top: 2px; }
+		.toolbar { padding: 10px 14px; display: flex; flex-wrap: wrap; gap: 8px; border-bottom: 1px solid var(--border); }
+		button, a.btn { background: #2a2a2a; color: var(--text); border: 1px solid #444; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; text-decoration: none; }
+		button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+		button:disabled { opacity: 0.5; cursor: not-allowed; }
+		#preview { flex: 1; min-height: 400px; border: none; width: 100%; background: #000; }
+		.summary { padding: 10px 14px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--border); }
+		.summary strong { color: var(--text); }
+	</style>
+</head>
+<body>
+	<header>
+		<h1>Princy Web Editor — Boot log</h1>
+		<span class="meta">Cronometra do clique ate o OSS carregar · <code id="origin"></code></span>
+	</header>
+	<div class="toolbar" style="padding: 10px 20px; border-bottom: 1px solid var(--border);">
+		<button type="button" class="primary" id="btnRun">Iniciar teste (como botao Abrir Editor)</button>
+		<button type="button" id="btnCopy">Copiar log</button>
+		<a class="btn" id="linkEditor" href="/webeditor/" target="_blank" rel="noreferrer">Abrir /webeditor/ (nova aba)</a>
+		<button type="button" id="btnClear">Limpar</button>
+	</div>
+	<main>
+		<section class="panel">
+			<h2>Linha do tempo</h2>
+			<div id="timeline"></div>
+			<div class="summary" id="summary">Aguardando inicio…</div>
+		</section>
+		<section class="panel">
+			<h2>Preview do editor (iframe)</h2>
+			<iframe id="preview" title="webeditor preview" src="about:blank"></iframe>
+		</section>
+	</main>
+	<script>
+	(function () {
+		const STORAGE_T0 = 'princy_webeditor_boot_t0';
+		const EDITOR_URL = '/webeditor/';
+		const timeline = document.getElementById('timeline');
+		const summary = document.getElementById('summary');
+		const preview = document.getElementById('preview');
+		const originEl = document.getElementById('origin');
+		originEl.textContent = location.origin;
+
+		let t0 = 0;
+		let rows = [];
+		let pollTimer = null;
+		let running = false;
+
+		function now() { return performance.now(); }
+		function elapsed() { return t0 ? Math.round(now() - t0) : 0; }
+
+		function addRow(status, message, detail) {
+			const ms = elapsed();
+			const id = rows.length;
+			rows.push({ ms, status, message, detail: detail || '' });
+			const div = document.createElement('div');
+			div.className = 'row ' + status;
+			div.innerHTML = '<span class="ms">+' + ms + 'ms</span><span class="st">' + status.toUpperCase() + '</span><span class="msg">' + escapeHtml(message) + (detail ? '<small>' + escapeHtml(detail) + '</small>' : '') + '</span>';
+			timeline.appendChild(div);
+			timeline.scrollTop = timeline.scrollHeight;
+			updateSummary();
+			return id;
+		}
+
+		function escapeHtml(s) {
+			return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+		}
+
+		function updateSummary() {
+			const last = rows[rows.length - 1];
+			const err = rows.filter(r => r.status === 'err').length;
+			const ok = rows.filter(r => r.status === 'ok').length;
+			summary.innerHTML = '<strong>' + rows.length + '</strong> eventos · <strong>' + ok + '</strong> ok · <strong>' + err + '</strong> erros · ultimo: +' + (last ? last.ms : 0) + 'ms — ' + (last ? escapeHtml(last.message) : '—');
+		}
+
+		function setT0FromClick() {
+			t0 = now();
+			sessionStorage.setItem(STORAGE_T0, String(Date.now()));
+			addRow('ok', 'T0 — clique / inicio do teste', new Date().toISOString());
+		}
+
+		function useHubT0IfPresent() {
+			const hub = sessionStorage.getItem(STORAGE_T0);
+			if (hub && !t0) {
+				const wall = parseInt(hub, 10);
+				if (!isNaN(wall)) {
+					t0 = now() - (Date.now() - wall);
+					addRow('ok', 'T0 — herdado do botao na landing (sessionStorage)', 'hub clicado ' + new Date(wall).toISOString());
+					return true;
+				}
+			}
+			return false;
+		}
+
+		async function fetchProbe(label, url, opts) {
+			const t = now();
+			try {
+				const r = await fetch(url, Object.assign({ cache: 'no-store' }, opts || {}));
+				const text = await r.text();
+				const ms = Math.round(now() - t);
+				const snippet = text.slice(0, 120).replace(/\s+/g, ' ');
+				if (!r.ok) {
+					addRow('err', label + ' HTTP ' + r.status, url + ' · ' + ms + 'ms · ' + snippet);
+					return { ok: false, status: r.status, text };
+				}
+				const isHtml = text.trimStart().startsWith('<');
+				const hasWorkbench = /WORKBENCH_WEB_CONFIGURATION|serverBasePath|workbench\.web\.main/.test(text);
+				addRow(hasWorkbench || !isHtml ? 'ok' : 'warn', label + ' HTTP ' + r.status + ' (' + ms + 'ms)', (hasWorkbench ? 'workbench detectado · ' : '') + snippet);
+				return { ok: true, status: r.status, text, hasWorkbench };
+			} catch (e) {
+				addRow('err', label + ' falhou', (e && e.message) || String(e));
+				return { ok: false, error: e };
+			}
+		}
+
+		function headProbe(label, url) {
+			return fetchProbe(label, url, { method: 'HEAD' }).catch(function () {
+				return fetchProbe(label, url);
+			});
+		}
+
+		async function runProbes() {
+			addRow('run', 'Probes HTTP (antes do iframe)');
+			await fetchProbe('Landing /', location.origin + '/');
+			await fetchProbe('Caddy /webeditor/', location.origin + EDITOR_URL);
+			await fetchProbe('API health', location.origin + '/princy-api/api/agent/health');
+			await fetchProbe('API bootstrap', location.origin + '/princy-api/api/agent/bootstrap');
+			const ed = await fetchProbe('Editor HTML', location.origin + EDITOR_URL);
+			if (ed.ok && ed.text) {
+				const m = ed.text.match(/src="([^"]+workbench[^"]+\.js[^"]*)"/);
+				if (m) {
+					let js = m[1];
+					if (js.startsWith('/')) js = location.origin + js;
+					else if (!js.startsWith('http')) js = location.origin + EDITOR_URL.replace(/\/$/, '') + '/' + js.replace(/^\//, '');
+					await headProbe('Workbench JS', js);
+				} else {
+					addRow('warn', 'Workbench JS nao encontrado no HTML', 'compile producao ausente?');
+				}
+			}
+		}
+
+		function startIframeLoad() {
+			addRow('run', 'Carregando iframe ' + EDITOR_URL);
+			preview.src = EDITOR_URL;
+		}
+
+		function pollIframe() {
+			let n = 0;
+			const max = 180;
+			if (pollTimer) clearInterval(pollTimer);
+			pollTimer = setInterval(function () {
+				n++;
+				try {
+					const doc = preview.contentDocument;
+					if (!doc) {
+						if (n % 10 === 0) addRow('run', 'Iframe ainda sem document', 'tentativa ' + n);
+						return;
+					}
+					const html = doc.documentElement ? doc.documentElement.outerHTML.slice(0, 500) : '';
+					const hasCfg = /WORKBENCH_WEB_CONFIGURATION/.test(html);
+					const scripts = doc.querySelectorAll('script[src]');
+					const loaded = doc.readyState;
+					if (hasCfg && !pollIframe._cfg) {
+						pollIframe._cfg = true;
+						addRow('ok', 'Iframe: WORKBENCH_WEB_CONFIGURATION no DOM');
+					}
+					if (scripts.length > 0 && !pollIframe._scripts) {
+						pollIframe._scripts = true;
+						addRow('ok', 'Iframe: ' + scripts.length + ' script(s) no DOM', 'readyState=' + loaded);
+					}
+					const workbench = doc.querySelector('.monaco-workbench, .part, #workbench\\.container');
+					if (workbench && !pollIframe._ui) {
+						pollIframe._ui = true;
+						addRow('ok', 'Iframe: UI workbench visivel no DOM', workbench.className || workbench.id || '');
+						clearInterval(pollTimer);
+						addRow('ok', 'FIM — editor parece carregado', 'total +' + elapsed() + 'ms');
+						running = false;
+						document.getElementById('btnRun').disabled = false;
+					}
+				} catch (e) {
+					if (n === 1) addRow('warn', 'Iframe cross-read', (e && e.message) || 'same-origin deve ser ok em /webeditor/log');
+				}
+				if (n >= max) {
+					clearInterval(pollTimer);
+					addRow('err', 'Timeout aguardando UI workbench (3 min)', 'ver F12 na aba /webeditor/');
+					running = false;
+					document.getElementById('btnRun').disabled = false;
+				}
+			}, 1000);
+		}
+
+		preview.addEventListener('load', function () {
+			addRow('ok', 'Iframe event: load', preview.src);
+			pollIframe();
+		});
+		preview.addEventListener('error', function () {
+			addRow('err', 'Iframe event: error', preview.src);
+		});
+
+		async function runFullTest() {
+			if (running) return;
+			running = true;
+			document.getElementById('btnRun').disabled = true;
+			timeline.innerHTML = '';
+			rows = [];
+			pollIframe._cfg = pollIframe._scripts = pollIframe._ui = false;
+			if (!useHubT0IfPresent()) setT0FromClick();
+			addRow('run', 'Teste completo iniciado', 'userAgent: ' + navigator.userAgent.slice(0, 80));
+			await runProbes();
+			startIframeLoad();
+		}
+
+		document.getElementById('btnRun').addEventListener('click', runFullTest);
+		document.getElementById('btnClear').addEventListener('click', function () {
+			timeline.innerHTML = '';
+			rows = [];
+			t0 = 0;
+			preview.src = 'about:blank';
+			if (pollTimer) clearInterval(pollTimer);
+			summary.textContent = 'Limpo.';
+			running = false;
+			document.getElementById('btnRun').disabled = false;
+		});
+		document.getElementById('btnCopy').addEventListener('click', function () {
+			const text = rows.map(function (r) {
+				return '+' + r.ms + 'ms\t' + r.status + '\t' + r.message + (r.detail ? '\t' + r.detail : '');
+			}).join('\n');
+			navigator.clipboard.writeText(text).then(function () {
+				addRow('ok', 'Log copiado para clipboard', rows.length + ' linhas');
+			});
+		});
+
+		// Auto se veio da landing com ?autostart=1 ou hub gravou T0
+		const params = new URLSearchParams(location.search);
+		if (params.get('autostart') === '1' || sessionStorage.getItem(STORAGE_T0)) {
+			useHubT0IfPresent();
+			setTimeout(runFullTest, 300);
+		} else {
+			addRow('ok', 'Pagina de log pronta', 'Clique em Iniciar teste ou abra com ?autostart=1');
+		}
+	})();
+	</script>
+</body>
+</html>

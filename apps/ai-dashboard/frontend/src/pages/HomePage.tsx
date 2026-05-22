@@ -6,6 +6,18 @@ const EDITOR_URL = typeof window !== 'undefined'
 	? resolveEditorUrl(window.location.hostname, window.location.origin)
 	: 'https://princyai.com/webeditor/';
 
+const EDITOR_BOOT_LOG_URL = typeof window !== 'undefined'
+	? `${window.location.origin}/webeditor/log/?autostart=1`
+	: 'https://princyai.com/webeditor/log/?autostart=1';
+
+function markEditorBootStart(): void {
+	try {
+		sessionStorage.setItem('princy_webeditor_boot_t0', String(Date.now()));
+	} catch {
+		// ignore
+	}
+}
+
 const DASHBOARD_URL = typeof window !== 'undefined'
 	? resolveDashboardUrl(window.location.hostname)
 	: 'https://dashboard.princyai.com/';
@@ -20,7 +32,8 @@ export function HomePage(): ReactElement {
 					Pagina inicial em princyai.com. Abra o editor web, use o chat no dashboard ou entre na sua conta.
 				</p>
 				<div className="hub-actions">
-					<a className="hub-btn primary" href={EDITOR_URL}>Abrir Web Editor</a>
+					<a className="hub-btn primary" href={EDITOR_URL} onClick={markEditorBootStart}>Abrir Web Editor</a>
+					<a className="hub-btn" href={EDITOR_BOOT_LOG_URL} target="_blank" rel="noreferrer">Diagnostico boot (log)</a>
 					<a className="hub-btn" href={DASHBOARD_URL} target="_blank" rel="noreferrer">Chat IA (dashboard)</a>
 					<button type="button" className="hub-btn" onClick={() => navigate('login')}>Entrar / criar conta</button>
 					<button type="button" className="hub-btn" onClick={() => navigate('dashboard')}>Painel</button>
