@@ -202,6 +202,12 @@ export class AgentClient {
 		const configured = (configuration.get<string>('agentEndpoint', '') ?? '').trim();
 		const useSameOrigin = configuration.get<boolean>('useSameOriginApi', true);
 
+		// Endpoint relativo (/princy-api) — same-origin no browser (recomendado em producao).
+		if (configured.startsWith('/') && useSameOrigin) {
+			cachedAgentEndpoint = configured.replace(/\/+$/, '') || SAME_ORIGIN_PROXY_PATH;
+			return cachedAgentEndpoint;
+		}
+
 		if (configured && configured !== 'auto' && configured !== DEFAULT_AGENT_ENDPOINT) {
 			cachedAgentEndpoint = configured.replace(/\/+$/, '');
 			return cachedAgentEndpoint;

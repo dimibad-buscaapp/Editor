@@ -101,6 +101,42 @@ Teste de asset (nome correto — nao e `workbench.web.main.js`):
 Invoke-WebRequest "http://127.0.0.1:3200/webeditor/static/out/vs/code/browser/workbench/workbench.js" -UseBasicParsing -Method Head
 ```
 
+## Chat IA nao conecta (API 3210)
+
+Fluxo same-origin:
+
+```txt
+/webeditor  ->  fetch /princy-api/api/agent/*  ->  Caddy handle_path  ->  127.0.0.1:3210
+```
+
+**Settings no VPS** (nao use so `%APPDATA%\Princy Ai` no servidor):
+
+```txt
+C:\Apps\Editor\.princy-user-data\User\settings.json
+```
+
+Copiado de `deploy\windows\princy-production.settings.json` ao rodar `fix-princy-code-web-service.ps1`.
+
+Valores recomendados:
+
+```json
+"princyai.useSameOriginApi": true,
+"princyai.agentEndpoint": "/princy-api",
+"princyai.chat.simpleMode": true
+```
+
+**Teste decisivo:**
+
+```powershell
+Invoke-WebRequest https://princyai.com/princy-api/api/agent/health -UseBasicParsing
+powershell -File deploy\windows\code-web\verify-princy-chat-api.ps1
+npm run compile-web
+```
+
+No browser (F12 > Rede), o chat deve chamar `.../princy-api/api/agent/chat` — **nunca** `127.0.0.1:3210` no PC do usuario.
+
+Caddy: `handle_path /princy-api/*` -> 3210 (OK). **Nao** usar `handle_path` em `/webeditor*`.
+
 ## URL correta
 
 - https://princyai.com/webeditor/ (com barra final)

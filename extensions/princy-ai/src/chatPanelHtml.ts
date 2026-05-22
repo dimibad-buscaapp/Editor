@@ -3,6 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { PRINCY_DESIGN_TOKENS_CSS } from './princyDesignTokens';
+
 export function buildChatPanelHtml(cspSource: string, nonce: string): string {
 	return /* html */`<!DOCTYPE html>
 <html lang="pt-BR">
@@ -13,15 +15,7 @@ export function buildChatPanelHtml(cspSource: string, nonce: string): string {
 	<title>Princy IA</title>
 	<style>
 		:root {
-			--princy-bg: #000000;
-			--princy-surface: #09090B;
-			--princy-elevated: #18181B;
-			--princy-border: #27272A;
-			--princy-muted: #71717A;
-			--princy-text: #E4E4E7;
-			--princy-text-strong: #FAFAFA;
-			--princy-accent: #FAFAFA;
-			--princy-accent-fg: #09090B;
+			${PRINCY_DESIGN_TOKENS_CSS}
 		}
 		* { box-sizing: border-box; margin: 0; padding: 0; }
 		body {
@@ -295,15 +289,18 @@ export function buildChatPanelHtml(cspSource: string, nonce: string): string {
 		.chat-followups button {
 			height: 24px;
 			padding: 0 10px;
-			border: none;
-			border-radius: 4px;
+			border: 1px solid var(--princy-border);
+			border-radius: 999px;
 			font-size: 11px;
 			cursor: pointer;
-			background: var(--vscode-button-secondaryBackground, #3a3d41);
-			color: var(--vscode-button-secondaryForeground, #ffffff);
+			background: var(--princy-elevated);
+			color: var(--princy-text);
+			transition: border-color var(--princy-transition-fast), background var(--princy-transition-fast), box-shadow var(--princy-transition-fast);
 		}
 		.chat-followups button:hover {
-			background: var(--vscode-button-secondaryHoverBackground, #45494e);
+			border-color: #3F3F46;
+			background: #27272A;
+			box-shadow: 0 0 0 1px var(--princy-glow-soft);
 		}
 		#mentionMenu {
 			display: none;
@@ -518,12 +515,19 @@ export function buildChatPanelHtml(cspSource: string, nonce: string): string {
 			line-height: 1.45;
 		}
 		.plan {
-			padding: 12px;
-			border-radius: 8px;
-			border: 1px solid var(--vscode-widget-border, #454545);
-			background: var(--vscode-editorWidget-background, #252526);
+			padding: 14px;
+			border-radius: 10px;
+			border: 1px solid var(--princy-border);
+			background: var(--princy-surface);
+			box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+			animation: chat-turn-enter var(--princy-transition-panel);
 		}
-		.plan > strong { display: block; margin-bottom: 8px; }
+		.plan > strong {
+			display: block;
+			margin-bottom: 8px;
+			color: var(--princy-text-strong);
+			font-size: 13px;
+		}
 		.operation { margin: 10px 0; }
 		.operation-row { display: flex; gap: 8px; align-items: flex-start; }
 		.operation span {
@@ -552,17 +556,37 @@ export function buildChatPanelHtml(cspSource: string, nonce: string): string {
 		}
 		.plan-actions button {
 			padding: 6px 12px;
-			border: none;
-			border-radius: 4px;
+			border: 1px solid var(--princy-border);
+			border-radius: 6px;
 			font-size: 12px;
 			cursor: pointer;
-			background: var(--vscode-button-secondaryBackground, #3a3d41);
-			color: var(--vscode-button-secondaryForeground, #ffffff);
+			background: var(--princy-elevated);
+			color: var(--princy-text);
+			transition: background var(--princy-transition-fast), transform var(--princy-transition-fast);
+		}
+		.plan-actions button:hover {
+			background: #27272A;
 		}
 		.plan-actions button.primary {
-			background: var(--vscode-button-background, var(--princy-accent));
-			color: var(--vscode-button-foreground, var(--princy-accent-fg));
+			border-color: transparent;
+			background: var(--princy-accent);
+			color: var(--princy-accent-fg);
 		}
+		.plan-actions button.primary:hover {
+			filter: brightness(1.06);
+			transform: translateY(-1px);
+		}
+		.loading-dots span {
+			display: inline-block;
+			width: 4px;
+			height: 4px;
+			margin: 0 2px;
+			border-radius: 50%;
+			background: var(--princy-muted);
+			animation: chat-pulse 1.2s ease-in-out infinite;
+		}
+		.loading-dots span:nth-child(2) { animation-delay: 0.15s; }
+		.loading-dots span:nth-child(3) { animation-delay: 0.3s; }
 	</style>
 </head>
 <body>
@@ -607,7 +631,7 @@ export function buildChatPanelHtml(cspSource: string, nonce: string): string {
 			<div id="mentionMenu"></div>
 			<div class="chat-input-container">
 				<label class="chat-sr-only" for="princy-chat-input">Mensagem</label>
-				<textarea id="princy-chat-input" rows="1" placeholder="Pergunte, @arquivo, /fix ou /composer…"></textarea>
+				<textarea id="princy-chat-input" rows="1" placeholder="Pergunte ao Princy IA…"></textarea>
 				<div class="chat-input-toolbar">
 					<div class="chat-toolbar-left">
 						<span class="chat-backend-dot" id="backendDot" title="Agent backend"></span>
@@ -834,6 +858,9 @@ function getChatPanelScript(): string {
 				hideEmpty();
 				streamingNode = createTurn('assistant', 'Princy IA', true);
 				streamingBody = streamingNode.querySelector('.chat-turn-body');
+				if (streamingBody) {
+					streamingBody.innerHTML = '<span class="loading-dots"><span></span><span></span><span></span></span>';
+				}
 				messages.appendChild(streamingNode);
 				scrollBottom();
 			}

@@ -398,6 +398,7 @@ body.chat-body .chat-panel select {
 }
 
 .chat-panel {
+	/* Alinhado com extensions/princy-ai/src/princyDesignTokens.ts */
 	--princy-bg: #000000;
 	--princy-surface: #09090B;
 	--princy-elevated: #18181B;
@@ -407,6 +408,11 @@ body.chat-body .chat-panel select {
 	--princy-text-strong: #FAFAFA;
 	--princy-accent: #FAFAFA;
 	--princy-accent-fg: #09090B;
+	--princy-glow: #22D3EE;
+	--princy-glow-soft: rgba(34, 211, 238, 0.12);
+	--princy-violet: #A78BFA;
+	--princy-transition-fast: 120ms ease;
+	--princy-transition-panel: 180ms ease-out;
 	height: 100vh;
 	display: flex;
 	flex-direction: column;
@@ -804,7 +810,9 @@ body.chat-body .chat-panel .chat-followup-btn {
 }
 
 body.chat-body .chat-panel .chat-followup-btn:hover {
-	background: #45494e;
+	background: #27272A;
+	border-color: #3F3F46;
+	box-shadow: 0 0 0 1px var(--princy-glow-soft);
 }
 
 .chat-input-container {

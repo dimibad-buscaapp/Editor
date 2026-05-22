@@ -191,6 +191,9 @@
       "princyai.ui.openChatOnStartup": true,
       "princyai.ui.defaultChat": true,
       "princyai.useSameOriginApi": true,
+      "princyai.agentEndpoint": "/princy-api",
+      "princyai.chat.simpleMode": true,
+      "princyai.workspaceIndex.onOpen": false,
       "workbench.commandCenter.enabled": true,
       "workbench.panel.defaultLocation": "bottom",
       "workbench.panel.opensMaximized": "never",
@@ -217,8 +220,8 @@
       "properties": {
         "princyai.agentEndpoint": {
           "type": "string",
-          "default": "https://princyai.com/princy-api",
-          "description": "URL da API do agent backend. Use auto-detecao deixando padrao, ou https://princyai.com/princy-api com Caddy."
+          "default": "/princy-api",
+          "description": "URL da API do agent backend. Em producao use /princy-api (same-origin). URL absoluta opcional: https://princyai.com/princy-api."
         },
         "princyai.useSameOriginApi": {
           "type": "boolean",

@@ -92,12 +92,8 @@ async function migrateWebAgentEndpoint(): Promise<void> {
 	}
 
 	await princy.update('useSameOriginApi', true, vscode.ConfigurationTarget.Global);
-	// Em producao (princyai.com/webeditor) o proxy e /princy-api na mesma origem; local :3200 igual.
-	const location = (globalThis as { location?: { origin?: string } }).location;
-	const endpoint = location?.origin && !location.origin.includes('127.0.0.1')
-		? `${location.origin}/princy-api`
-		: 'http://108.181.169.40:3200/princy-api';
-	await princy.update('agentEndpoint', endpoint, vscode.ConfigurationTarget.Global);
+	// Same-origin relativo: fetch /princy-api/... (Caddy ou proxy :3200 no servidor).
+	await princy.update('agentEndpoint', '/princy-api', vscode.ConfigurationTarget.Global);
 }
 
 function delay(ms: number): Promise<void> {

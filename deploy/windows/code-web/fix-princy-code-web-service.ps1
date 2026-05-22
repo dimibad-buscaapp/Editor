@@ -67,6 +67,13 @@ function Invoke-NssmQuiet {
 
 Write-Host "=== Fix PrincyAiCodeWeb (node direto) ===" -ForegroundColor Cyan
 
+$ensureWeb = Join-Path $PSScriptRoot "ensure-princy-ai-web.ps1"
+$extJs = Join-Path $ProjectRoot "extensions\princy-ai\dist\browser\extension.js"
+if (-not (Test-Path $extJs) -and (Test-Path $ensureWeb)) {
+	Write-Host "Compilando extensao princy-ai (browser) ..." -ForegroundColor Cyan
+	& powershell -ExecutionPolicy Bypass -File $ensureWeb -ProjectRoot $ProjectRoot
+}
+
 $serverMain = Join-Path $ProjectRoot "out\server-main.js"
 $workbenchDev = Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench-dev.html"
 $workbenchHtml = Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench.html"
