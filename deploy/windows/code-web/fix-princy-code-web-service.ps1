@@ -71,7 +71,7 @@ if ($svc) {
 }
 
 New-Item -ItemType Directory -Force $logsDir | Out-Null
-& $nssm install $ServiceName "powershell.exe" "-NoProfile -ExecutionPolicy Bypass -File `"$runner`" -ProjectRoot `"$ProjectRoot`" -ServerBasePath /webeditor"
+& $nssm install $ServiceName "powershell.exe" "-NoProfile -ExecutionPolicy Bypass -File `"$runner`" -ProjectRoot `"$ProjectRoot`" -ServerBasePath /webeditor -Dev"
 & $nssm set $ServiceName AppDirectory $ProjectRoot
 & $nssm set $ServiceName AppStdout (Join-Path $logsDir "code-web.out.log")
 & $nssm set $ServiceName AppStderr (Join-Path $logsDir "code-web.err.log")
