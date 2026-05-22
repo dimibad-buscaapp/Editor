@@ -1,5 +1,5 @@
-# Corrige PrincyCaddy Paused / porta 80 bloqueada (IIS, http.sys, servico marcado para exclusao).
-# Admin: powershell -ExecutionPolicy Bypass -File deploy\windows\code-web\fix-princy-caddy.ps1
+# Corrige PrincyCaddy Paused / porta 80 bloqueada (IIS, http.sys, NSSM ausente).
+# Admin: powershell -ExecutionPolicy Bypass -File deploy\windows\code-web\fix-princy-caddy.ps1 -Reinstall
 
 param(
 	[string]$ProjectRoot = "C:\Apps\Editor",
@@ -11,11 +11,29 @@ param(
 $ErrorActionPreference = "Continue"
 
 function Get-NssmPath {
+	$cmd = Get-Command nssm.exe -ErrorAction SilentlyContinue
+	if ($cmd) { return $cmd.Source }
 	@(
 		"${env:ProgramFiles}\nssm\nssm.exe",
 		"${env:ProgramFiles(x86)}\nssm\nssm.exe",
-		"C:\Tools\nssm\nssm.exe"
+		"C:\Tools\nssm\nssm.exe",
+		"C:\nssm\nssm.exe"
 	) | Where-Object { Test-Path $_ } | Select-Object -First 1
+}
+
+function Ensure-Nssm {
+	$existing = Get-NssmPath
+	if ($existing) { return $existing }
+	Write-Host "NSSM nao encontrado. Instalando via winget ..." -ForegroundColor Yellow
+	try {
+		winget install --id NSSM.NSSM -e --accept-source-agreements --accept-package-agreements
+		$machinePath = [System.Environment]::GetEnvironmentVariable('Path', 'Machine')
+		$userPath = [System.Environment]::GetEnvironmentVariable('Path', 'User')
+		$env:Path = $machinePath + ';' + $userPath
+	} catch {
+		Write-Host ("winget falhou: " + $_.Exception.Message) -ForegroundColor Red
+	}
+	return Get-NssmPath
 }
 
 function Test-PortListening {
@@ -34,6 +52,14 @@ function Wait-ServiceGone {
 	return $false
 }
 
+function Stop-CaddyProcesses {
+	Get-Process -Name caddy -ErrorAction SilentlyContinue | ForEach-Object {
+		Write-Host ("Encerrando caddy PID " + $_.Id) -ForegroundColor DarkGray
+		Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
+	}
+	Start-Sleep -Seconds 2
+}
+
 function Remove-HttpUrlAclForPort {
 	param([int]$Port)
 	$list = netsh http show urlacl 2>$null
@@ -48,6 +74,39 @@ function Remove-HttpUrlAclForPort {
 			netsh http delete urlacl url=$url 2>$null | Out-Null
 		}
 	}
+}
+
+function Install-PrincyCaddyService {
+	param($Nssm, $CaddyExe, $CaddyConfig, $LogsDir, $CaddyDirPath)
+	Write-Host "Instalando servico $ServiceName via NSSM ..." -ForegroundColor Cyan
+	& $Nssm stop $ServiceName confirm 2>$null | Out-Null
+	& $Nssm remove $ServiceName confirm 2>$null | Out-Null
+	[void](Wait-ServiceGone -Name $ServiceName -Seconds 25)
+	Start-Sleep -Seconds 3
+	& $Nssm install $ServiceName $CaddyExe
+	& $Nssm set $ServiceName AppParameters ('run --config "' + $CaddyConfig + '"')
+	& $Nssm set $ServiceName AppDirectory $CaddyDirPath
+	& $Nssm set $ServiceName AppStdout (Join-Path $LogsDir "caddy.out.log")
+	& $Nssm set $ServiceName AppStderr (Join-Path $LogsDir "caddy.err.log")
+	& $Nssm set $ServiceName Start SERVICE_AUTO_START
+	& $Nssm set $ServiceName AppRestartDelay 5000
+	& $Nssm reset $ServiceName AppExit
+	Write-Host "Servico NSSM criado" -ForegroundColor Green
+}
+
+function Start-CaddyBackground {
+	param($CaddyExe, $CaddyConfig, $CaddyDirPath, $LogsDir)
+	$outLog = Join-Path $LogsDir "caddy.out.log"
+	$errLog = Join-Path $LogsDir "caddy.err.log"
+	Write-Host "Iniciando Caddy em segundo plano (sem NSSM) ..." -ForegroundColor Yellow
+	$p = Start-Process -FilePath $CaddyExe -WorkingDirectory $CaddyDirPath `
+		-ArgumentList @('run', '--config', $CaddyConfig) `
+		-WindowStyle Hidden -PassThru
+	$pidFile = Join-Path $CaddyDirPath "caddy.pid"
+	Set-Content -Path $pidFile -Value $p.Id -Encoding ASCII
+	Write-Host ("Caddy PID " + $p.Id + " (salvo em " + $pidFile + ")") -ForegroundColor Yellow
+	Write-Host ("Logs: " + $outLog + " / " + $errLog) -ForegroundColor DarkGray
+	return $p
 }
 
 Write-Host "=== Fix PrincyCaddy (80/443) ===" -ForegroundColor Cyan
@@ -81,68 +140,60 @@ Set-Service W3SVC -StartupType Disabled -ErrorAction SilentlyContinue
 Remove-HttpUrlAclForPort -Port 80
 Remove-HttpUrlAclForPort -Port 443
 
-Write-Host "Portas reservadas (Hyper-V) - se 80/443 aparecerem aqui, reinicie o VPS:" -ForegroundColor DarkGray
+Write-Host "Portas reservadas Hyper-V (reinicie VPS se 80/443 listadas):" -ForegroundColor DarkGray
 netsh interface ipv4 show excludedportrange protocol=tcp 2>$null | Select-String -Pattern "80|443|Start" | Select-Object -First 12
 
-$nssm = Get-NssmPath
-$svc = Get-Service $ServiceName -ErrorAction SilentlyContinue
+Stop-CaddyProcesses
 
-if ($svc) {
-	Write-Host ("Servico atual: " + $svc.Status) -ForegroundColor DarkGray
-	if ($svc.Status -eq 'Running') {
-		Stop-Service $ServiceName -Force -ErrorAction SilentlyContinue
-		Start-Sleep -Seconds 2
-	}
+$nssm = Ensure-Nssm
+if ($nssm) {
+	Write-Host ("NSSM: " + $nssm) -ForegroundColor Green
+} else {
+	Write-Host "NSSM indisponivel - Caddy rodara em processo (instale: winget install NSSM.NSSM)" -ForegroundColor Yellow
 }
 
-if ($Reinstall -or -not $svc) {
+$svc = Get-Service $ServiceName -ErrorAction SilentlyContinue
+if ($svc -and $nssm) {
+	Write-Host ("Servico atual: " + $svc.Status) -ForegroundColor DarkGray
+	& $nssm stop $ServiceName confirm 2>$null | Out-Null
+	Start-Sleep -Seconds 2
+}
+
+if ($Reinstall -or -not (Get-Service $ServiceName -ErrorAction SilentlyContinue)) {
 	if ($nssm) {
-		Write-Host "Reinstalando NSSM $ServiceName ..." -ForegroundColor Cyan
-		& $nssm stop $ServiceName confirm 2>$null | Out-Null
-		& $nssm remove $ServiceName confirm 2>$null | Out-Null
-		[void](Wait-ServiceGone -Name $ServiceName -Seconds 25)
-		Start-Sleep -Seconds 3
-		& $nssm install $ServiceName $caddyExe
-		& $nssm set $ServiceName AppParameters ('run --config "' + $caddyConfig + '"')
-		& $nssm set $ServiceName AppDirectory $CaddyDir
-		& $nssm set $ServiceName AppStdout (Join-Path $logsDir "caddy.out.log")
-		& $nssm set $ServiceName AppStderr (Join-Path $logsDir "caddy.err.log")
-		& $nssm set $ServiceName Start SERVICE_AUTO_START
-		& $nssm set $ServiceName AppRestartDelay 5000
-		& $nssm reset $ServiceName AppExit
-		Write-Host "NSSM reinstalado" -ForegroundColor Green
-	} else {
-		Write-Host "NSSM nao encontrado - use: C:\Caddy\caddy.exe run --config C:\Caddy\Caddyfile" -ForegroundColor Yellow
+		Install-PrincyCaddyService -Nssm $nssm -CaddyExe $caddyExe -CaddyConfig $caddyConfig -LogsDir $logsDir -CaddyDirPath $CaddyDir
 	}
 } elseif ($nssm) {
-	Write-Host "NSSM resume/restart ..." -ForegroundColor Cyan
-	& $nssm resume $ServiceName 2>$null | Out-Null
+	Write-Host "NSSM restart ..." -ForegroundColor Cyan
+	& $nssm restart $ServiceName 2>$null | Out-Null
+	Start-Sleep -Seconds 3
 }
 
-Write-Host "Iniciando $ServiceName ..." -ForegroundColor Cyan
-Start-Service $ServiceName -ErrorAction SilentlyContinue
-Start-Sleep -Seconds 4
-
-$svc2 = Get-Service $ServiceName -ErrorAction SilentlyContinue
-if ($svc2 -and $svc2.Status -eq 'Paused' -and $nssm) {
-	Write-Host "Servico Paused - tentando nssm restart ..." -ForegroundColor Yellow
-	& $nssm restart $ServiceName 2>$null | Out-Null
-	Start-Sleep -Seconds 4
+$usedBackground = $false
+if ($nssm) {
+	Write-Host "Iniciando servico $ServiceName ..." -ForegroundColor Cyan
+	Start-Service $ServiceName -ErrorAction SilentlyContinue
+	Start-Sleep -Seconds 5
+	$svc2 = Get-Service $ServiceName -ErrorAction SilentlyContinue
+	if ($svc2 -and $svc2.Status -eq 'Paused') {
+		& $nssm restart $ServiceName 2>$null | Out-Null
+		Start-Sleep -Seconds 4
+	}
 }
 
 if (-not (Test-PortListening -Port 443)) {
-	Write-Host "443 ainda OFF - teste manual do Caddy (5s) ..." -ForegroundColor Yellow
-	$p = Start-Process -FilePath $caddyExe -ArgumentList @('run', '--config', $caddyConfig) -PassThru -WindowStyle Hidden
-	Start-Sleep -Seconds 5
-	if (Test-PortListening -Port 443) {
-		Write-Host "Caddy manual OK - pare o teste e reinicie o servico NSSM" -ForegroundColor Green
-		Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
-		Start-Sleep -Seconds 2
+	if ($nssm -and ($Reinstall -or -not $svc)) {
+		Install-PrincyCaddyService -Nssm $nssm -CaddyExe $caddyExe -CaddyConfig $caddyConfig -LogsDir $logsDir -CaddyDirPath $CaddyDir
 		Start-Service $ServiceName -ErrorAction SilentlyContinue
-		Start-Sleep -Seconds 3
-	} else {
-		Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+		Start-Sleep -Seconds 5
 	}
+}
+
+if (-not (Test-PortListening -Port 443)) {
+	Stop-CaddyProcesses
+	$null = Start-CaddyBackground -CaddyExe $caddyExe -CaddyConfig $caddyConfig -CaddyDirPath $CaddyDir -LogsDir $logsDir
+	$usedBackground = $true
+	Start-Sleep -Seconds 6
 }
 
 $p80 = Test-PortListening -Port 80
@@ -155,8 +206,8 @@ Get-Service $ServiceName -ErrorAction SilentlyContinue | Format-Table Name, Stat
 $errLog = Join-Path $logsDir "caddy.err.log"
 if (Test-Path $errLog) {
 	Write-Host ""
-	Write-Host "--- caddy.err.log (ultimas 10) ---" -ForegroundColor Cyan
-	Get-Content $errLog -Tail 10
+	Write-Host "--- caddy.err.log (ultimas 8) ---" -ForegroundColor Cyan
+	Get-Content $errLog -Tail 8
 }
 
 if ($p443) {
@@ -166,11 +217,17 @@ if ($p443) {
 	} catch {
 		Write-Host ("http://127.0.0.1/webeditor/ -> " + $_.Exception.Message) -ForegroundColor Yellow
 	}
-} else {
-	Write-Host "ERRO: Caddy nao escuta 443. Veja caddy.err.log acima." -ForegroundColor Red
-	Write-Host "Se bind forbidden: reinicie o VPS apos iisreset /stop" -ForegroundColor Yellow
-	exit 1
+	if ($usedBackground) {
+		Write-Host ""
+		Write-Host "AVISO: Caddy em processo, nao em servico. Instale NSSM e rode este script com -Reinstall." -ForegroundColor Yellow
+	}
+	Write-Host ""
+	Write-Host "OK - teste: https://princyai.com/webeditor/" -ForegroundColor Green
+	exit 0
 }
 
-Write-Host ""
-Write-Host "OK - teste: https://princyai.com/webeditor/" -ForegroundColor Green
+Write-Host "ERRO: Caddy nao escuta 443." -ForegroundColor Red
+Write-Host "1) winget install NSSM.NSSM" -ForegroundColor Yellow
+Write-Host "2) Rode este script de novo com -Reinstall" -ForegroundColor Yellow
+Write-Host "3) Se bind forbidden: reinicie o VPS" -ForegroundColor Yellow
+exit 1
