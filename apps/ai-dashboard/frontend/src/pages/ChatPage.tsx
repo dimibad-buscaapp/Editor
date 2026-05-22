@@ -10,55 +10,28 @@ import {
 	setAgentToken,
 	streamAgentChat
 } from '../chatClient.js';
+import { ChatComposer, ChatMessageBubble, newChatMessageId, type ChatUiMessage } from '../chatUi.js';
 import { navigate } from '../router.js';
 import { resolveEditorUrl } from '../princyHosts.js';
-
-type ChatMessage = {
-	readonly id: string;
-	readonly role: 'user' | 'assistant' | 'system';
-	readonly content: string;
-	readonly status?: string;
-};
-
-function newId(): string {
-	return `m-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function renderContent(text: string): ReactElement {
-	const parts = text.split(/(```[\s\S]*?```)/g);
-	return (
-		<>
-			{parts.map((part, index) => {
-				const fence = /^```(\w+)?\s*([\s\S]*?)```$/m.exec(part.trim());
-				if (fence) {
-					return (
-						<pre key={index} className="chat-code">
-							<code>{fence[2].trim()}</code>
-						</pre>
-					);
-				}
-				return (
-					<p key={index} className="chat-paragraph">
-						{part}
-					</p>
-				);
-			})}
-		</>
-	);
-}
+import { api, type User } from '../api.js';
 
 const EDITOR_URL = typeof window !== 'undefined'
 	? resolveEditorUrl(window.location.hostname, window.location.origin)
 	: 'https://princyai.com/webeditor/';
 
-export function ChatPage(): ReactElement {
+export function ChatPage(props?: {
+	readonly user?: User;
+	readonly onLogout?: () => void;
+}): ReactElement {
 	const [models, setModels] = useState<readonly AgentModelInfo[]>([]);
 	const [agent, setAgent] = useState<AgentId>('deepseek');
-	const [messages, setMessages] = useState<readonly ChatMessage[]>([
+	const [messages, setMessages] = useState<readonly ChatUiMessage[]>([
 		{
-			id: newId(),
+			id: newChatMessageId(),
 			role: 'assistant',
-			content: 'Ola. Sou o Princy Ai — chat direto na porta 3210. Escolha o modelo, descreva a tarefa e envie.'
+			content: props?.user
+				? `Ola, ${props.user.name}. Chat Princy Ai com o mesmo visual do assistente — escolha o modelo e envie.`
+				: 'Ola. Sou o Princy Ai — chat direto na porta 3210. Escolha o modelo, descreva a tarefa e envie.'
 		}
 	]);
 	const [input, setInput] = useState('');
@@ -102,7 +75,7 @@ export function ChatPage(): ReactElement {
 				if (!cancelled) {
 					setBackendOnline(false);
 					setMessages(prev => [...prev, {
-						id: newId(),
+						id: newChatMessageId(),
 						role: 'system',
 						content: error instanceof Error ? error.message : 'Falha ao conectar ao backend na porta 3210'
 					}]);
@@ -120,8 +93,8 @@ export function ChatPage(): ReactElement {
 			return;
 		}
 
-		const userMsg: ChatMessage = { id: newId(), role: 'user', content: text };
-		const assistantId = newId();
+		const userMsg: ChatUiMessage = { id: newChatMessageId(), role: 'user', content: text };
+		const assistantId = newChatMessageId();
 		setMessages(prev => [...prev, userMsg, { id: assistantId, role: 'assistant', content: '' }]);
 		setInput('');
 		setBusy(true);
@@ -148,7 +121,7 @@ export function ChatPage(): ReactElement {
 			} catch (error) {
 				patchAssistant('');
 				setMessages(prev => [...prev, {
-					id: newId(),
+					id: newChatMessageId(),
 					role: 'system',
 					content: error instanceof Error ? error.message : 'Erro no chat'
 				}]);
@@ -160,20 +133,23 @@ export function ChatPage(): ReactElement {
 		}
 	}, [agent, busy, input]);
 
-	function onKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>): void {
-		if (event.key === 'Enter' && !event.shiftKey) {
-			event.preventDefault();
-			void send();
-		}
-	}
-
 	function newChat(): void {
 		setMessages([{
-			id: newId(),
+			id: newChatMessageId(),
 			role: 'assistant',
 			content: 'Nova conversa. Como posso ajudar?'
 		}]);
 		setStatusLine('');
+	}
+
+	async function logout(): Promise<void> {
+		try {
+			await api.logout();
+		} catch {
+			// ignore
+		}
+		props?.onLogout?.();
+		navigate('login');
 	}
 
 	return (
@@ -183,9 +159,18 @@ export function ChatPage(): ReactElement {
 					<span className="chat-logo" aria-hidden="true">P</span>
 					<div>
 						<strong>Princy Ai</strong>
-						<span className="muted">Chat · porta 3210</span>
+						<span className="muted">
+							{props?.user ? 'Dashboard · Chat IA' : 'Chat · porta 3210'}
+						</span>
 					</div>
 				</div>
+
+				{props?.user ? (
+					<div className="chat-user-card">
+						<p className="chat-user-name">{props.user.name}</p>
+						<p className="chat-user-email muted">{props.user.email}</p>
+					</div>
+				) : null}
 
 				<button type="button" className="chat-side-btn primary" onClick={newChat}>
 					+ Nova conversa
@@ -207,8 +192,13 @@ export function ChatPage(): ReactElement {
 				<nav className="chat-nav">
 					<a href={EDITOR_URL} target="_blank" rel="noreferrer">Editor Code Web</a>
 					<a href="/logview/?autostart=1" target="_blank" rel="noreferrer">Starter Log (sistema)</a>
+					{props?.user ? (
+						<button type="button" onClick={() => navigate('workspace')}>Arquivos / workspace</button>
+					) : null}
 					<button type="button" onClick={() => navigate('hub')}>Hub</button>
-					<button type="button" onClick={() => navigate('login')}>Login</button>
+					{!props?.user ? (
+						<button type="button" onClick={() => navigate('login')}>Login</button>
+					) : null}
 					<button type="button" onClick={() => navigate('logs')}>Logs</button>
 				</nav>
 
@@ -239,6 +229,12 @@ export function ChatPage(): ReactElement {
 						)}
 					</div>
 				)}
+
+				{props?.user && props.onLogout ? (
+					<button type="button" className="chat-side-btn ghost chat-logout" onClick={() => void logout()}>
+						Sair
+					</button>
+				) : null}
 			</aside>
 
 			<section className="chat-main">
@@ -254,37 +250,18 @@ export function ChatPage(): ReactElement {
 
 				<div className="chat-thread" ref={scrollRef}>
 					{messages.map(msg => (
-						<article key={msg.id} className={`chat-bubble ${msg.role}`}>
-							<div className="chat-avatar" aria-hidden="true">
-								{msg.role === 'user' ? 'Voce' : msg.role === 'assistant' ? 'AI' : '!'}
-							</div>
-							<div className="chat-bubble-body">
-								{msg.content ? renderContent(msg.content) : busy && msg.role === 'assistant' ? (
-									<p className="chat-typing">Gerando resposta...</p>
-								) : null}
-								{msg.status ? <p className="chat-meta">{msg.status}</p> : null}
-							</div>
-						</article>
+						<ChatMessageBubble key={msg.id} message={msg} busy={busy} />
 					))}
 				</div>
 
-				<footer className="chat-composer">
-					<div className="chat-composer-inner">
-						<textarea
-							ref={inputRef}
-							value={input}
-							onChange={e => setInput(e.target.value)}
-							onKeyDown={onKeyDown}
-							placeholder="Pergunte qualquer coisa — Enter envia, Shift+Enter nova linha"
-							rows={1}
-							disabled={busy}
-						/>
-						<button type="button" className="chat-send" onClick={() => void send()} disabled={busy || !input.trim()}>
-							{busy ? '...' : 'Enviar'}
-						</button>
-					</div>
-					<p className="chat-hint muted">Estilo Cursor · motores DeepSeek, Qwen, Princy consenso</p>
-				</footer>
+				<ChatComposer
+					input={input}
+					busy={busy}
+					onInput={setInput}
+					onSend={() => void send()}
+					inputRef={inputRef}
+					hint="Estilo Cursor · motores DeepSeek, Qwen, Princy consenso"
+				/>
 			</section>
 		</div>
 	);

@@ -105,6 +105,7 @@ export function DashboardPage(props: { readonly user: User; readonly onLogout: (
 						</button>
 					))}
 				</nav>
+				<button type="button" className="link-button" onClick={() => navigate('chat')}>Chat IA</button>
 				<button type="button" className="link-button" onClick={() => navigate('logs')}>Diagnostico</button>
 				<button type="button" className="secondary-button" onClick={logout}>Sair</button>
 			</aside>

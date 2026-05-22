@@ -1,4 +1,4 @@
-export type AppRoute = 'chat' | 'hub' | 'login' | 'dashboard' | 'logs';
+export type AppRoute = 'chat' | 'hub' | 'login' | 'dashboard' | 'workspace' | 'logs';
 
 function defaultRouteForHost(): AppRoute {
 	if (typeof window === 'undefined') {
@@ -23,7 +23,10 @@ export function parseHashRoute(): AppRoute {
 		return 'login';
 	}
 	if (hash === 'dashboard') {
-		return 'dashboard';
+		return 'chat';
+	}
+	if (hash === 'workspace') {
+		return 'workspace';
 	}
 	if (hash === 'logs' || hash === 'log' || hash === 'diagnostico') {
 		return 'logs';

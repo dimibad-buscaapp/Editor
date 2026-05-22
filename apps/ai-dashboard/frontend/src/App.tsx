@@ -20,9 +20,6 @@ export function App(): ReactElement {
 	}, []);
 
 	useEffect(() => {
-		if (isLogviewPath()) {
-			return;
-		}
 		api.me()
 			.then(result => setUser(result.user))
 			.finally(() => setBoot(false));
@@ -30,11 +27,21 @@ export function App(): ReactElement {
 
 	function onAuthenticated(next: User): void {
 		setUser(next);
-		navigate('dashboard');
+		navigate('chat');
 	}
 
 	if (route === 'chat') {
-		return <ChatPage />;
+		return <ChatPage user={user ?? undefined} onLogout={() => setUser(null)} />;
+	}
+
+	if (route === 'workspace') {
+		if (boot) {
+			return <main className="centered">Carregando...</main>;
+		}
+		if (!user) {
+			return <LoginPage onAuthenticated={onAuthenticated} />;
+		}
+		return <DashboardPage user={user} onLogout={() => setUser(null)} />;
 	}
 
 	if (route === 'logs') {
@@ -61,5 +68,5 @@ export function App(): ReactElement {
 		return <LoginPage onAuthenticated={onAuthenticated} />;
 	}
 
-	return <DashboardPage user={user} onLogout={() => setUser(null)} />;
+	return <ChatPage user={user} onLogout={() => setUser(null)} />;
 }
