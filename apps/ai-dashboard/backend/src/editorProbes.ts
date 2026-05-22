@@ -1,4 +1,3 @@
-import { appendBootTrace } from './bootTraceLog.js';
 import { config } from './config.js';
 
 export type StackProbe = {
@@ -55,7 +54,6 @@ async function probeOne(name: string, url: string, expectWorkbench = false): Pro
 }
 
 export async function probeEditorStack(): Promise<{ readonly ts: number; readonly probes: readonly StackProbe[] }> {
-	appendBootTrace({ level: 'info', phase: 'vps-probe', message: 'Iniciando probes da stack (3220/3200/3210/HTTPS)' });
 	const probes = await Promise.all([
 		probeOne('Index landing :3220', `http://127.0.0.1:${config.indexPort}/`),
 		probeOne('Code Web :3200 /webeditor/', `http://127.0.0.1:3200${config.editorBasePath}/`, true),
@@ -63,13 +61,5 @@ export async function probeEditorStack(): Promise<{ readonly ts: number; readonl
 		probeOne('Public HTTPS /webeditor/', `https://princyai.com${config.editorBasePath}/`, true),
 		probeOne('Public index', 'https://princyai.com/')
 	]);
-	for (const p of probes) {
-		appendBootTrace({
-			level: p.ok ? 'ok' : 'error',
-			phase: 'vps-probe',
-			message: p.name,
-			detail: `${p.status} ${p.ms}ms · ${p.hint} · ${p.url}`
-		});
-	}
 	return { ts: Date.now(), probes };
 }

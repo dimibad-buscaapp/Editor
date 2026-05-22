@@ -9,10 +9,9 @@ import { getCompileJobStatus } from './compileService.js';
 import { listSegmentEngines } from './orchestrator/engines.js';
 import type { ModelSegment } from './orchestrator/types.js';
 import { config } from './config.js';
-import { appendBootTrace, getBootTrace, resetBootTraceSession, type BootTraceLevel } from './bootTraceLog.js';
-import { buildLogviewBundle } from './logviewBundle.js';
 import { readRuntimeLogs } from './editorRuntimeLog.js';
 import { probeEditorStack } from './editorProbes.js';
+import { runStarterChecklist, streamStarterChecklist } from './starterCheck.js';
 import { buildRagSystemPrompt, indexAgentFile, retrieveAgentRelevantChunks } from './rag.js';
 
 const agentModelSchema = z.enum(['princy', 'deepseek', 'qwen', 'codellama', 'llama3', 'mistral', 'openai']);
@@ -199,37 +198,24 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 
 	app.get('/api/editor/stack-probes', async () => probeEditorStack());
 
-	app.get('/api/editor/logview-bundle', async (request) => {
-		const query = request.query as { lines?: string };
-		const lines = Math.min(150, Math.max(20, Number(query.lines ?? 100) || 100));
-		return buildLogviewBundle(lines);
-	});
+	app.get('/api/editor/starter-check', async () => runStarterChecklist());
 
-	app.get('/api/editor/boot-trace', async () => ({
-		ok: true,
-		ts: Date.now(),
-		trace: getBootTrace(250)
-	}));
-
-	app.post('/api/editor/boot-trace/reset', async () => {
-		resetBootTraceSession();
-		appendBootTrace({ level: 'info', phase: 'logview', message: 'Sessao de trace reiniciada' });
-		return { ok: true };
-	});
-
-	app.post('/api/editor/boot-trace/client', async (request) => {
-		const body = request.body as { level?: BootTraceLevel; phase?: string; message?: string; detail?: string };
-		if (!body?.message) {
-			return { ok: false, message: 'message obrigatorio' };
-		}
-		const level = (body.level ?? 'info') as BootTraceLevel;
-		appendBootTrace({
-			level,
-			phase: body.phase ?? 'browser',
-			message: body.message,
-			detail: body.detail
+	app.get('/api/editor/starter-check/stream', async (_request, reply) => {
+		reply.hijack();
+		reply.raw.writeHead(200, {
+			'Content-Type': 'text/event-stream; charset=utf-8',
+			'Cache-Control': 'no-cache, no-transform',
+			Connection: 'keep-alive'
 		});
-		return { ok: true };
+		try {
+			for await (const chunk of streamStarterChecklist()) {
+				reply.raw.write(`data: ${JSON.stringify(chunk)}\n\n`);
+			}
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			reply.raw.write(`data: ${JSON.stringify({ type: 'error', data: { message } })}\n\n`);
+		}
+		reply.raw.end();
 	});
 
 	app.get('/api/agent/models', async () => {

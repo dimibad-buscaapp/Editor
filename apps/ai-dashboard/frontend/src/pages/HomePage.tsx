@@ -33,7 +33,7 @@ export function HomePage(): ReactElement {
 				</p>
 				<div className="hub-actions">
 					<a className="hub-btn primary" href={EDITOR_URL} onClick={markEditorBootStart}>Abrir Web Editor</a>
-					<a className="hub-btn" href={LOGVIEW_URL} target="_blank" rel="noreferrer">LogView (diagnostico)</a>
+					<a className="hub-btn" href={LOGVIEW_URL} target="_blank" rel="noreferrer">Starter Log (PowerShell)</a>
 					<a className="hub-btn" href={DASHBOARD_URL} target="_blank" rel="noreferrer">Chat IA (dashboard)</a>
 					<button type="button" className="hub-btn" onClick={() => navigate('login')}>Entrar / criar conta</button>
 					<button type="button" className="hub-btn" onClick={() => navigate('dashboard')}>Painel</button>

@@ -598,23 +598,6 @@ body.chat-body {
 	color: #bbf7d0;
 }
 
-.logview-meta {
-	margin: 0 0 6px;
-	font-size: 11px;
-	color: #64748b;
-}
-
-.logview-detail {
-	margin-top: 8px;
-	max-height: 220px;
-	overflow: auto;
-	font-size: 12px;
-}
-
-.logview-footer {
-	padding: 8px 16px;
-}
-
 .chat-paragraph {
 	margin: 0 0 8px;
 	white-space: pre-wrap;

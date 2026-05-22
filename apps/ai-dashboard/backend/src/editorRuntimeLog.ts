@@ -3,6 +3,8 @@ import path from 'node:path';
 import { config } from './config.js';
 
 const LOG_FILES = [
+	'index.out.log',
+	'index.err.log',
 	'code-web.out.log',
 	'code-web.err.log',
 	'caddy.out.log',

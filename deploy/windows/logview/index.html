@@ -3,223 +3,351 @@
 <head>
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1" />
-	<title>Princy LogView — landing → webeditor</title>
+	<title>Princy Starter Log — sistema</title>
 	<style>
-		:root {
-			--bg: #0a0a0b;
-			--card: #141416;
-			--border: #2a2a2e;
-			--text: #ececec;
-			--muted: #8b8b93;
-			--accent: #7c6af7;
-			--ok: #3dd68c;
-			--warn: #e5c07b;
-			--err: #f14c4c;
+		* { box-sizing: border-box; margin: 0; padding: 0; }
+		html, body { height: 100%; overflow: hidden; }
+		body {
+			font-family: "Cascadia Mono", "Consolas", "Courier New", monospace;
+			background: #0c0c0c;
+			color: #cccccc;
+			font-size: 13px;
 		}
-		* { box-sizing: border-box; }
-		body { margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); font-size: 13px; min-height: 100vh; }
-		header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--border); background: #101012; }
-		header h1 { margin: 0; font-size: 18px; font-weight: 600; }
-		.eyebrow { color: var(--accent); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 4px; }
-		.toolbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 20px; border-bottom: 1px solid var(--border); background: #0e0e10; }
-		button, a.btn { border: 1px solid var(--border); background: var(--card); color: var(--text); padding: 7px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; text-decoration: none; }
-		button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-		.layout { display: grid; grid-template-columns: 280px 1fr; grid-template-rows: auto 1fr; gap: 12px; padding: 12px; height: calc(100vh - 108px); }
-		@media (max-width: 1000px) { .layout { grid-template-columns: 1fr; height: auto; } }
-		.cards { display: flex; flex-direction: column; gap: 8px; }
-		.card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
-		.card h3 { margin: 0 0 6px; font-size: 11px; color: var(--muted); text-transform: uppercase; }
-		.probe { font-size: 12px; padding: 6px 0; border-bottom: 1px solid #222; }
-		.probe:last-child { border: none; }
-		.badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; margin-right: 6px; }
-		.badge.ok { background: #1a3d2e; color: var(--ok); }
-		.badge.err { background: #3d1a1a; color: var(--err); }
-		.badge.warn { background: #3d351a; color: var(--warn); }
-		.main { display: grid; grid-template-rows: 1fr 200px; gap: 10px; min-height: 0; }
-		.panel { background: var(--card); border: 1px solid var(--border); border-radius: 8px; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
-		.panel h2 { margin: 0; padding: 8px 12px; font-size: 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
-		.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); animation: pulse 1.5s infinite; }
-		@keyframes pulse { 50% { opacity: 0.3; } }
-		#serverLog { flex: 1; margin: 0; padding: 10px 12px; overflow: auto; font-family: Consolas, monospace; font-size: 11px; line-height: 1.5; background: #080809; color: #b5b5bc; white-space: pre-wrap; word-break: break-all; border: none; }
-		#timeline { flex: 1; overflow: auto; padding: 4px 0; font-family: Consolas, monospace; font-size: 11px; }
-		.trow { padding: 4px 12px; border-bottom: 1px solid #1e1e22; }
-		.trow.err { color: var(--err); }
-		.trow.ok { color: var(--ok); }
-		.trow.run { color: var(--accent); }
-		.trow.warn { color: var(--warn); }
-		.clock { color: var(--muted); font-size: 12px; }
+		.shell {
+			display: grid;
+			grid-template-columns: 320px 1fr;
+			grid-template-rows: 36px 1fr 28px;
+			height: 100vh;
+		}
+		.titlebar {
+			grid-column: 1 / -1;
+			background: #1e1e1e;
+			border-bottom: 1px solid #3c3c3c;
+			display: flex;
+			align-items: center;
+			padding: 0 12px;
+			gap: 8px;
+			font-size: 12px;
+		}
+		.titlebar .icon { color: #3a96dd; font-weight: bold; }
+		.titlebar .path { color: #9cdcfe; flex: 1; }
+		.checklist {
+			grid-row: 2;
+			background: #1e1e1e;
+			border-right: 1px solid #3c3c3c;
+			overflow-y: auto;
+			padding: 8px 0;
+		}
+		.checklist h2 {
+			font-size: 11px;
+			font-weight: 600;
+			color: #808080;
+			text-transform: uppercase;
+			padding: 8px 12px 6px;
+			letter-spacing: 0.05em;
+		}
+		.step {
+			display: flex;
+			align-items: flex-start;
+			gap: 8px;
+			padding: 6px 12px;
+			border-left: 3px solid transparent;
+			font-size: 12px;
+			line-height: 1.35;
+		}
+		.step.pending { color: #808080; }
+		.step.running { color: #dcdcaa; border-left-color: #dcdcaa; background: #2d2d1e; }
+		.step.ok { color: #4ec9b0; border-left-color: #4ec9b0; }
+		.step.warn { color: #dcdcaa; border-left-color: #ce9178; }
+		.step.error { color: #f48771; border-left-color: #f48771; background: #2d1e1e; }
+		.step .box {
+			flex-shrink: 0;
+			width: 14px;
+			font-weight: bold;
+			font-size: 11px;
+		}
+		.step .lbl { flex: 1; }
+		.step .sub { display: block; font-size: 10px; color: #808080; margin-top: 2px; }
+		.terminal-wrap {
+			grid-row: 2;
+			display: flex;
+			flex-direction: column;
+			min-height: 0;
+			background: #0c0c0c;
+		}
+		.terminal-toolbar {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 6px;
+			padding: 6px 10px;
+			background: #252526;
+			border-bottom: 1px solid #3c3c3c;
+		}
+		.terminal-toolbar button {
+			font-family: inherit;
+			font-size: 11px;
+			background: #3c3c3c;
+			color: #cccccc;
+			border: 1px solid #555;
+			padding: 4px 10px;
+			cursor: pointer;
+			border-radius: 2px;
+		}
+		.terminal-toolbar button:hover { background: #505050; }
+		.terminal-toolbar button.run { background: #0e639c; border-color: #1177bb; }
+		#terminal {
+			flex: 1;
+			overflow-y: auto;
+			padding: 10px 14px;
+			white-space: pre-wrap;
+			word-break: break-word;
+			line-height: 1.45;
+		}
+		#terminal .ps-prompt { color: #cccccc; }
+		#terminal .ps-cmd { color: #dcdcaa; }
+		#terminal .ps-out { color: #b5cea8; }
+		#terminal .ps-err { color: #f48771; }
+		#terminal .ps-info { color: #9cdcfe; }
+		#terminal .ps-warn { color: #ce9178; }
+		#terminal .ps-ok { color: #4ec9b0; }
+		#terminal .ps-muted { color: #808080; }
+		.statusbar {
+			grid-column: 1 / -1;
+			background: #007acc;
+			color: #fff;
+			font-size: 11px;
+			padding: 0 12px;
+			display: flex;
+			align-items: center;
+			gap: 16px;
+		}
+		.hints {
+			padding: 8px 12px;
+			background: #3a2d1e;
+			border-top: 1px solid #5a4a2a;
+			font-size: 11px;
+			color: #ce9178;
+			max-height: 80px;
+			overflow-y: auto;
+		}
+		@media (max-width: 900px) {
+			.shell { grid-template-columns: 1fr; grid-template-rows: 36px auto 1fr 28px; }
+			.checklist { max-height: 200px; grid-row: 2; border-right: none; border-bottom: 1px solid #3c3c3c; }
+			.terminal-wrap { grid-row: 3; }
+		}
 	</style>
 </head>
 <body>
-	<header>
-		<div>
-			<p class="eyebrow">Princy Ai · diagnostico</p>
-			<h1>LogView — index → VS Code Web</h1>
+	<div class="shell">
+		<div class="titlebar">
+			<span class="icon">PS</span>
+			<span>Administrador: Princy Starter Log</span>
+			<span class="path">C:\Apps\Editor\logs\</span>
 		</div>
-		<span class="clock" id="clock">--:--:--</span>
-	</header>
-	<div class="toolbar">
-		<button type="button" class="primary" id="btnTransition">Simular: Landing → Abrir Editor</button>
-		<button type="button" id="btnProbes">Atualizar probes VPS</button>
-		<button type="button" id="btnCopy">Copiar log completo</button>
-		<label style="color:var(--muted);display:flex;align-items:center;gap:6px;font-size:12px">
-			<input type="checkbox" id="live" checked /> Tempo real (2s)
-		</label>
-		<a class="btn" href="https://princyai.com/" target="_blank" rel="noreferrer">Landing</a>
-		<a class="btn" href="https://princyai.com/webeditor/" target="_blank" rel="noreferrer" id="linkEditor">Web Editor</a>
-	</div>
-	<div class="layout">
-		<aside class="cards">
-			<div class="card">
-				<h3>Stack (probes no VPS)</h3>
-				<div id="probes">Carregando...</div>
-			</div>
-			<div class="card">
-				<h3>Portas esperadas</h3>
-				<p style="margin:0;font-size:11px;color:var(--muted);line-height:1.5">
-					3220 index<br>3200 Code-OSS<br>3210 API<br>443 Caddy HTTPS
-				</p>
-			</div>
+
+		<aside class="checklist" id="checklist">
+			<h2>Checklist — Index ate Code Web</h2>
+			<div id="stepsList"></div>
 		</aside>
-		<div class="main">
-			<section class="panel">
-				<h2><span class="dot" id="liveDot"></span> Log servidor (tempo real)</h2>
-				<pre id="serverLog">Conectando...</pre>
-			</section>
-			<section class="panel">
-				<h2>Timeline (clique → editor)</h2>
-				<div id="timeline"></div>
-			</section>
+
+		<div class="terminal-wrap">
+			<div class="terminal-toolbar">
+				<button type="button" class="run" id="btnRun">Executar diagnostico (starter)</button>
+				<button type="button" id="btnCopy">Copiar terminal</button>
+				<button type="button" id="btnTail">Atualizar logs NSSM</button>
+				<label style="font-size:11px;color:#aaa;display:flex;align-items:center;gap:4px">
+					<input type="checkbox" id="liveTail" checked /> tail logs 3s
+				</label>
+			</div>
+			<pre id="terminal"></pre>
+			<div class="hints" id="hints" hidden></div>
+		</div>
+
+		<div class="statusbar">
+			<span id="statusText">Pronto</span>
+			<span id="statusClock">--:--:--</span>
 		</div>
 	</div>
+
 	<script>
 	(function () {
 		const API = '/princy-api';
-		const T0_KEY = 'princy_logview_t0';
-		const serverLog = document.getElementById('serverLog');
-		const timeline = document.getElementById('timeline');
-		const probesEl = document.getElementById('probes');
-		const liveDot = document.getElementById('liveDot');
+		const terminal = document.getElementById('terminal');
+		const stepsList = document.getElementById('stepsList');
+		const hintsEl = document.getElementById('hints');
+		const statusText = document.getElementById('statusText');
+		let tailTimer = null;
+		let running = false;
+		let buffer = '';
 
-		let t0 = 0;
-		let events = [];
-		let serverText = '';
-		let pollId = null;
 
-		function wall() { return new Date().toLocaleTimeString('pt-BR'); }
-		setInterval(function () { document.getElementById('clock').textContent = wall(); }, 400);
+		function wall() {
+			return new Date().toLocaleTimeString('pt-BR');
+		}
+		setInterval(function () {
+			document.getElementById('statusClock').textContent = wall();
+		}, 500);
 
-		function log(kind, msg, detail) {
-			const ms = t0 ? Math.round(performance.now() - t0) : 0;
-			events.push({ kind, msg, detail: detail || '', ms, wall: wall() });
-			const d = document.createElement('div');
-			d.className = 'trow ' + kind;
-			d.textContent = '[' + wall() + '] +' + ms + 'ms ' + msg + (detail ? ' — ' + detail : '');
-			timeline.appendChild(d);
-			timeline.scrollTop = timeline.scrollHeight;
+		function esc(s) {
+			return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 		}
 
-		function formatLogs(data) {
-			let o = '=== Princy LogView ' + new Date(data.ts).toLocaleString('pt-BR') + ' ===\n\n';
-			Object.keys(data.logs || {}).forEach(function (name) {
-				o += '--- ' + name + ' ---\n' + (data.logs[name] || []).join('\n') + '\n\n';
-			});
-			return o;
+		function appendLine(text, cls) {
+			buffer += text + '\n';
+			const span = document.createElement('span');
+			if (cls) span.className = cls;
+			span.textContent = text + '\n';
+			terminal.appendChild(span);
+			terminal.scrollTop = terminal.scrollHeight;
 		}
 
-		async function pullLogs() {
+		function clearTerminal() {
+			buffer = '';
+			terminal.innerHTML = '';
+		}
+
+		function updateStep(step) {
+			const el = document.getElementById('step-' + step.id);
+			if (!el) {
+				const div = document.createElement('div');
+				div.className = 'step ' + step.status;
+				div.id = 'step-' + step.id;
+				const box = step.status === 'running' ? '[~]' : step.status === 'ok' ? '[x]' : step.status === 'warn' ? '[!]' : step.status === 'error' ? '[X]' : '[ ]';
+				div.innerHTML = '<span class="box">' + box + '</span><span class="lbl">' + esc(step.label) +
+					'<span class="sub">' + esc(step.detail) + '</span></span>';
+				stepsList.appendChild(div);
+				return;
+			}
+			el.className = 'step ' + step.status;
+			const box = step.status === 'running' ? '[~]' : step.status === 'ok' ? '[x]' : step.status === 'warn' ? '[!]' : step.status === 'error' ? '[X]' : '[ ]';
+			el.innerHTML = '<span class="box">' + box + '</span><span class="lbl">' + esc(step.label) +
+				'<span class="sub">' + esc(step.detail) + '</span></span>';
+		}
+
+		function classifyLine(text) {
+			if (/^\s*PS>/.test(text)) return 'ps-cmd';
+			if (/\[ERRO\]|error|fatal|exception/i.test(text)) return 'ps-err';
+			if (/RUNNING|True|OK|encontrado/i.test(text)) return 'ps-ok';
+			if (/AVISO|WARN|NAO /i.test(text)) return 'ps-warn';
+			if (/StatusCode|Tempo|Preview|Copyright/i.test(text)) return 'ps-info';
+			return 'ps-out';
+		}
+
+		async function pullTailLogs() {
 			try {
-				const r = await fetch(API + '/api/editor/runtime-log?lines=120', { cache: 'no-store' });
-				if (!r.ok) throw new Error('runtime-log HTTP ' + r.status);
+				const r = await fetch(API + '/api/editor/runtime-log?lines=40', { cache: 'no-store' });
+				if (!r.ok) return;
 				const data = await r.json();
-				const text = formatLogs(data);
-				if (text !== serverText) {
-					const atEnd = serverLog.scrollHeight - serverLog.scrollTop < serverLog.clientHeight + 50;
-					serverLog.textContent = text;
-					serverText = text;
-					if (atEnd) serverLog.scrollTop = serverLog.scrollHeight;
+				const err = (data.logs && data.logs['code-web.err.log']) || [];
+				const tail = err.slice(-8).join('\n');
+				if (tail && !buffer.includes(tail)) {
+					appendLine('', 'ps-muted');
+					appendLine('--- tail code-web.err.log ---', 'ps-muted');
+					tail.split('\n').forEach(function (ln) { appendLine('    ' + ln, classifyLine(ln)); });
 				}
-				liveDot.style.background = 'var(--ok)';
-			} catch (e) {
-				liveDot.style.background = 'var(--err)';
-				serverLog.textContent += '\n[ERRO poll] ' + (e && e.message) + '\n';
-			}
+			} catch (_) { /* ignore */ }
 		}
 
-		async function pullProbes() {
+		function startTail() {
+			if (tailTimer) clearInterval(tailTimer);
+			tailTimer = setInterval(function () {
+				if (document.getElementById('liveTail').checked && !running) pullTailLogs();
+			}, 3000);
+		}
+
+		async function runDiagnostic() {
+			if (running) return;
+			running = true;
+			statusText.textContent = 'Executando starter-check...';
+			hintsEl.hidden = true;
+			clearTerminal();
+			stepsList.innerHTML = '<div class="step pending"><span class="box">[~]</span><span class="lbl">A executar checklist no VPS...</span></div>';
+
+			appendLine('Windows PowerShell', 'ps-info');
+			appendLine('Copyright (C) Princy Ai — apenas logs de sistema', 'ps-muted');
+			appendLine('', '');
+			appendLine('PS> Write-Host "Diagnostico: Index (3220) -> API (3210) -> Code Web (3200)" -ForegroundColor Cyan', 'ps-cmd');
+			appendLine('', '');
+
 			try {
-				const r = await fetch(API + '/api/editor/stack-probes', { cache: 'no-store' });
-				const data = await r.json();
-				probesEl.innerHTML = '';
-				(data.probes || []).forEach(function (p) {
-					const div = document.createElement('div');
-					div.className = 'probe';
-					const b = p.ok ? 'ok' : 'err';
-					div.innerHTML = '<span class="badge ' + b + '">' + (p.ok ? 'OK' : 'FAIL') + '</span><strong>' + p.name + '</strong><br><small style="color:var(--muted)">' + p.status + ' · ' + p.ms + 'ms · ' + p.hint + '</small>';
-					probesEl.appendChild(div);
+				const es = new EventSource(API + '/api/editor/starter-check/stream');
+				await new Promise(function (resolve, reject) {
+					es.onmessage = function (ev) {
+						let msg;
+						try { msg = JSON.parse(ev.data); } catch (e) { return; }
+						if (msg.type === 'banner') {
+							appendLine(String(msg.data && msg.data.text || ''), 'ps-info');
+						}
+						if (msg.type === 'line' && msg.data && msg.data.text !== undefined) {
+							appendLine(msg.data.text, classifyLine(msg.data.text));
+						}
+						if (msg.type === 'step' && msg.data) {
+							updateStep(msg.data);
+						}
+						if (msg.type === 'done') {
+							es.close();
+							if (msg.data && msg.data.hints && msg.data.hints.length) {
+								hintsEl.hidden = false;
+								hintsEl.innerHTML = '<strong>Dicas:</strong><ul>' +
+									msg.data.hints.map(function (h) { return '<li>' + esc(h) + '</li>'; }).join('') + '</ul>';
+							}
+							statusText.textContent = msg.data && msg.data.ok ? 'Starter OK' : 'Falhas encontradas — veja [X]';
+							resolve(msg.data);
+						}
+						if (msg.type === 'error') {
+							es.close();
+							appendLine('[ERRO] ' + (msg.data && msg.data.message), 'ps-err');
+							reject(new Error(msg.data && msg.data.message));
+						}
+					};
+					es.onerror = function () {
+						es.close();
+						runDiagnosticFallback().then(resolve).catch(reject);
+					};
 				});
-				log('ok', 'Probes VPS atualizados', (data.probes || []).length + ' itens');
 			} catch (e) {
-				probesEl.textContent = 'Falha: ' + (e && e.message);
-				log('err', 'Probes falharam', e && e.message);
+				appendLine('[ERRO stream] ' + (e && e.message), 'ps-err');
+				await runDiagnosticFallback();
+			} finally {
+				running = false;
 			}
 		}
 
-		function startPoll() {
-			if (pollId) clearInterval(pollId);
-			pullLogs();
-			pollId = setInterval(function () {
-				if (document.getElementById('live').checked) pullLogs();
-			}, 2000);
+		async function runDiagnosticFallback() {
+			appendLine('PS> # fallback JSON (sem SSE)', 'ps-muted');
+			const r = await fetch(API + '/api/editor/starter-check', { cache: 'no-store' });
+			if (!r.ok) throw new Error('starter-check HTTP ' + r.status);
+			const data = await r.json();
+			(data.steps || []).forEach(function (step) {
+				updateStep(step);
+				(step.logLines || []).forEach(function (ln) { appendLine(ln, classifyLine(ln)); });
+				appendLine('', '');
+			});
+			if (data.hints && data.hints.length) {
+				hintsEl.hidden = false;
+				hintsEl.innerHTML = '<strong>Dicas:</strong><ul>' +
+					data.hints.map(function (h) { return '<li>' + esc(h) + '</li>'; }).join('') + '</ul>';
+			}
+			statusText.textContent = data.ok ? 'Starter OK' : 'Falhas encontradas';
+			return data;
 		}
 
-		async function simulateTransition() {
-			timeline.innerHTML = '';
-			events = [];
-			t0 = performance.now();
-			sessionStorage.setItem(T0_KEY, String(Date.now()));
-			log('run', 'T0 — usuario clicou Abrir Editor (simulado)');
-
-			log('run', 'GET landing /');
-			try {
-				const r0 = await fetch('/', { cache: 'no-store' });
-				log(r0.ok ? 'ok' : 'err', 'Landing HTTP ' + r0.status);
-			} catch (e) { log('err', 'Landing', e.message); }
-
-			log('run', 'GET /webeditor/ (transicao)');
-			try {
-				const r1 = await fetch('/webeditor/', { cache: 'no-store' });
-				const t = await r1.text();
-				const wb = /WORKBENCH_WEB_CONFIGURATION/.test(t);
-				log(r1.ok && wb ? 'ok' : (r1.ok ? 'warn' : 'err'), 'Webeditor HTTP ' + r1.status, wb ? 'workbench no HTML' : t.slice(0, 80));
-			} catch (e) { log('err', 'Webeditor', e.message); }
-
-			log('run', 'GET /princy-api health');
-			try {
-				const r2 = await fetch(API + '/api/agent/health', { cache: 'no-store' });
-				log(r2.ok ? 'ok' : 'err', 'API health ' + r2.status);
-			} catch (e) { log('err', 'API', e.message); }
-
-			await pullProbes();
-			log('ok', 'Simulacao concluida — abra /webeditor/ numa aba se ainda travar');
-		}
-
-		document.getElementById('btnTransition').addEventListener('click', simulateTransition);
-		document.getElementById('btnProbes').addEventListener('click', pullProbes);
+		document.getElementById('btnRun').addEventListener('click', function () { runDiagnostic(); });
 		document.getElementById('btnCopy').addEventListener('click', function () {
-			const boot = events.map(function (e) {
-				return '[' + e.wall + '] +' + e.ms + 'ms ' + e.kind + ' ' + e.msg + (e.detail ? ' | ' + e.detail : '');
-			}).join('\n');
-			navigator.clipboard.writeText('=== TIMELINE ===\n' + boot + '\n\n=== SERVER ===\n' + serverText);
-			log('ok', 'Copiado para clipboard');
+			navigator.clipboard.writeText(buffer).then(function () {
+				statusText.textContent = 'Terminal copiado';
+			});
 		});
-		document.getElementById('live').addEventListener('change', startPoll);
+		document.getElementById('btnTail').addEventListener('click', function () { pullTailLogs(); });
+		document.getElementById('liveTail').addEventListener('change', startTail);
 
-		log('ok', 'LogView carregado', location.href);
-		startPoll();
-		pullProbes();
+		stepsList.innerHTML = '<div class="step pending"><span class="box">[ ]</span><span class="lbl">Clique Executar diagnostico</span></div>';
+		appendLine('PS> Princy Starter Log carregado (pagina independente — sem dashboard)', 'ps-ok');
+		appendLine('PS> Clique "Executar diagnostico" ou aguarde autostart...', 'ps-muted');
+		startTail();
+
 		if (new URLSearchParams(location.search).get('autostart') === '1') {
-			setTimeout(simulateTransition, 500);
+			setTimeout(runDiagnostic, 600);
 		}
 	})();
 	</script>

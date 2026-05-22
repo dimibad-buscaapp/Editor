@@ -206,7 +206,7 @@ export function ChatPage(): ReactElement {
 
 				<nav className="chat-nav">
 					<a href={EDITOR_URL} target="_blank" rel="noreferrer">Editor Code Web</a>
-					<a href="/logview/?autostart=1">LogView (boot)</a>
+					<a href="/logview/?autostart=1" target="_blank" rel="noreferrer">Starter Log (sistema)</a>
 					<button type="button" onClick={() => navigate('hub')}>Hub</button>
 					<button type="button" onClick={() => navigate('login')}>Login</button>
 					<button type="button" onClick={() => navigate('logs')}>Logs</button>
