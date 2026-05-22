@@ -23,15 +23,15 @@ if (-not (Test-Path $serverMain) -or -not (Test-Path $workbenchDevHtml)) {
 	exit 1
 }
 
-$workbenchCss = Join-Path $ProjectRoot "out\vs\workbench\workbench.web.main.css"
-$hasProductionBuild = (Test-Path $workbenchHtml) -and (Test-Path $workbenchCss)
+. (Join-Path $PSScriptRoot "Princy-CodeWeb-Build.ps1")
+$hasProductionBuild = Test-PrincyCodeWebProdBuild -ProjectRoot $ProjectRoot
 
 $useDev = $false
 if ($Dev) {
 	$useDev = $true
 } elseif ($Production) {
 	if (-not $hasProductionBuild) {
-		Write-Host "ERRO: -Production mas falta workbench.html ou workbench.web.main.css" -ForegroundColor Red
+		Write-Host "ERRO: -Production mas falta workbench.html ou bundle CSS/JS" -ForegroundColor Red
 		Write-Host "  Rode: deploy\windows\code-web\compile-princy-code-web-production.ps1" -ForegroundColor Yellow
 		exit 1
 	}

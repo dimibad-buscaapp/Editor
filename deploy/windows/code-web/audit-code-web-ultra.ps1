@@ -13,6 +13,7 @@ param(
 
 $ErrorActionPreference = "Continue"
 . (Join-Path $PSScriptRoot "..\princy-hosts.ps1")
+. (Join-Path $PSScriptRoot "Princy-CodeWeb-Build.ps1")
 
 $base = $EditorBasePath.Trim()
 if (-not $base.StartsWith('/')) { $base = "/$base" }
@@ -75,28 +76,26 @@ Write-Host ""
 
 # --- 1) Artefatos de compile ---
 Write-Host "[1] Compile (out/)" -ForegroundColor Cyan
+$build = Get-PrincyCodeWebProdBuildStatus -ProjectRoot $ProjectRoot
 $artifacts = @{
-	"server-main.js" = "out\server-main.js"
-	"workbench-dev.html" = "out\vs\code\browser\workbench\workbench-dev.html"
-	"workbench.html (PROD)" = "out\vs\code\browser\workbench\workbench.html"
-	"workbench.web.main.css (PROD)" = "out\vs\workbench\workbench.web.main.css"
+	"server-main.js" = $build.ServerMain
+	"workbench-dev.html" = $build.WorkbenchDev
+	"workbench.html (PROD)" = $build.WorkbenchHtml
+	"workbench.css (browser)" = $build.WorkbenchCss
+	"workbench.js (browser)" = $build.WorkbenchJs
+	"workbench.web.main.css (legado)" = $build.WorkbenchCssLegacy
 }
-$hasDev = $false
-$hasProd = $true
 foreach ($name in $artifacts.Keys) {
-	$rel = $artifacts[$name]
-	$p = Join-Path $ProjectRoot $rel
-	$ok = Test-Path $p
-	if ($rel -match 'dev') { if ($ok) { $hasDev = $true } }
-	if ($rel -match 'PROD|workbench\.html|workbench\.web') { if (-not $ok) { $hasProd = $false } }
-	$color = if ($ok) { 'Green' } else { if ($rel -match 'PROD|server-main') { 'Red' } else { 'Yellow' } }
+	$ok = $artifacts[$name]
+	$color = if ($ok) { 'Green' } else { if ($name -match 'server-main|workbench\.html') { 'Red' } else { 'Yellow' } }
 	Write-Host ("  {0}: {1}" -f $name, $(if ($ok) { 'OK' } else { 'AUSENTE' })) -ForegroundColor $color
 }
-if (-not (Test-Path (Join-Path $ProjectRoot "out\server-main.js"))) {
+$hasProd = $build.HasProd
+if (-not $build.ServerMain) {
 	Add-Issue "Compile ausente - rode: npm run compile-incremental; npm run compile-web"
 }
 if (-not $hasProd) {
-	Add-Issue "Compile PRODUCAO incompleto (workbench.html ou workbench.web.main.css) - browser fica branco/lento em modo DEV"
+	Add-Issue "Compile PRODUCAO incompleto (falta workbench.html ou bundle CSS/JS) - browser fica branco/lento em modo DEV"
 	Add-Warn "Correcao: deploy\windows\code-web\compile-princy-code-web-production.ps1 (30-90 min)"
 }
 

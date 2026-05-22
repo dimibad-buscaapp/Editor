@@ -1,4 +1,4 @@
-# Reinstala PrincyAiCodeWeb com node.exe direto no NSSM (sem PowerShell — evita crash/parse).
+# Reinstala PrincyAiCodeWeb com node.exe direto no NSSM (sem PowerShell - evita crash/parse).
 # Execute como Administrador.
 
 param(
@@ -54,7 +54,7 @@ Write-Host "=== Fix PrincyAiCodeWeb (node direto) ===" -ForegroundColor Cyan
 $serverMain = Join-Path $ProjectRoot "out\server-main.js"
 $workbenchDev = Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench-dev.html"
 $workbenchHtml = Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench.html"
-$workbenchCss = Join-Path $ProjectRoot "out\vs\workbench\workbench.web.main.css"
+. (Join-Path $PSScriptRoot "Princy-CodeWeb-Build.ps1")
 $logsDir = Join-Path $ProjectRoot "logs"
 
 if (-not (Test-Path $serverMain) -or -not (Test-Path $workbenchDev)) {
@@ -65,11 +65,11 @@ if (-not (Test-Path $serverMain) -or -not (Test-Path $workbenchDev)) {
 	exit 1
 }
 
-$hasProd = (Test-Path $workbenchHtml) -and (Test-Path $workbenchCss)
+$hasProd = Test-PrincyCodeWebProdBuild -ProjectRoot $ProjectRoot
 if ($hasProd) {
-	Write-Host "Compile PRODUCAO: OK (workbench.html + CSS)" -ForegroundColor Green
+	Write-Host "Compile PRODUCAO: OK (workbench.html + bundle)" -ForegroundColor Green
 } else {
-	Write-Host "AVISO: falta compile PRODUCAO — o editor pode ficar lento/travado em modo DEV." -ForegroundColor Yellow
+	Write-Host "AVISO: falta compile PRODUCAO - o editor pode ficar lento/travado em modo DEV." -ForegroundColor Yellow
 	Write-Host "  Rode: deploy\windows\code-web\compile-princy-code-web-production.ps1" -ForegroundColor Yellow
 }
 
@@ -136,7 +136,7 @@ $envExtra = @(
 	"NODE_OPTIONS=--max-old-space-size=8192"
 )
 if (-not $hasProd) {
-	Write-Host "Modo DEV forcado (sem bundle prod) — adicionando VSCODE_DEV=1" -ForegroundColor Yellow
+	Write-Host "Modo DEV forcado (sem bundle prod) - adicionando VSCODE_DEV=1" -ForegroundColor Yellow
 	$envExtra += "VSCODE_DEV=1", "NODE_ENV=development"
 }
 & $nssm set $ServiceName AppEnvironmentExtra $envExtra
@@ -180,4 +180,4 @@ catch {
 }
 
 Write-Host ""
-Write-Host "OK — https://princyai.com$base/ (Ctrl+F5; nao use IP:3200 na internet)" -ForegroundColor Green
+Write-Host "OK - https://princyai.com$base/ (Ctrl+F5; nao use IP:3200 na internet)" -ForegroundColor Green

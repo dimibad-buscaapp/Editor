@@ -49,9 +49,9 @@ if (Test-Path $logOut) {
 	$line = Select-String -Path $logOut -Pattern "Web UI available" | Select-Object -Last 1
 	if ($line) {
 		if ($line.Line -match [regex]::Escape($base)) {
-			Write-Host "Log: OK — $($line.Line.Trim())" -ForegroundColor Green
+			Write-Host "Log: OK - $($line.Line.Trim())" -ForegroundColor Green
 		} else {
-			Write-Host "Log: ERRO — editor na RAIZ (falta $base no URL)" -ForegroundColor Red
+			Write-Host "Log: ERRO - editor na RAIZ (falta $base no URL)" -ForegroundColor Red
 			Write-Host "  $($line.Line.Trim())" -ForegroundColor DarkYellow
 			$needsReinstall = $true
 		}
@@ -62,7 +62,7 @@ $envFile = Join-Path $ProjectRoot "apps\ai-dashboard\.env"
 if (Test-Path $envFile) {
 	$text = Get-Content $envFile -Raw
 	if ($text -match 'CODE_WEB_URL\s*=\s*"?https?://[^"\r\n]+"?' -and $text -notmatch 'CODE_WEB_URL[^=]*=[^"\r\n]*webeditor') {
-		Write-Host ".env: CODE_WEB_URL sem /webeditor — corrija para http://127.0.0.1:3200/webeditor" -ForegroundColor Yellow
+		Write-Host ".env: CODE_WEB_URL sem /webeditor - corrija para http://127.0.0.1:3200/webeditor" -ForegroundColor Yellow
 	}
 }
 

@@ -9,6 +9,7 @@ param(
 )
 
 $ErrorActionPreference = "Continue"
+. (Join-Path $PSScriptRoot "Princy-CodeWeb-Build.ps1")
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
@@ -36,9 +37,8 @@ if (Test-Path $srcCaddy) {
 	Write-Host "  Caddyfile ausente no repo." -ForegroundColor Red
 }
 
-$prodHtml = Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench.html"
-$prodCss = Join-Path $ProjectRoot "out\vs\workbench\workbench.web.main.css"
-$hasProd = (Test-Path $prodHtml) -and (Test-Path $prodCss)
+$build = Get-PrincyCodeWebProdBuildStatus -ProjectRoot $ProjectRoot
+$hasProd = $build.HasProd
 
 if ($RunProductionCompile -or -not $hasProd) {
 	if (-not $hasProd) {
@@ -49,7 +49,7 @@ if ($RunProductionCompile -or -not $hasProd) {
 		Write-Host "[3] compile-princy-code-web-production.ps1 (pode demorar) ..." -ForegroundColor Cyan
 		& powershell -ExecutionPolicy Bypass -File $compile -ProjectRoot $ProjectRoot -SkipRestart
 		if ($LASTEXITCODE -ne 0) {
-			Write-Host "Compile falhou — corrija erros acima antes de continuar." -ForegroundColor Red
+			Write-Host "Compile falhou - corrija erros acima antes de continuar." -ForegroundColor Red
 			exit 1
 		}
 	} else {
@@ -71,7 +71,7 @@ if ($caddySvc) {
 	Restart-Service PrincyCaddy -Force -ErrorAction SilentlyContinue
 	Start-Sleep -Seconds 4
 } else {
-	Write-Host "[5] PrincyCaddy ausente — rode fix-princy-caddy.ps1" -ForegroundColor Yellow
+	Write-Host "[5] PrincyCaddy ausente - rode fix-princy-caddy.ps1" -ForegroundColor Yellow
 }
 
 Write-Host "[6] Verificacao publica ..." -ForegroundColor Cyan

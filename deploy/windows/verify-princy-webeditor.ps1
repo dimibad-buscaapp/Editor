@@ -95,16 +95,15 @@ Test-Http "HTTPS $basePath" "https://${PublicHost}${basePath}/" -RequireWorkbenc
 Test-Http "HTTPS /princy-api" "https://${PublicHost}/princy-api/api/health" | Out-Null
 
 # 5) Compile
-$wbDev = Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench-dev.html"
-$wbProd = Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench.html"
-$wbCss = Join-Path $ProjectRoot "out\vs\workbench\workbench.web.main.css"
-if (-not (Test-Path $wbDev)) {
+. (Join-Path $PSScriptRoot "code-web\Princy-CodeWeb-Build.ps1")
+$build = Get-PrincyCodeWebProdBuildStatus -ProjectRoot $ProjectRoot
+if (-not $build.WorkbenchDev) {
 	$issues += "Compile ausente: out\vs\code\browser\workbench\workbench-dev.html"
 	Write-Host "Compile: FALTA workbench-dev.html" -ForegroundColor Red
 }
-elseif (-not ((Test-Path $wbProd) -and (Test-Path $wbCss))) {
-	$issues += "Compile PRODUCAO incompleto — VPS publico fica em VSCODE_DEV (tela branca). Rode compile-princy-code-web-production.ps1"
-	Write-Host "Compile: DEV only (falta workbench.html + CSS)" -ForegroundColor Yellow
+elseif (-not $build.HasProd) {
+	$issues += "Compile PRODUCAO incompleto - VPS publico fica em VSCODE_DEV (tela branca). Rode compile-princy-code-web-production.ps1"
+	Write-Host "Compile: DEV only (falta workbench.html ou bundle)" -ForegroundColor Yellow
 }
 else {
 	Write-Host "Compile: OK (dev + producao)" -ForegroundColor Green

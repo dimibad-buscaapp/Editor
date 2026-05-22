@@ -42,18 +42,23 @@ if ($LASTEXITCODE -ne 0) {
 	throw "compile-web falhou"
 }
 
-$checks = @(
+. (Join-Path $PSScriptRoot "Princy-CodeWeb-Build.ps1")
+
+$required = @(
 	"out\server-main.js",
-	"out\vs\code\browser\workbench\workbench.html",
-	"out\vs\workbench\workbench.web.main.css"
+	"out\vs\code\browser\workbench\workbench.html"
 )
-foreach ($rel in $checks) {
+foreach ($rel in $required) {
 	$p = Join-Path $ProjectRoot $rel
 	if (-not (Test-Path $p)) {
 		throw "Arquivo ausente apos compile: $rel"
 	}
 	Write-Host ("OK: " + $rel) -ForegroundColor Green
 }
+if (-not (Test-PrincyCodeWebProdBuild -ProjectRoot $ProjectRoot)) {
+	throw "Bundle PROD incompleto: falta workbench.css, workbench.js ou workbench.web.main.css"
+}
+Write-Host "OK: bundle producao (CSS ou JS do workbench)" -ForegroundColor Green
 
 if (-not $SkipRestart) {
 	Write-Host ""
