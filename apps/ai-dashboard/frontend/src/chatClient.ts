@@ -1,3 +1,5 @@
+import { resolveAgentApiBase } from './princyHosts.js';
+
 export type AgentId = 'princy' | 'deepseek' | 'qwen' | 'codellama' | 'llama3' | 'mistral' | 'openai';
 
 export type AgentModelInfo = {
@@ -66,28 +68,28 @@ export type BootstrapInfo = {
 };
 
 export async function fetchAgentHealth(): Promise<{ ok: boolean; service?: string }> {
-	const response = await fetch('/api/agent/health', { headers: buildHeaders() });
+	const response = await fetch(agentUrl('/api/agent/health'), { headers: buildHeaders() });
 	if (!response.ok) {
 		throw new Error(formatChatHttpError(response.status, await response.text()));
 	}
-	return response.json() as Promise<{ ok: boolean; service?: string }>;
+	return parseJsonResponse(response, 'health');
 }
 
 export async function fetchBootstrap(): Promise<BootstrapInfo> {
-	const response = await fetch('/api/agent/bootstrap');
+	const response = await fetch(agentUrl('/api/agent/bootstrap'));
 	if (!response.ok) {
 		throw new Error(`Bootstrap failed (${response.status})`);
 	}
-	return response.json() as Promise<BootstrapInfo>;
+	return parseJsonResponse(response, 'bootstrap');
 }
 
 export async function fetchModels(): Promise<readonly AgentModelInfo[]> {
-	const response = await fetch('/api/agent/models', { headers: buildHeaders() });
+	const response = await fetch(agentUrl('/api/agent/models'), { headers: buildHeaders() });
 	if (!response.ok) {
 		const text = await response.text();
 		throw new Error(formatChatHttpError(response.status, text));
 	}
-	const data = await response.json() as { models: AgentModelInfo[] };
+	const data = await parseJsonResponse<{ models: AgentModelInfo[] }>(response, 'models');
 	return data.models;
 }
 
@@ -101,7 +103,7 @@ export async function postAgentChat(input: {
 	readonly agent: AgentId;
 	readonly message: string;
 }): Promise<AgentChatResult> {
-	const response = await fetch('/api/agent/chat', {
+	const response = await fetch(agentUrl('/api/agent/chat'), {
 		method: 'POST',
 		headers: buildHeaders(),
 		body: JSON.stringify({
@@ -114,7 +116,7 @@ export async function postAgentChat(input: {
 		const text = await response.text();
 		throw new Error(formatChatHttpError(response.status, text));
 	}
-	return response.json() as Promise<AgentChatResult>;
+	return parseJsonResponse<AgentChatResult>(response, 'chat');
 }
 
 export type StreamHandlers = {
@@ -127,7 +129,7 @@ export async function streamAgentChat(input: {
 	readonly agent: AgentId;
 	readonly message: string;
 }, handlers: StreamHandlers): Promise<void> {
-	const response = await fetch('/api/agent/chat/stream', {
+	const response = await fetch(agentUrl('/api/agent/chat/stream'), {
 		method: 'POST',
 		headers: buildHeaders(),
 		body: JSON.stringify({

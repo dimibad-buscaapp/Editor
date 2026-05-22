@@ -14,6 +14,15 @@ princyai.com, www.princyai.com {
 		reverse_proxy 127.0.0.1:3210
 	}
 
+	# Chat/dashboard em princyai.com/#/chat chama /api/agent/* (nao cair na landing :3220)
+	handle /api/* {
+		reverse_proxy 127.0.0.1:3210 {
+			header_up Host {host}
+			header_up X-Forwarded-Host {host}
+			header_up X-Forwarded-Proto {scheme}
+		}
+	}
+
 	@webeditor_root path /webeditor
 	handle @webeditor_root {
 		redir /webeditor/ permanent
