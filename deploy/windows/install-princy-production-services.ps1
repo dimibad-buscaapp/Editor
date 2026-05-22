@@ -80,14 +80,14 @@ powershell -ExecutionPolicy Bypass -File (Join-Path $ProjectRoot "deploy\windows
 Write-Host "=== Index landing :3220 ===" -ForegroundColor Cyan
 powershell -ExecutionPolicy Bypass -File (Join-Path $ProjectRoot "deploy\windows\index\install-princy-index-service.ps1") -ProjectRoot $ProjectRoot
 
-# 3200: producao automatica se workbench.html + workbench.web.main.css existirem
-$codeWebArgs = "-ProjectRoot `"$ProjectRoot`" -HostName 0.0.0.0 -Port 3200 -ServerBasePath /webeditor"
-Install-NssmService -Nssm $nssm -Name "PrincyAiCodeWeb" `
-	-AppDirectory $ProjectRoot `
-	-Runner $codeRunner `
-	-RunnerArgs $codeWebArgs `
-	-StdoutLog (Join-Path $logsDir "code-web.out.log") `
-	-StderrLog (Join-Path $logsDir "code-web.err.log")
+# 3200: node.exe direto (nao PowerShell no NSSM)
+Write-Host "=== Code Web :3200 (node direto) ===" -ForegroundColor Cyan
+$fixCodeWeb = Join-Path $ProjectRoot "deploy\windows\code-web\fix-princy-code-web-service.ps1"
+if (Test-Path $fixCodeWeb) {
+	powershell -ExecutionPolicy Bypass -File $fixCodeWeb -ProjectRoot $ProjectRoot
+} else {
+	Write-Host "fix-princy-code-web-service.ps1 ausente" -ForegroundColor Red
+}
 
 if ((Test-Path $caddyExe) -and (Test-Path $caddyConfig)) {
 	$existing = Get-Service "PrincyCaddy" -ErrorAction SilentlyContinue

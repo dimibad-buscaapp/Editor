@@ -10,22 +10,21 @@ O Caddy **nao pode** usar `handle_path /webeditor/*` (remove o prefixo `/webedit
 
 Sem isso, JS/CSS e WebSocket retornam 404 e a pagina fica branca.
 
-## Correcao no VPS
+## Correcao no VPS (um comando)
 
 ```powershell
 cd C:\Apps\Editor
 git pull
-
-Copy-Item deploy\windows\code-web\Caddyfile C:\Caddy\Caddyfile -Force
-
-# Reinstalar servico Code Web com base path (ou editar NSSM manualmente)
-powershell -File deploy\windows\install-princy-production-services.ps1
-
-Restart-Service PrincyCaddy, PrincyAiCodeWeb
-
-# Verificacao automatica (raiz vs /webeditor)
-powershell -File deploy\windows\verify-princy-webeditor.ps1
+powershell -ExecutionPolicy Bypass -File deploy\windows\code-web\boot-code-web-doctor.ps1
 ```
+
+Primeira vez ou editor sempre travado (modo DEV):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File deploy\windows\code-web\boot-code-web-doctor.ps1 -RunProductionCompile
+```
+
+O doctor: copia Caddyfile, reinstala **PrincyAiCodeWeb com node.exe direto** (sem PowerShell no NSSM), reinicia Caddy e testa `https://princyai.com/webeditor/`.
 
 ## Migracao raiz -> /webeditor
 
