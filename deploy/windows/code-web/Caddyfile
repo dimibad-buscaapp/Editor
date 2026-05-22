@@ -21,7 +21,7 @@ princyai.com, www.princyai.com {
 
 	# NAO usar handle_path: o Code Web precisa receber /webeditor/... completo
 	handle /webeditor* {
-		reverse_proxy 108.181.169.40:3200 {
+		reverse_proxy 127.0.0.1:3200 {
 			header_up Host {host}
 			header_up X-Forwarded-Host {host}
 			header_up X-Forwarded-Proto {scheme}

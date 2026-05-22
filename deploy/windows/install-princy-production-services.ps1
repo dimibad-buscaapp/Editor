@@ -80,10 +80,12 @@ powershell -ExecutionPolicy Bypass -File (Join-Path $ProjectRoot "deploy\windows
 Write-Host "=== Index landing :3220 ===" -ForegroundColor Cyan
 powershell -ExecutionPolicy Bypass -File (Join-Path $ProjectRoot "deploy\windows\index\install-princy-index-service.ps1") -ProjectRoot $ProjectRoot
 
+# 3200: 0.0.0.0 + /webeditor + without-connection-token (no runner) + -Dev ate compile producao completo
+$codeWebArgs = "-ProjectRoot `"$ProjectRoot`" -HostName 0.0.0.0 -Port 3200 -ServerBasePath /webeditor -Dev"
 Install-NssmService -Nssm $nssm -Name "PrincyAiCodeWeb" `
 	-AppDirectory $ProjectRoot `
 	-Runner $codeRunner `
-	-RunnerArgs "-ProjectRoot `"$ProjectRoot`" -ServerBasePath /webeditor" `
+	-RunnerArgs $codeWebArgs `
 	-StdoutLog (Join-Path $logsDir "code-web.out.log") `
 	-StderrLog (Join-Path $logsDir "code-web.err.log")
 

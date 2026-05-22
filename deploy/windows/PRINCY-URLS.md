@@ -39,3 +39,11 @@ PRINCY_VPS_HOST="108.181.169.40"
 ```
 
 Ollama e PostgreSQL continuam em `127.0.0.1` (somente na maquina).
+
+## Sempre online (VPS)
+
+```powershell
+powershell -ExecutionPolicy Bypass -File C:\Apps\Editor\deploy\windows\Start-PrincyAlwaysOnline.ps1
+```
+
+Detalhes da porta 3200: `deploy\windows\PORT-3200-WEBEDITOR.md`

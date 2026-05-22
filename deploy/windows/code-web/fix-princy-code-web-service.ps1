@@ -71,7 +71,8 @@ if ($svc) {
 }
 
 New-Item -ItemType Directory -Force $logsDir | Out-Null
-& $nssm install $ServiceName "powershell.exe" "-NoProfile -ExecutionPolicy Bypass -File `"$runner`" -ProjectRoot `"$ProjectRoot`" -ServerBasePath /webeditor -Dev"
+$nssmArgs = "-ProjectRoot `"$ProjectRoot`" -HostName 0.0.0.0 -Port $Port -ServerBasePath /webeditor -Dev"
+& $nssm install $ServiceName "powershell.exe" "-NoProfile -ExecutionPolicy Bypass -File `"$runner`" $nssmArgs"
 & $nssm set $ServiceName AppDirectory $ProjectRoot
 & $nssm set $ServiceName AppStdout (Join-Path $logsDir "code-web.out.log")
 & $nssm set $ServiceName AppStderr (Join-Path $logsDir "code-web.err.log")
@@ -92,4 +93,4 @@ if ($after.Status -ne 'Running') {
 }
 
 Select-String -Path (Join-Path $logsDir "code-web.out.log") -Pattern "Web UI available" | Select-Object -Last 1
-Write-Host "OK — http://127.0.0.1:$Port/webeditor/" -ForegroundColor Green
+Write-Host "OK - http://127.0.0.1:$Port/webeditor/ e https://princyai.com/webeditor/" -ForegroundColor Green
