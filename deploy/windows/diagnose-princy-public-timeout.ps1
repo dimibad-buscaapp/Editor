@@ -94,12 +94,9 @@ Write-Host "=== Correcao rapida (Admin) ===" -ForegroundColor Cyan
 Write-Host @"
 cd C:\Apps\Editor
 git pull
-powershell -ExecutionPolicy Bypass -File deploy\windows\code-web\install-princy-caddy.ps1
-powershell -ExecutionPolicy Bypass -File deploy\windows\install-princy-production-services.ps1 -SkipBuild
-iisreset /stop
-Start-Service PrincyCaddy
+powershell -ExecutionPolicy Bypass -File deploy\windows\code-web\fix-princy-caddy.ps1 -Reinstall
 Get-Service PrincyCaddy
-netstat -ano | findstr ":443 "
+netstat -ano | findstr "LISTENING" | findstr ":443 "
 "@ -ForegroundColor White
 
 Write-Host ""

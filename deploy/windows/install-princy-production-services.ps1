@@ -93,8 +93,9 @@ if ((Test-Path $caddyExe) -and (Test-Path $caddyConfig)) {
 	$existing = Get-Service "PrincyCaddy" -ErrorAction SilentlyContinue
 	if ($existing) {
 		if ($existing.Status -eq 'Running') { Stop-Service "PrincyCaddy" -Force }
+		& $nssm stop PrincyCaddy confirm 2>$null | Out-Null
 		& $nssm remove PrincyCaddy confirm
-		Start-Sleep -Seconds 2
+		Start-Sleep -Seconds 5
 	}
 	& $nssm install PrincyCaddy $caddyExe
 	& $nssm set PrincyCaddy AppParameters "run --config `"$caddyConfig`""

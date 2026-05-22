@@ -89,6 +89,10 @@ if ($ReinstallServices) {
 	Write-Host "Reinstalando servicos NSSM ..." -ForegroundColor Cyan
 	$installScript = Join-Path $ProjectRoot "deploy\windows\install-princy-production-services.ps1"
 	& powershell -ExecutionPolicy Bypass -File $installScript -ProjectRoot $ProjectRoot -CaddyDir $CaddyDir -SkipBuild
+	$caddyFixRe = Join-Path $ProjectRoot "deploy\windows\code-web\fix-princy-caddy.ps1"
+	if (Test-Path $caddyFixRe) {
+		& powershell -ExecutionPolicy Bypass -File $caddyFixRe -ProjectRoot $ProjectRoot -CaddyDir $CaddyDir -Reinstall
+	}
 }
 else {
 	Write-Host ""
@@ -111,6 +115,10 @@ else {
 		if (-not $caddySvc) {
 			Write-Host "Instale Caddy: deploy\windows\code-web\install-princy-caddy.ps1" -ForegroundColor Yellow
 		}
+	}
+	$caddyFix = Join-Path $ProjectRoot "deploy\windows\code-web\fix-princy-caddy.ps1"
+	if (Test-Path $caddyFix) {
+		& powershell -ExecutionPolicy Bypass -File $caddyFix -ProjectRoot $ProjectRoot -CaddyDir $CaddyDir
 	}
 }
 
@@ -139,8 +147,14 @@ if (-not (Wait-Port -Port 3200 -Seconds 60)) {
 }
 Write-Host "Porta 3200 OK" -ForegroundColor Green
 
-Start-Service PrincyCaddy -ErrorAction SilentlyContinue
-Start-Sleep -Seconds 3
+$caddyFixQuick = Join-Path $ProjectRoot "deploy\windows\code-web\fix-princy-caddy.ps1"
+$caddySvcNow = Get-Service PrincyCaddy -ErrorAction SilentlyContinue
+if ($caddySvcNow -and $caddySvcNow.Status -ne 'Running' -and (Test-Path $caddyFixQuick)) {
+	& powershell -ExecutionPolicy Bypass -File $caddyFixQuick -ProjectRoot $ProjectRoot -CaddyDir $CaddyDir
+} else {
+	Start-Service PrincyCaddy -ErrorAction SilentlyContinue
+	Start-Sleep -Seconds 3
+}
 
 Write-Host ""
 Write-Host "--- Status ---" -ForegroundColor Cyan
