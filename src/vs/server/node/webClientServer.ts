@@ -426,12 +426,15 @@ export class WebClientServer {
 				bundledExtensions.push({ extensionPath, packageJSON });
 			}
 			values['WORKBENCH_BUILTIN_EXTENSIONS'] = asJSON(bundledExtensions);
+		} else {
+			// Princy/production: literal "undefined" in data-settings quebra JSON.parse no boot.
+			values['WORKBENCH_BUILTIN_EXTENSIONS'] = asJSON([]);
 		}
 
 		let data;
 		try {
 			const workbenchTemplate = (await promises.readFile(filePath)).toString();
-			data = workbenchTemplate.replace(/\{\{([^}]+)\}\}/g, (_, key) => values[key] ?? 'undefined');
+			data = workbenchTemplate.replace(/\{\{([^}]+)\}\}/g, (_, key) => values[key] ?? '');
 		} catch (e) {
 			res.writeHead(404, { 'Content-Type': 'text/plain' });
 			return void res.end('Not found');

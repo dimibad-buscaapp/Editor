@@ -4,7 +4,8 @@ param(
 	[string]$HostName = "0.0.0.0",
 	[int]$Port = 3200,
 	[string]$UserDataDir = "",
-	[string]$ServerBasePath = "/webeditor"
+	[string]$ServerBasePath = "/webeditor",
+	[switch]$Dev
 )
 
 $ErrorActionPreference = "Stop"
@@ -22,8 +23,15 @@ if (-not (Test-Path $serverMain) -or -not (Test-Path $workbenchDevHtml)) {
 
 $env:NODE_OPTIONS = "--max-old-space-size=8192"
 $env:VSCODE_SKIP_PRELAUNCH = "1"
-$env:NODE_ENV = "development"
-$env:VSCODE_DEV = "1"
+if ($Dev) {
+	$env:NODE_ENV = "development"
+	$env:VSCODE_DEV = "1"
+	Write-Host "Modo DEV (workbench-dev.html) — nao use em producao publica." -ForegroundColor Yellow
+} else {
+	Remove-Item Env:NODE_ENV -ErrorAction SilentlyContinue
+	Remove-Item Env:VSCODE_DEV -ErrorAction SilentlyContinue
+	Write-Host "Modo PRODUCAO (workbench.html, mais estavel no /webeditor)." -ForegroundColor Green
+}
 
 New-Item -ItemType Directory -Force $WorkspacePath | Out-Null
 if (-not $UserDataDir) {

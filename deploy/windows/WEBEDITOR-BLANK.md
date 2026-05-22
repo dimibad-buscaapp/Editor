@@ -36,7 +36,19 @@ powershell -File deploy\windows\verify-princy-webeditor.ps1
 | Sem `--server-base-path` | `--server-base-path /webeditor` |
 | `.env` `CODE_WEB_URL=https://princyai.com` | `CODE_WEB_URL=http://127.0.0.1:3200/webeditor` |
 
-Bloqueios comuns: Caddy parado (timeout), `handle_path /webeditor`, servico sem base path, cache/SW da era raiz, onboarding Copilot (corrigido no codigo).
+Bloqueios comuns: Caddy parado (timeout), `handle_path /webeditor`, servico sem base path, cache/SW da era raiz, onboarding Copilot (corrigido no codigo), **`VSCODE_DEV=1` em producao** (usa HTML dev lento/fragil; meta `data-settings="undefined"` quebrava o boot — corrigido).
+
+## Producao: desligar VSCODE_DEV
+
+O servico `run-princy-code-web.ps1` **nao** deve definir `VSCODE_DEV=1` no VPS publico. Sem isso, `isBuilt=true` e o servidor usa `workbench.html` (CSS unico, boot mais rapido).
+
+Reinicie apos `git pull`:
+
+```powershell
+Restart-Service PrincyAiCodeWeb
+```
+
+Para debug local no VPS: `powershell -File deploy\windows\code-web\run-princy-code-web.ps1 -Dev`
 
 ## Testes
 
