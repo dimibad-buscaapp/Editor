@@ -57,15 +57,20 @@ $workbenchHtml = Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench
 . (Join-Path $PSScriptRoot "Princy-CodeWeb-Build.ps1")
 $logsDir = Join-Path $ProjectRoot "logs"
 
-if (-not (Test-Path $serverMain) -or -not (Test-Path $workbenchDev)) {
-	Write-Host "ERRO: compile ausente (server-main.js ou workbench-dev.html)." -ForegroundColor Red
+$hasProd = Test-PrincyCodeWebProdBuild -ProjectRoot $ProjectRoot
+if (-not (Test-Path $serverMain)) {
+	Write-Host "ERRO: falta out\server-main.js (compile ou bundle incompleto)." -ForegroundColor Red
 	Write-Host '  cd C:\Apps\Editor; $env:NODE_OPTIONS="--max-old-space-size=8192"; $env:VSCODE_SKIP_PRELAUNCH="1"' -ForegroundColor Yellow
 	Write-Host "  npm run compile-incremental" -ForegroundColor Yellow
+	Write-Host "  npm run bundle-server-web-out" -ForegroundColor Yellow
 	Write-Host "  npm run compile-web" -ForegroundColor Yellow
 	exit 1
 }
-
-$hasProd = Test-PrincyCodeWebProdBuild -ProjectRoot $ProjectRoot
+if (-not $hasProd -and -not (Test-Path $workbenchDev)) {
+	Write-Host "ERRO: falta bundle PROD (workbench.html + css + js) ou workbench-dev.html." -ForegroundColor Red
+	Write-Host "  Rode: deploy\windows\code-web\compile-princy-code-web-production.ps1" -ForegroundColor Yellow
+	exit 1
+}
 if ($hasProd) {
 	Write-Host "Compile PRODUCAO: OK (workbench.html + bundle)" -ForegroundColor Green
 } else {
@@ -90,13 +95,16 @@ $nssm = Get-NssmPath
 $nodeExe = Resolve-NodeExe
 
 $existing = Get-Service $ServiceName -ErrorAction SilentlyContinue
-if ($existing -and $existing.Status -eq 'Running') {
-	Stop-Service $ServiceName -Force
-	Start-Sleep -Seconds 2
-}
 if ($existing) {
-	& $nssm stop $ServiceName confirm 2>$null
-	& $nssm remove $ServiceName confirm 2>$null
+	if ($existing.Status -eq 'Running') {
+		Stop-Service $ServiceName -Force -ErrorAction SilentlyContinue
+		Start-Sleep -Seconds 2
+	}
+	if ($existing.Status -eq 'Paused') {
+		Write-Host "Servico $ServiceName PAUSED - removendo instalacao NSSM ..." -ForegroundColor Yellow
+	}
+	$null = & $nssm stop $ServiceName confirm 2>&1
+	$null = & $nssm remove $ServiceName confirm 2>&1
 	Start-Sleep -Seconds 3
 }
 Stop-PortListener -ListenPort $Port

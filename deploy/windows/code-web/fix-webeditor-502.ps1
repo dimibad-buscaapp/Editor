@@ -32,6 +32,9 @@ Write-Host ""
 $svc = Get-Service PrincyAiCodeWeb -ErrorAction SilentlyContinue
 if ($svc) {
 	Write-Host ("PrincyAiCodeWeb: " + $svc.Status) -ForegroundColor $(if ($svc.Status -eq 'Running') { 'Green' } else { 'Yellow' })
+	if ($svc.Status -eq 'Paused') {
+		Write-Host "  PAUSED: nssm restart falha; fix-princy-code-web-service.ps1 remove/reinstala o servico." -ForegroundColor Yellow
+	}
 } else {
 	Write-Host "PrincyAiCodeWeb: NAO instalado" -ForegroundColor Red
 }

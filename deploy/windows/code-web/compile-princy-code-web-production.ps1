@@ -30,6 +30,7 @@ if ($svc -and $svc.Status -eq 'Running') {
 	Start-Sleep -Seconds 3
 }
 
+$serverMainPath = Join-Path $ProjectRoot "out\server-main.js"
 if (-not $BundleOnly) {
 	Write-Host "[1/3] compile-incremental (TypeScript -> out/) ..." -ForegroundColor Cyan
 	$env:PRINCY_SKIP_GULP_CLEAN = "1"
@@ -37,8 +38,15 @@ if (-not $BundleOnly) {
 	if ($LASTEXITCODE -ne 0) {
 		throw "compile-incremental falhou"
 	}
+} elseif (-not (Test-Path $serverMainPath)) {
+	Write-Host "[1/3] compile-incremental (obrigatorio: out/ foi limpo pelo bundle anterior) ..." -ForegroundColor Yellow
+	$env:PRINCY_SKIP_GULP_CLEAN = "1"
+	npm run compile-incremental
+	if ($LASTEXITCODE -ne 0) {
+		throw "compile-incremental falhou"
+	}
 } else {
-	Write-Host "[skip] compile-incremental (-BundleOnly)" -ForegroundColor DarkGray
+	Write-Host "[skip] compile-incremental (-BundleOnly, out/ intacto)" -ForegroundColor DarkGray
 }
 
 Write-Host ""

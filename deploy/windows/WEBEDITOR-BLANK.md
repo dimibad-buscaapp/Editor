@@ -68,7 +68,9 @@ Test-Path out\vs\code\browser\workbench\workbench.css
 Restart-Service PrincyAiCodeWeb
 ```
 
-Ou manualmente: `npm run bundle-server-web-out` depois `npm run compile-web`.
+Ou manualmente: `npm run compile-incremental`, `npm run bundle-server-web-out` (usa `--no-clean`, nao apaga `out/`), `npm run compile-web`.
+
+**Nao** rode `bundle --out out` sem `--no-clean` depois de `compile-incremental` — apaga `out/` e quebra o servico ate recompilar.
 
 ## Producao: desligar VSCODE_DEV
 
