@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Checklist do boot: index (3220) -> API (3210) -> Code Web (3200) — pagina /logview
+ *  Checklist do boot: index (3220) -> API (3210) -> Code Web (3200) - pagina /logview
  *--------------------------------------------------------------------------------------------*/
 
 import { execFile } from 'node:child_process';
@@ -78,6 +78,14 @@ function slugId(prefix: string, label: string): string {
 	return `${prefix}-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`;
 }
 
+/** HTML servido em producao nao contem o literal WORKBENCH_WEB_CONFIGURATION (substituido por JSON). */
+function htmlHasWorkbenchBoot(text: string): boolean {
+	return /vscode-workbench-web-configuration/i.test(text)
+		|| /"serverBasePath"/.test(text)
+		|| /workbench\/workbench\.js/i.test(text)
+		|| /WORKBENCH_WEB_CONFIGURATION/.test(text);
+}
+
 async function probeHttp(label: string, url: string, expectWorkbench = false): Promise<StarterStep> {
 	const id = slugId('http', label);
 	const lines: string[] = [psLine(`PS> Invoke-WebRequest -Uri '${url}' -UseBasicParsing`)];
@@ -96,11 +104,11 @@ async function probeHttp(label: string, url: string, expectWorkbench = false): P
 		let ok = response.ok;
 		let detail = `HTTP ${response.status} em ${ms}ms`;
 		if (expectWorkbench) {
-			const hasWb = /WORKBENCH_WEB_CONFIGURATION/.test(text);
-			lines.push(`    Workbench  : ${hasWb ? 'WORKBENCH_WEB_CONFIGURATION encontrado' : 'NAO encontrado no HTML'}`);
+			const hasWb = htmlHasWorkbenchBoot(text);
+			lines.push(`    Workbench  : ${hasWb ? 'meta vscode-workbench-web-configuration / serverBasePath OK' : 'NAO encontrado no HTML'}`);
 			ok = ok && hasWb;
 			if (!hasWb) {
-				detail += ' — HTML sem workbench (starter travado?)';
+				detail += ' - HTML sem boot do workbench (compile ou base path?)';
 			}
 		}
 		return {
@@ -118,7 +126,7 @@ async function probeHttp(label: string, url: string, expectWorkbench = false): P
 	}
 }
 
-function checkFileOnDisk(relativeOut: string, label: string): StarterStep {
+function checkFileOnDisk(relativeOut: string, label: string, severity: 'error' | 'warn' = 'error'): StarterStep {
 	const full = path.join(config.editorProjectRoot, relativeOut);
 	const id = slugId('file', label);
 	const lines = [psLine(`PS> Test-Path '${full}'`)];
@@ -128,8 +136,30 @@ function checkFileOnDisk(relativeOut: string, label: string): StarterStep {
 		id,
 		order: 0,
 		label,
-		status: exists ? 'ok' : 'error',
+		status: exists ? 'ok' : severity,
 		detail: exists ? 'Encontrado' : `Ausente: ${full}`,
+		logLines: lines
+	};
+}
+
+function checkAnyFileOnDisk(paths: readonly string[], label: string): StarterStep {
+	const lines: string[] = [];
+	let found: string | undefined;
+	for (const relativeOut of paths) {
+		const full = path.join(config.editorProjectRoot, relativeOut);
+		lines.push(psLine(`PS> Test-Path '${full}'`));
+		const exists = fs.existsSync(full);
+		lines.push(`    ${exists ? 'True' : 'False'}`);
+		if (exists && !found) {
+			found = relativeOut;
+		}
+	}
+	return {
+		id: slugId('file', label),
+		order: 0,
+		label,
+		status: found ? 'ok' : 'error',
+		detail: found ? `Encontrado: ${found}` : `Ausente: ${paths.join(' ou ')}`,
 		logLines: lines
 	};
 }
@@ -151,7 +181,7 @@ function scanStarterErrors(logs: ReturnType<typeof readRuntimeLogs>): StarterSte
 		status,
 		detail: bad.length === 0
 			? 'Sem erros criticos nas ultimas linhas'
-			: `${bad.length} linha(s) com erro — veja terminal`,
+			: `${bad.length} linha(s) com erro - veja terminal`,
 		logLines: lines
 	};
 }
@@ -216,16 +246,25 @@ export async function runStarterChecklist(): Promise<{
 	push(await probeHttp('HTTPS public /webeditor/', `https://princyai.com${base}/`, true));
 
 	push(checkFileOnDisk('out\\vs\\code\\browser\\workbench\\workbench.html', 'Ficheiro workbench.html (producao)'));
-	push(checkFileOnDisk('out\\vs\\workbench\\workbench.web.main.css', 'Ficheiro workbench.web.main.css'));
+	push(checkAnyFileOnDisk(
+		[
+			'out\\vs\\code\\browser\\workbench\\workbench.js',
+			'out\\vs\\code\\browser\\workbench\\workbench.css',
+			'out\\vs\\workbench\\workbench.web.main.css'
+		],
+		'Bundle workbench (js ou css)'
+	));
 	push(checkFileOnDisk('out\\server-main.js', 'Ficheiro server-main.js (node starter)'));
+	push(checkFileOnDisk('out\\vs\\workbench\\workbench.web.main.css', 'CSS legado workbench.web.main.css (opcional)', 'warn'));
 
+	const staticBase = `${base}/static`;
 	push(await probeHttp(
-		'HTTP asset CSS',
-		`http://127.0.0.1:3200${base}/out/vs/workbench/workbench.web.main.css`
+		'HTTP asset workbench.js',
+		`http://127.0.0.1:3200${staticBase}/out/vs/code/browser/workbench/workbench.js`
 	));
 	push(await probeHttp(
-		'HTTP asset JS',
-		`http://127.0.0.1:3200${base}/out/vs/workbench/workbench.web.main.js`
+		'HTTP asset workbench.css',
+		`http://127.0.0.1:3200${staticBase}/out/vs/code/browser/workbench/workbench.css`
 	));
 
 	const systemLogs = readRuntimeLogs(60);
@@ -240,7 +279,7 @@ export async function runStarterChecklist(): Promise<{
 		hints.push('Compile producao: deploy\\windows\\code-web\\compile-princy-code-web-production.ps1');
 	}
 	if (failed.some(s => s.id === 'starter-err-log')) {
-		hints.push('Erros no code-web.err.log — abra logs\\code-web.err.log no VPS ou copie o terminal abaixo.');
+		hints.push('Erros no code-web.err.log - abra logs\\code-web.err.log no VPS ou copie o terminal abaixo.');
 	}
 	if (failed.some(s => s.label.includes('HTTPS public'))) {
 		hints.push('Caddy/firewall: deploy\\windows\\code-web\\fix-princy-caddy.ps1 e confirme 443 aberta.');
