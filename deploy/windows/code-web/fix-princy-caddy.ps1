@@ -145,6 +145,15 @@ netsh interface ipv4 show excludedportrange protocol=tcp 2>$null | Select-String
 
 Stop-CaddyProcesses
 
+$codeWebSvc = Get-Service PrincyAiCodeWeb -ErrorAction SilentlyContinue
+if ($codeWebSvc -and $codeWebSvc.Status -ne 'Running') {
+	Write-Host "Iniciando PrincyAiCodeWeb (Caddy precisa da 3200) ..." -ForegroundColor Cyan
+	Start-Service PrincyAiCodeWeb -ErrorAction SilentlyContinue
+}
+if (-not (Test-PortListening -Port 3200)) {
+	Write-Host "AVISO: porta 3200 OFF - rode fix-webeditor-502.ps1 antes do HTTPS /webeditor" -ForegroundColor Yellow
+}
+
 $nssm = Ensure-Nssm
 if ($nssm) {
 	Write-Host ("NSSM: " + $nssm) -ForegroundColor Green

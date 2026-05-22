@@ -11,7 +11,7 @@ princyai.com, www.princyai.com {
 	encode zstd gzip
 
 	handle_path /princy-api/* {
-		reverse_proxy 108.181.169.40:3210
+		reverse_proxy 127.0.0.1:3210
 	}
 
 	@webeditor_root path /webeditor
@@ -29,7 +29,7 @@ princyai.com, www.princyai.com {
 	}
 
 	handle {
-		reverse_proxy 108.181.169.40:3220 {
+		reverse_proxy 127.0.0.1:3220 {
 			header_up Host {host}
 			header_up X-Forwarded-Host {host}
 			header_up X-Forwarded-Proto {scheme}
@@ -39,7 +39,7 @@ princyai.com, www.princyai.com {
 
 dashboard.princyai.com {
 	encode zstd gzip
-	reverse_proxy 108.181.169.40:3210 {
+	reverse_proxy 127.0.0.1:3210 {
 		header_up Host {host}
 		header_up X-Forwarded-Host {host}
 		header_up X-Forwarded-Proto {scheme}
