@@ -115,6 +115,20 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 			return serveError(req, res, 400, `Bad request.`);
 		}
 
+		// Migracao raiz -> /webeditor: sem base path correto, /webeditor/* devolve 404.
+		if (this._serverBasePath) {
+			const base = this._serverBasePath;
+			const search = parsedUrl.search ?? '';
+			if (pathname === base) {
+				res.writeHead(301, { Location: `${base}/${search}` });
+				return void res.end();
+			}
+			if (pathname === '/' && base !== '/') {
+				res.writeHead(302, { Location: `${base}/${search}` });
+				return void res.end();
+			}
+		}
+
 		// Serve from both '/' and serverBasePath
 		if (this._serverBasePath !== undefined && pathname.startsWith(this._serverBasePath)) {
 			pathname = pathname.substring(this._serverBasePath.length) || '/';

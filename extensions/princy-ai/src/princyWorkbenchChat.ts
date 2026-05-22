@@ -82,7 +82,9 @@ async function migrateWebAgentEndpoint(): Promise<void> {
 		'http://108.181.169.40:3210'
 	]);
 	const wrongProxyOn3210 = /:3210\/princy-api\/?$/i.test(current);
-	const wrongRoot3200 = /^https?:\/\/[^/]+:3200\/?$/i.test(current);
+	const wrongRoot3200 = /^https?:\/\/[^/]+:3200\/?$/i.test(current)
+		|| /^https?:\/\/princyai\.com\/?$/i.test(current)
+		|| /^https?:\/\/[^/]+:3200$/i.test(current);
 	const wrongPublicApi = /^https:\/\/api\.princyai\.com/i.test(current);
 	if (!legacy.has(current) && !wrongProxyOn3210 && !wrongRoot3200 && !wrongPublicApi) {
 		return;

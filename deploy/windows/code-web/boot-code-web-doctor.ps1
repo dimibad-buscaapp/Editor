@@ -60,9 +60,9 @@ if ($RunProductionCompile -or -not $hasProd) {
 	Write-Host "[3] Compile producao: OK" -ForegroundColor Green
 }
 
-Write-Host "[4] Reinstalar PrincyAiCodeWeb (node.exe direto) ..." -ForegroundColor Cyan
-$fix = Join-Path $ProjectRoot "deploy\windows\code-web\fix-princy-code-web-service.ps1"
-& powershell -ExecutionPolicy Bypass -File $fix -ProjectRoot $ProjectRoot
+Write-Host "[4] Garantir --server-base-path /webeditor (nao raiz :3200) ..." -ForegroundColor Cyan
+$ensure = Join-Path $ProjectRoot "deploy\windows\code-web\ensure-webeditor-base-path.ps1"
+& powershell -ExecutionPolicy Bypass -File $ensure -ProjectRoot $ProjectRoot
 if ($LASTEXITCODE -ne 0) { exit 1 }
 
 $caddySvc = Get-Service PrincyCaddy -ErrorAction SilentlyContinue

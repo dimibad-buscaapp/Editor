@@ -1,5 +1,21 @@
 # Porta 3200 — Code-OSS Web (/webeditor)
 
+## Raiz vs /webeditor (erro mais comum)
+
+| Config | URL no log `Web UI available` | HTTPS publico |
+|--------|------------------------------|---------------|
+| **Errado** (antigo OSS na raiz) | `http://...:3200` | `https://princyai.com/webeditor/` → **branco / 404** |
+| **Certo** | `http://...:3200/webeditor` | `https://princyai.com/webeditor/` → workbench |
+
+O processo Node **tem** de arrancar com `--server-base-path /webeditor`. O Caddy envia `/webeditor/*` intacto; sem esse flag o servidor trata o path como lixo.
+
+```powershell
+nssm get PrincyAiCodeWeb AppParameters
+# deve conter: --server-base-path /webeditor
+
+powershell -File deploy\windows\code-web\ensure-webeditor-base-path.ps1
+```
+
 ## Fluxo completo
 
 ```text

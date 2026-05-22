@@ -1,5 +1,5 @@
 {
 	"princyai.useSameOriginApi": true,
-	"princyai.agentEndpoint": "http://108.181.169.40:3200/princy-api",
+	"princyai.agentEndpoint": "https://princyai.com/princy-api",
 	"workbench.colorTheme": "Princy Black"
 }

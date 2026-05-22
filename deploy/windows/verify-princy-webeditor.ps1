@@ -57,7 +57,20 @@ else {
 	$issues += "Caddyfile ausente em C:\Caddy\Caddyfile"
 }
 
-# 2) Log base path
+# 2) NSSM --server-base-path
+$nssm = Get-Command nssm.exe -ErrorAction SilentlyContinue
+if ($nssm) {
+	$params = & $nssm.Source get PrincyAiCodeWeb AppParameters 2>$null
+	if ($params -and ($params -match [regex]::Escape($basePath))) {
+		Write-Host "NSSM: OK (--server-base-path $basePath)" -ForegroundColor Green
+	} else {
+		$issues += "NSSM PrincyAiCodeWeb sem --server-base-path $basePath (editor ainda na raiz :3200)"
+		Write-Host "NSSM: ERRO — reinstale com ensure-webeditor-base-path.ps1" -ForegroundColor Red
+		if ($params) { Write-Host "  $params" -ForegroundColor DarkYellow }
+	}
+}
+
+# 3) Log base path
 $logOut = Join-Path $ProjectRoot "logs\code-web.out.log"
 if (Test-Path $logOut) {
 	$line = Select-String -Path $logOut -Pattern "Web UI available" | Select-Object -Last 1

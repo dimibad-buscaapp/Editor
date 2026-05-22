@@ -40,7 +40,10 @@ $env:VSCODE_SKIP_PRELAUNCH = "1"
 Write-Host "Starting Princy Ai Code-OSS Web"
 Write-Host "Project: $ProjectRoot"
 Write-Host "Workspace: $WorkspacePath"
-Write-Host "URL: http://$HostName`:$Port"
+$publicPath = if ($ServerBasePath) { $ServerBasePath.Trim() } else { '/' }
+if ($publicPath -and -not $publicPath.StartsWith('/')) { $publicPath = "/$publicPath" }
+Write-Host "URL local: http://${HostName}:$Port$publicPath/"
+Write-Host "URL publica: https://princyai.com$publicPath/"
 Write-Host "Agent API proxy: http://$HostName`:$Port/princy-api -> 127.0.0.1:3210 (start agent backend separately)"
 
 if ($Rebuild -and (Test-Path (Join-Path $ProjectRoot "out"))) {
