@@ -9,6 +9,8 @@
 
 DNS (Hostinger): registros `A` de `@`, `www`, `dashboard` → **108.181.169.40**. Portas **3220**, **3200**, **3210** ficam no VPS; na internet so **80/443** (Caddy).
 
+**Nao use** `http://108.181.169.40:3200/` no browser de fora — costuma dar `ERR_CONNECTION_TIMED_OUT`. Use **https://princyai.com/webeditor/**.
+
 ## Variaveis centralizadas
 
 ```powershell
