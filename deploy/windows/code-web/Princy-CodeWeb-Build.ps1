@@ -6,17 +6,11 @@ function Test-PrincyCodeWebProdBuild {
 	if (-not (Test-Path $wbHtml)) {
 		return $false
 	}
-	$paths = @(
-		"out\vs\code\browser\workbench\workbench.css",
-		"out\vs\code\browser\workbench\workbench.js",
-		"out\vs\workbench\workbench.web.main.css"
-	)
-	foreach ($rel in $paths) {
-		if (Test-Path (Join-Path $ProjectRoot $rel)) {
-			return $true
-		}
-	}
-	return $false
+	$hasJs = Test-Path (Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench.js")
+	$hasCss = (Test-Path (Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench.css")) -or
+		(Test-Path (Join-Path $ProjectRoot "out\vs\workbench\workbench.web.main.css"))
+	# JS sozinho (tsc parcial) nao basta: workbench.html referencia workbench.css
+	return ($hasJs -and $hasCss)
 }
 
 function Get-PrincyCodeWebProdBuildStatus {

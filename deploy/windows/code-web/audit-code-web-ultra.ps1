@@ -92,10 +92,14 @@ foreach ($name in $artifacts.Keys) {
 }
 $hasProd = $build.HasProd
 if (-not $build.ServerMain) {
-	Add-Issue "Compile ausente - rode: npm run compile-incremental; npm run compile-web"
+	Add-Issue "Compile ausente - rode: npm run compile-incremental; npm run bundle-server-web-out; npm run compile-web"
+}
+if ($build.WorkbenchJs -and -not $build.WorkbenchCss -and -not $build.WorkbenchCssLegacy) {
+	Add-Issue "workbench.css AUSENTE (so JS/tsc) - /webeditor/ fica branco; log: File not found workbench.css"
+	Add-Warn "Correcao rapida: compile-princy-code-web-production.ps1 -BundleOnly (10-30 min)"
 }
 if (-not $hasProd) {
-	Add-Issue "Compile PRODUCAO incompleto (falta workbench.html ou bundle CSS/JS) - browser fica branco/lento em modo DEV"
+	Add-Issue "Compile PRODUCAO incompleto (falta workbench.html ou bundle CSS+JS) - browser fica branco/lento em modo DEV"
 	Add-Warn "Correcao: deploy\windows\code-web\compile-princy-code-web-production.ps1 (30-90 min)"
 }
 

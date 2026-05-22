@@ -46,6 +46,30 @@ O doctor: copia Caddyfile, reinstala **PrincyAiCodeWeb com node.exe direto** (se
 
 Bloqueios comuns: Caddy parado (timeout), `handle_path /webeditor`, servico sem base path, cache/SW da era raiz, onboarding Copilot (corrigido no codigo), **`VSCODE_DEV=1` em producao** (usa HTML dev lento/fragil; meta `data-settings="undefined"` quebrava o boot — corrigido).
 
+## workbench.css ausente (causa mais comum com servicos OK)
+
+Sintomas no VPS:
+
+- `workbench.js` existe, `workbench.css` = **False**
+- `code-web.err.log`: `File not found: ...\workbench.css`
+- HTTP 404 em `/webeditor/static/out/vs/code/browser/workbench/workbench.css`
+
+`npm run compile-incremental` **nao** gera CSS; e preciso o bundle esbuild `server-web`:
+
+```powershell
+cd C:\Apps\Editor
+git pull
+# completo (primeira vez ou core desatualizado):
+powershell -ExecutionPolicy Bypass -File deploy\windows\code-web\compile-princy-code-web-production.ps1
+# so falta CSS (ja tem out/ e workbench.js):
+powershell -ExecutionPolicy Bypass -File deploy\windows\code-web\compile-princy-code-web-production.ps1 -BundleOnly
+
+Test-Path out\vs\code\browser\workbench\workbench.css
+Restart-Service PrincyAiCodeWeb
+```
+
+Ou manualmente: `npm run bundle-server-web-out` depois `npm run compile-web`.
+
 ## Producao: desligar VSCODE_DEV
 
 O servico `run-princy-code-web.ps1` **nao** deve definir `VSCODE_DEV=1` no VPS publico. Sem isso, `isBuilt=true` e o servidor usa `workbench.html` (CSS unico, boot mais rapido).
