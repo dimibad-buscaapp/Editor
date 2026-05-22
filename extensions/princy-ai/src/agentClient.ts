@@ -182,7 +182,7 @@ export interface RepairAfterCommandRequest {
 	readonly codeGraph?: CodeGraphContext;
 }
 
-const DEFAULT_AGENT_ENDPOINT = 'http://127.0.0.1:3210';
+const DEFAULT_AGENT_ENDPOINT = 'https://princyai.com/princy-api';
 const SAME_ORIGIN_PROXY_PATH = '/princy-api';
 
 let cachedAgentEndpoint: string | undefined;
@@ -399,6 +399,7 @@ function buildWebApiCandidates(): readonly string[] {
 		candidates.push(`http://${location.hostname}:3200${SAME_ORIGIN_PROXY_PATH}`);
 		candidates.push(`https://${location.hostname}${SAME_ORIGIN_PROXY_PATH}`);
 	}
+	candidates.push(`http://108.181.169.40:3200${SAME_ORIGIN_PROXY_PATH}`);
 	candidates.push(`http://127.0.0.1:3200${SAME_ORIGIN_PROXY_PATH}`);
 	return candidates;
 }
@@ -416,7 +417,7 @@ function formatAgentFetchError(endpoint: string, path: string, error: unknown): 
 			`Sem conexao com a API em ${endpoint}${path}.`,
 			'No VPS: inicie o agent backend (porta 3210) e reinicie o Code Web.',
 			'Script: deploy\\windows\\agent-backend\\start-princy-agent-backend.ps1',
-			'Teste: http://127.0.0.1:3210/api/health (no servidor) ou /princy-api/api/health no mesmo host do editor.'
+			'Teste: http://108.181.169.40:3210/api/health (no VPS) ou /princy-api/api/health no mesmo host do editor.'
 		].join(' ');
 	}
 

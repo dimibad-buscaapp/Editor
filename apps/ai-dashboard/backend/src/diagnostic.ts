@@ -54,8 +54,8 @@ export async function buildDiagnosticReport(): Promise<DiagnosticReport> {
 	}
 
 	checks.push(await probeUrl('ollama', config.ollamaBaseUrl, '/api/tags'));
-	checks.push(await probeUrl('agent-health', `http://127.0.0.1:${config.apiPort}`, '/api/health'));
-	checks.push(await probeUrl('agent-models', `http://127.0.0.1:${config.apiPort}`, '/api/agent/models'));
+	checks.push(await probeUrl('agent-health', `http://${config.princyVpsHost}:${config.apiPort}`, '/api/health'));
+	checks.push(await probeUrl('agent-models', `http://${config.princyVpsHost}:${config.apiPort}`, '/api/agent/models'));
 	checks.push(await probeUrl('code-web', config.codeWebUrl, '/'));
 	checks.push(await probeUrl('code-web-proxy', config.codeWebInternalUrl, '/princy-api/api/health'));
 

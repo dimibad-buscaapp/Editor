@@ -67,7 +67,7 @@ async function tryClosePlatformChat(): Promise<void> {
 	}
 }
 
-/** No Code Web, 127.0.0.1:3210 no browser aponta para o PC do usuario — usar proxy na 3200. */
+/** No Code Web, chamar :3210 direto no browser aponta para o PC do usuario — usar proxy /princy-api. */
 async function migrateWebAgentEndpoint(): Promise<void> {
 	if (vscode.env.uiKind !== vscode.UIKind.Web) {
 		return;
@@ -75,7 +75,12 @@ async function migrateWebAgentEndpoint(): Promise<void> {
 
 	const princy = vscode.workspace.getConfiguration('princyai');
 	const current = (princy.get<string>('agentEndpoint', '') ?? '').trim();
-	const legacy = new Set(['', 'http://127.0.0.1:3210', 'http://localhost:3210']);
+	const legacy = new Set([
+		'',
+		'http://127.0.0.1:3210',
+		'http://localhost:3210',
+		'http://108.181.169.40:3210'
+	]);
 	const wrongProxyOn3210 = /:3210\/princy-api\/?$/i.test(current);
 	const wrongRoot3200 = /^https?:\/\/[^/]+:3200\/?$/i.test(current);
 	const wrongPublicApi = /^https:\/\/api\.princyai\.com/i.test(current);
@@ -88,7 +93,7 @@ async function migrateWebAgentEndpoint(): Promise<void> {
 	const location = (globalThis as { location?: { origin?: string } }).location;
 	const endpoint = location?.origin && !location.origin.includes('127.0.0.1')
 		? `${location.origin}/princy-api`
-		: 'http://127.0.0.1:3200/princy-api';
+		: 'http://108.181.169.40:3200/princy-api';
 	await princy.update('agentEndpoint', endpoint, vscode.ConfigurationTarget.Global);
 }
 

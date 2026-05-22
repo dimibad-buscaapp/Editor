@@ -153,7 +153,7 @@
       "secondarySidebar": [
         {
           "id": "princyai",
-          "title": "Princy Ai",
+          "title": "Chat",
           "icon": "$(sparkle)"
         }
       ]
@@ -163,7 +163,7 @@
         {
           "type": "webview",
           "id": "princyai.chat",
-          "name": "Princy Ai",
+          "name": "Chat",
           "icon": "$(sparkle)"
         }
       ]
@@ -187,15 +187,24 @@
       "chat.restoreLastPanelSession": false,
       "chat.titleBar.signIn.enabled": false,
       "workbench.secondarySideBar.defaultVisibility": "visible",
+      "workbench.commandCenter.enabled": true,
+      "workbench.panel.defaultLocation": "bottom",
+      "workbench.panel.opensMaximized": "never",
+      "workbench.tree.indent": 12,
       "editor.inlineSuggest.enabled": true,
       "workbench.colorTheme": "Princy Black",
       "workbench.preferredDarkColorTheme": "Princy Black",
       "editor.fontFamily": "'JetBrains Mono', 'Cascadia Code', Consolas, monospace",
       "workbench.activityBar.location": "top",
       "editor.minimap.enabled": false,
+      "editor.glyphMargin": false,
+      "editor.scrollBeyondLastLine": false,
+      "editor.smoothScrolling": true,
       "workbench.layoutControl.enabled": false,
       "workbench.startupEditor": "none",
       "workbench.welcomePage.experimentalOnboarding": false,
+      "window.menuBarVisibility": "compact",
+      "breadcrumbs.enabled": true,
       "princyai.defaultAgent": "deepseek",
       "princyai.ghostText.agent": "deepseek"
     },
@@ -204,7 +213,7 @@
       "properties": {
         "princyai.agentEndpoint": {
           "type": "string",
-          "default": "http://127.0.0.1:3210",
+          "default": "https://princyai.com/princy-api",
           "description": "URL da API do agent backend. Use auto-detecao deixando padrao, ou https://princyai.com/princy-api com Caddy."
         },
         "princyai.useSameOriginApi": {
@@ -261,6 +270,11 @@
           "type": "boolean",
           "default": true,
           "description": "Hide built-in VS Code chat and open Princy Ai as the default chat panel."
+        },
+        "princyai.ui.openChatOnStartup": {
+          "type": "boolean",
+          "default": true,
+          "description": "Open the Princy Chat panel in the right sidebar when the workbench loads (Cursor-like)."
         },
         "princyai.defaultAgent": {
           "type": "string",

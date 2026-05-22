@@ -1,6 +1,7 @@
-# princyai.com/           -> pagina inicial (3210)
-# princyai.com/webeditor/ -> Code-OSS Web (3200) — requer --server-base-path /webeditor no Code Web
-# princyai.com/princy-api -> agent (3210)
+# princyai.com/           -> index landing (3220)
+# princyai.com/webeditor/ -> Code-OSS Web (3200) — --server-base-path /webeditor
+# princyai.com/princy-api -> agent API (3210)
+# dashboard.princyai.com  -> dashboard + chat (3210)
 
 {
 	email dimi.bad@gmail.com
@@ -10,7 +11,7 @@ princyai.com, www.princyai.com {
 	encode zstd gzip
 
 	handle_path /princy-api/* {
-		reverse_proxy 127.0.0.1:3210
+		reverse_proxy 108.181.169.40:3210
 	}
 
 	@webeditor_root path /webeditor
@@ -18,9 +19,9 @@ princyai.com, www.princyai.com {
 		redir /webeditor/ permanent
 	}
 
-	# NAO usar handle_path aqui: o Code Web precisa receber /webeditor/... completo
+	# NAO usar handle_path: o Code Web precisa receber /webeditor/... completo
 	handle /webeditor* {
-		reverse_proxy 127.0.0.1:3200 {
+		reverse_proxy 108.181.169.40:3200 {
 			header_up Host {host}
 			header_up X-Forwarded-Host {host}
 			header_up X-Forwarded-Proto {scheme}
@@ -28,7 +29,7 @@ princyai.com, www.princyai.com {
 	}
 
 	handle {
-		reverse_proxy 127.0.0.1:3210 {
+		reverse_proxy 108.181.169.40:3220 {
 			header_up Host {host}
 			header_up X-Forwarded-Host {host}
 			header_up X-Forwarded-Proto {scheme}
@@ -38,7 +39,7 @@ princyai.com, www.princyai.com {
 
 dashboard.princyai.com {
 	encode zstd gzip
-	reverse_proxy 127.0.0.1:3210 {
+	reverse_proxy 108.181.169.40:3210 {
 		header_up Host {host}
 		header_up X-Forwarded-Host {host}
 		header_up X-Forwarded-Proto {scheme}

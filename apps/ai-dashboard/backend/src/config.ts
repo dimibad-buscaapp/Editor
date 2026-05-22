@@ -15,8 +15,11 @@ function envFlag(name: string, defaultValue: boolean): boolean {
 const simpleMode = envFlag('PRINCY_SIMPLE_MODE', false);
 
 /** Subpath publico do Code Web (migracao: antes o editor era a raiz do dominio). */
+const princyVpsHost = process.env.PRINCY_VPS_HOST ?? '108.181.169.40';
 const editorBasePath = normalizeEditorBasePath(process.env.PRINCY_EDITOR_BASE_PATH ?? '/webeditor');
-const codeWebInternalUrl = stripTrailingSlash(process.env.CODE_WEB_INTERNAL_URL ?? 'http://127.0.0.1:3200');
+const codeWebInternalUrl = stripTrailingSlash(
+	process.env.CODE_WEB_INTERNAL_URL ?? `http://${princyVpsHost}:3200`
+);
 
 function stripTrailingSlash(value: string): string {
 	return value.replace(/\/+$/, '');
@@ -38,6 +41,7 @@ function resolveCodeWebEditorUrl(raw: string | undefined): string {
 		const isEditorHost =
 			url.port === '3200'
 			|| (url.hostname === 'princyai.com' || url.hostname === 'www.princyai.com')
+			|| url.hostname === princyVpsHost
 			|| url.hostname === '127.0.0.1'
 			|| url.hostname === 'localhost';
 		if (isEditorHost && !url.pathname.startsWith(editorBasePath)) {
@@ -50,7 +54,10 @@ function resolveCodeWebEditorUrl(raw: string | undefined): string {
 }
 
 export const config = {
-	appOrigin: process.env.APP_ORIGIN ?? 'http://127.0.0.1:3200',	apiHost: process.env.API_HOST ?? '0.0.0.0',
+	appOrigin: process.env.APP_ORIGIN ?? `http://${princyVpsHost}:3200`,
+	princyVpsHost,
+	indexPort: Number(process.env.INDEX_PORT ?? process.env.PRINCY_INDEX_PORT ?? '3220'),
+	apiHost: process.env.API_HOST ?? '0.0.0.0',
 	apiPort: Number(process.env.API_PORT ?? '3210'),
 	databaseUrl: process.env.DATABASE_URL,
 	aiProvider: process.env.AI_PROVIDER ?? 'ollama',

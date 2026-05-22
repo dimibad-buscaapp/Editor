@@ -77,6 +77,9 @@ $caddyConfig = Join-Path $CaddyDir "Caddyfile"
 Write-Host "=== Agent backend (node.exe direto) ===" -ForegroundColor Cyan
 powershell -ExecutionPolicy Bypass -File (Join-Path $ProjectRoot "deploy\windows\agent-backend\fix-princy-agent-backend-service.ps1") -ProjectRoot $ProjectRoot
 
+Write-Host "=== Index landing :3220 ===" -ForegroundColor Cyan
+powershell -ExecutionPolicy Bypass -File (Join-Path $ProjectRoot "deploy\windows\index\install-princy-index-service.ps1") -ProjectRoot $ProjectRoot
+
 Install-NssmService -Nssm $nssm -Name "PrincyAiCodeWeb" `
 	-AppDirectory $ProjectRoot `
 	-Runner $codeRunner `
@@ -106,6 +109,6 @@ if ((Test-Path $caddyExe) -and (Test-Path $caddyConfig)) {
 
 Write-Host ""
 Write-Host "Iniciar todos:" -ForegroundColor Green
-Write-Host "  Start-Service PrincyAiAgentBackend, PrincyAiCodeWeb, PrincyCaddy"
+Write-Host "  Start-Service PrincyAiAgentBackend, PrincyAiIndex, PrincyAiCodeWeb, PrincyCaddy"
 Write-Host "Reiniciar:" -ForegroundColor Green
-Write-Host "  Restart-Service PrincyAiAgentBackend, PrincyAiCodeWeb, PrincyCaddy"
+Write-Host "  Restart-Service PrincyAiAgentBackend, PrincyAiIndex, PrincyAiCodeWeb, PrincyCaddy"

@@ -2,7 +2,22 @@
 	"princyai.useSameOriginApi": true,
 	"princyai.agentEndpoint": "https://princyai.com/princy-api",
 	"princyai.apiToken": "",
+	"princyai.ui.forceBlackTheme": true,
+	"princyai.ui.minimalWorkbench": true,
+	"princyai.ui.defaultChat": true,
+	"princyai.ui.openChatOnStartup": true,
 	"workbench.colorTheme": "Princy Black",
+	"workbench.preferredDarkColorTheme": "Princy Black",
+	"workbench.activityBar.location": "top",
+	"workbench.secondarySideBar.defaultVisibility": "visible",
+	"workbench.layoutControl.enabled": false,
+	"workbench.startupEditor": "none",
 	"workbench.welcomePage.experimentalOnboarding": false,
-	"workbench.startupEditor": "none"
+	"workbench.commandCenter.enabled": true,
+	"workbench.panel.defaultLocation": "bottom",
+	"workbench.panel.opensMaximized": "never",
+	"editor.minimap.enabled": false,
+	"editor.fontFamily": "'JetBrains Mono', 'Cascadia Code', Consolas, monospace",
+	"window.menuBarVisibility": "compact",
+	"chat.disableAIFeatures": true
 }

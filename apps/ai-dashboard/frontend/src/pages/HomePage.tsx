@@ -1,15 +1,14 @@
 import type { ReactElement } from 'react';
 import { navigate } from '../router.js';
+import { resolveDashboardUrl, resolveEditorUrl } from '../princyHosts.js';
 
 const EDITOR_URL = typeof window !== 'undefined'
-	&& (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost')
-	? 'http://127.0.0.1:3200'
-	: `${window.location.origin}/webeditor/`;
+	? resolveEditorUrl(window.location.hostname, window.location.origin)
+	: 'https://princyai.com/webeditor/';
 
 const DASHBOARD_URL = typeof window !== 'undefined'
-	&& (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost')
-	? 'http://127.0.0.1:3210'
-	: 'https://dashboard.princyai.com';
+	? resolveDashboardUrl(window.location.hostname)
+	: 'https://dashboard.princyai.com/';
 
 export function HomePage(): ReactElement {
 	return (

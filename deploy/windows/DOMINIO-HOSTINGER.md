@@ -2,12 +2,13 @@
 
 Este guia liga o dominio na **Hostinger** ao projeto no **VPS**, com duas portas internas:
 
-| Servico | Porta interna | URL publica recomendada |
-|---------|---------------|-------------------------|
-| Princy Ai Web (Code-OSS) | `3200` | `https://princyai.com` |
-| Agent backend (IA/RAG/chat) | `3210` | `https://api.princyai.com` |
+| Servico | IP:porta VPS | URL publica |
+|---------|---------------|-------------|
+| Index / landing | `108.181.169.40:3220` | `https://princyai.com/` |
+| Code-OSS Web (editor) | `108.181.169.40:3200` | `https://princyai.com/webeditor/` |
+| Dashboard + API agent | `108.181.169.40:3210` | `https://dashboard.princyai.com/` |
 
-**DNS nao usa porta.** A Hostinger so aponta o dominio para o IP do VPS. O **Caddy** no VPS recebe HTTPS nas portas `80`/`443` e encaminha para `3200` e `3210` em `127.0.0.1`.
+**DNS nao usa porta.** A Hostinger so aponta o dominio para o IP **108.181.169.40**. O **Caddy** recebe HTTPS `80`/`443` e encaminha para `3220`, `3200` e `3210` no VPS.
 
 Substitua `SEU_IP_VPS` pelo IP publico do servidor (ex.: `108.181.169.40`).
 

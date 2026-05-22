@@ -20,7 +20,7 @@ if (-not (Test-Path $runner)) {
 New-Item -ItemType Directory -Force (Join-Path $ProjectRoot "logs") | Out-Null
 New-Item -ItemType Directory -Force $WorkspacePath | Out-Null
 
-nssm install $ServiceName "powershell.exe" "-NoProfile -ExecutionPolicy Bypass -File `"$runner`" -ProjectRoot `"$ProjectRoot`" -WorkspacePath `"$WorkspacePath`" -HostName 127.0.0.1 -Port $Port -ServerBasePath /webeditor"
+nssm install $ServiceName "powershell.exe" "-NoProfile -ExecutionPolicy Bypass -File `"$runner`" -ProjectRoot `"$ProjectRoot`" -WorkspacePath `"$WorkspacePath`" -HostName 0.0.0.0 -Port $Port -ServerBasePath /webeditor"
 nssm set $ServiceName AppDirectory $ProjectRoot
 nssm set $ServiceName AppStdout (Join-Path $ProjectRoot "logs\code-web.out.log")
 nssm set $ServiceName AppStderr (Join-Path $ProjectRoot "logs\code-web.err.log")

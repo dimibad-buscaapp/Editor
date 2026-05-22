@@ -1,7 +1,7 @@
 param(
 	[string]$ProjectRoot = "C:\Apps\Editor",
 	[string]$WorkspacePath = "C:\Apps\Editor\workspaces\default",
-	[string]$HostName = "127.0.0.1",
+	[string]$HostName = "0.0.0.0",
 	[int]$Port = 3200,
 	[string]$UserDataDir = "",
 	[string]$ServerBasePath = "/webeditor",

@@ -1,20 +1,5 @@
 {
 	"princyai.useSameOriginApi": true,
-	"princyai.agentEndpoint": "http://127.0.0.1:3200/princy-api",
-	"princyai.chat.simpleMode": true,
-	"princyai.workspaceIndex.onOpen": false,
-	"princyai.defaultAgent": "deepseek",
-	"princyai.ghostText.agent": "deepseek",
-	"princyai.apiToken": "",
-  "chat.disableAIFeatures": true,
-  "chat.agentsControl.enabled": "hidden",
-  "chat.agent.enabled": false,
-  "chat.agentHost.enabled": false,
-  "princyai.ui.defaultChat": true,
-  "princyai.ui.minimalWorkbench": true,
-  "window.commandCenter": true,
-	"github.gitAuthentication": false,
-	"workbench.colorTheme": "Princy Black",
-	"workbench.welcomePage.experimentalOnboarding": false,
-	"workbench.startupEditor": "none"
+	"princyai.agentEndpoint": "http://108.181.169.40:3200/princy-api",
+	"workbench.colorTheme": "Princy Black"
 }

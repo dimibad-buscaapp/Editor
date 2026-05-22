@@ -7,7 +7,9 @@ param(
 )
 
 $ErrorActionPreference = "Continue"
+. (Join-Path $PSScriptRoot "princy-hosts.ps1")
 $basePath = $EditorBasePath.Trim()
+$vpsHost = $PrincyVpsIp
 if (-not $basePath.StartsWith('/')) { $basePath = "/$basePath" }
 
 Write-Host "=== Princy Ai - verificacao /webeditor ===" -ForegroundColor Cyan
@@ -69,10 +71,11 @@ if (Test-Path $logOut) {
 	}
 }
 
-# 3) HTTP local
-Test-Http "Local raiz (legado)" "http://127.0.0.1:${CodeWebPort}/" | Out-Null
-Test-Http "Local $basePath" "http://127.0.0.1:${CodeWebPort}${basePath}/" -RequireWorkbench | Out-Null
-Test-Http "Local /princy-api" "http://127.0.0.1:${CodeWebPort}/princy-api/api/health" | Out-Null
+# 3) HTTP VPS (portas internas)
+Test-Http "Index :3220" "http://${vpsHost}:$PrincyIndexPort/" | Out-Null
+Test-Http "Editor $basePath" "http://${vpsHost}:${CodeWebPort}${basePath}/" -RequireWorkbench | Out-Null
+Test-Http "Editor /princy-api" "http://${vpsHost}:${CodeWebPort}/princy-api/api/health" | Out-Null
+Test-Http "Dashboard :3210" "http://${vpsHost}:$PrincyDashboardPort/api/health" | Out-Null
 
 # 4) HTTP publico
 Test-Http "HTTPS $basePath" "https://${PublicHost}${basePath}/" -RequireWorkbench | Out-Null
@@ -93,7 +96,7 @@ $envFile = Join-Path $ProjectRoot "apps\ai-dashboard\.env"
 if (Test-Path $envFile) {
 	$envText = Get-Content $envFile -Raw
 	if ($envText -match 'CODE_WEB_URL\s*=\s*"https?://princyai\.com"\s*$' -or $envText -match 'CODE_WEB_URL=https?://princyai\.com\s*$') {
-		$issues += ".env CODE_WEB_URL sem /webeditor - use https://princyai.com/webeditor ou http://127.0.0.1:3200/webeditor"
+		$issues += ".env CODE_WEB_URL sem /webeditor - use https://princyai.com/webeditor ou http://108.181.169.40:3200/webeditor"
 		Write-Host ".env: CODE_WEB_URL aponta raiz (landing), nao o editor" -ForegroundColor Yellow
 	}
 }

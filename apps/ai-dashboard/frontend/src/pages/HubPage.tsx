@@ -1,10 +1,9 @@
 import type { ReactElement } from 'react';
 import { navigate } from '../router.js';
+import { resolveEditorUrl } from '../princyHosts.js';
 
 export function HubPage(): ReactElement {
-	const editorUrl = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost'
-		? 'http://127.0.0.1:3200'
-		: `${window.location.origin}/webeditor/`;
+	const editorUrl = resolveEditorUrl(window.location.hostname, window.location.origin);
 
 	return (
 		<main className="hub-shell">

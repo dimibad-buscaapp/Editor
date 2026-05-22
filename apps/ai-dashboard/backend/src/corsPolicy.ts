@@ -3,6 +3,8 @@ import { config } from './config.js';
 const defaultAllowedOrigins = new Set([
 	config.appOrigin,
 	config.codeWebUrl,
+	'http://108.181.169.40:3200',
+	'http://108.181.169.40:3220',
 	'http://127.0.0.1:3200',
 	'http://localhost:3200',
 	'http://127.0.0.1:5173',

@@ -1,7 +1,18 @@
-# Legacy dashboard proxy. The primary Code-OSS Web proxy lives at:
-# deploy/windows/code-web/Caddyfile
-dashboard.princyai.com {
-	encode zstd gzip
+# Legado — use deploy/windows/code-web/Caddyfile na raiz do repo
 
-	reverse_proxy 127.0.0.1:3210
+princyai.com, www.princyai.com {
+	encode zstd gzip
+	handle_path /princy-api/* {
+		reverse_proxy 108.181.169.40:3210
+	}
+	handle /webeditor* {
+		reverse_proxy 108.181.169.40:3200
+	}
+	handle {
+		reverse_proxy 108.181.169.40:3220
+	}
+}
+
+dashboard.princyai.com {
+	reverse_proxy 108.181.169.40:3210
 }
