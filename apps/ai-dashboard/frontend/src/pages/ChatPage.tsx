@@ -13,6 +13,7 @@ import {
 import {
 	ChatComposer,
 	ChatMessageBubble,
+	ChatThinking,
 	ChatWelcome,
 	newChatMessageId,
 	type ChatUiMessage
@@ -25,6 +26,10 @@ const EDITOR_URL = typeof window !== 'undefined'
 	? resolveEditorUrl(window.location.hostname, window.location.origin)
 	: 'https://princyai.com/webeditor/';
 
+const LOGVIEW_URL = typeof window !== 'undefined'
+	? `${window.location.origin}/logview/?autostart=1`
+	: 'https://princyai.com/logview/?autostart=1';
+
 export function ChatPage(props?: {
 	readonly user?: User;
 	readonly onLogout?: () => void;
@@ -34,7 +39,7 @@ export function ChatPage(props?: {
 	const [messages, setMessages] = useState<readonly ChatUiMessage[]>([]);
 	const [input, setInput] = useState('');
 	const [busy, setBusy] = useState(false);
-	const [statusLine, setStatusLine] = useState('');
+	const [statusLine, setStatusLine] = useState('Pronto');
 	const [needsToken, setNeedsToken] = useState(false);
 	const [tokenDraft, setTokenDraft] = useState(() => getAgentToken());
 	const [showToken, setShowToken] = useState(false);
@@ -43,6 +48,9 @@ export function ChatPage(props?: {
 	const inputRef = useRef<HTMLTextAreaElement>(null);
 
 	const showWelcome = messages.length === 0;
+	const streamingId = busy
+		? [...messages].reverse().find(m => m.role === 'assistant')?.id
+		: undefined;
 
 	useEffect(() => {
 		document.body.classList.add('chat-body');
@@ -55,7 +63,7 @@ export function ChatPage(props?: {
 
 	useEffect(() => {
 		scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-	}, [messages, busy, showWelcome]);
+	}, [messages, busy, showWelcome, statusLine]);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -70,6 +78,7 @@ export function ChatPage(props?: {
 				await fetchAgentHealth();
 				if (!cancelled) {
 					setBackendOnline(true);
+					setStatusLine('Pronto');
 				}
 				const list = await fetchModels();
 				if (!cancelled) {
@@ -78,6 +87,7 @@ export function ChatPage(props?: {
 			} catch (error) {
 				if (!cancelled) {
 					setBackendOnline(false);
+					setStatusLine('Offline');
 					setMessages([{
 						id: newChatMessageId(),
 						role: 'system',
@@ -114,14 +124,14 @@ export function ChatPage(props?: {
 				onStatus: setStatusLine,
 				onDone: result => {
 					patchAssistant(result.content || result.message || '(sem resposta)');
-					setStatusLine('');
+					setStatusLine('Pronto');
 				}
 			});
 		} catch {
 			try {
 				const result = await postAgentChat({ agent, message: text });
 				patchAssistant(result.content || result.message || '');
-				setStatusLine(result.intelligence_status ?? '');
+				setStatusLine(result.intelligence_status || 'Pronto');
 			} catch (error) {
 				patchAssistant('');
 				setMessages(prev => [...prev, {
@@ -129,7 +139,7 @@ export function ChatPage(props?: {
 					role: 'system',
 					content: error instanceof Error ? error.message : 'Erro no chat'
 				}]);
-				setStatusLine('');
+				setStatusLine('Erro');
 			}
 		} finally {
 			setBusy(false);
@@ -139,8 +149,14 @@ export function ChatPage(props?: {
 
 	function newChat(): void {
 		setMessages([]);
-		setStatusLine('');
+		setStatusLine('Pronto');
 		setInput('');
+		inputRef.current?.focus();
+	}
+
+	function quickPrompt(prefix: string): void {
+		setInput(prev => (prev.trim() ? `${prev} ${prefix}` : prefix).trimStart());
+		inputRef.current?.focus();
 	}
 
 	async function logout(): Promise<void> {
@@ -154,117 +170,87 @@ export function ChatPage(props?: {
 	}
 
 	return (
-		<div className="chat-app">
-			<aside className="chat-sidebar">
-				<div className="chat-brand">
-					<span className="chat-logo" aria-hidden="true">◇</span>
+		<div className="chat-panel">
+			<header className="chat-header">
+				<div className="chat-header-brand">
+					<span className="chat-header-logo" aria-hidden="true">✦</span>
 					<div>
-						<strong>Princy Ai</strong>
-						<span className="muted">Chat</span>
+						<div className="chat-header-title">Princy IA</div>
+						<div className="chat-header-sub">Agent · Composer · Black</div>
 					</div>
 				</div>
-
-				<button type="button" className="chat-side-btn primary" onClick={newChat}>
-					<span className="chat-side-btn-icon" aria-hidden="true">+</span>
-					Nova conversa
-				</button>
-
-				{props?.user ? (
-					<div className="chat-user-card">
-						<p className="chat-user-name">{props.user.name}</p>
-						<p className="chat-user-email muted">{props.user.email}</p>
-					</div>
-				) : null}
-
-				<nav className="chat-nav">
-					<a href={EDITOR_URL} target="_blank" rel="noreferrer">Editor Code Web</a>
-					<a href="/logview/?autostart=1" target="_blank" rel="noreferrer">Starter Log</a>
+				<div className="chat-header-actions">
+					<a className="chat-header-btn" href={EDITOR_URL} target="_blank" rel="noreferrer">Editor</a>
+					<a className="chat-header-btn" href={LOGVIEW_URL} target="_blank" rel="noreferrer">Log</a>
 					{props?.user ? (
-						<button type="button" onClick={() => navigate('workspace')}>Workspace</button>
-					) : null}
-					{!props?.user ? (
-						<button type="button" onClick={() => navigate('login')}>Login</button>
-					) : null}
-					<button type="button" onClick={() => navigate('logs')}>Logs</button>
-				</nav>
-
-				{(needsToken || getAgentToken()) && (
-					<div className="chat-token">
-						<button type="button" className="chat-side-btn ghost" onClick={() => setShowToken(v => !v)}>
-							{showToken ? 'Ocultar token' : 'Token API'}
-						</button>
-						{showToken && (
-							<>
-								<input
-									type="password"
-									placeholder="Bearer AGENT_API_TOKEN"
-									value={tokenDraft}
-									onChange={e => setTokenDraft(e.target.value)}
-								/>
-								<button
-									type="button"
-									className="chat-side-btn"
-									onClick={() => {
-										setAgentToken(tokenDraft);
-										setShowToken(false);
-									}}
-								>
-									Salvar
-								</button>
-							</>
-						)}
-					</div>
-				)}
-
-				{props?.user && props.onLogout ? (
-					<button type="button" className="chat-side-btn ghost chat-logout" onClick={() => void logout()}>
-						Sair
-					</button>
-				) : null}
-			</aside>
-
-			<section className="chat-main">
-				<header className="chat-topbar">
-					<div className="chat-topbar-title">
-						<h1>Chat</h1>
-						<span className="chat-topbar-sub muted">Assistente IA</span>
-					</div>
-					{backendOnline === false ? (
-						<span className="chat-topbar-badge error">Offline</span>
-					) : backendOnline ? (
-						<span className="chat-topbar-badge ok">Online</span>
-					) : null}
-				</header>
-
-				{backendOnline === false ? (
-					<div className="chat-banner error">
-						Backend offline na 3210. Confira PrincyAiAgentBackend e Ollama.
-					</div>
-				) : null}
-
-				<div className="chat-thread" ref={scrollRef}>
-					{showWelcome ? (
-						<ChatWelcome onPick={text => void send(text)} />
+						<button type="button" className="chat-header-btn" onClick={() => navigate('workspace')}>Workspace</button>
 					) : (
-						messages.map(msg => (
-							<ChatMessageBubble key={msg.id} message={msg} busy={busy} />
-						))
+						<button type="button" className="chat-header-btn" onClick={() => navigate('login')}>Login</button>
 					)}
+					<button type="button" className="chat-header-btn" onClick={() => navigate('logs')}>Diag</button>
+					{(needsToken || getAgentToken()) && (
+						<button type="button" className="chat-header-btn" onClick={() => setShowToken(v => !v)}>Token</button>
+					)}
+					<button type="button" className="chat-header-btn" onClick={newChat} title="Nova conversa">+ Novo</button>
 				</div>
+			</header>
 
-				<ChatComposer
-					input={input}
-					busy={busy}
-					agent={agent}
-					models={models}
-					statusLine={statusLine}
-					backendOnline={backendOnline}
-					onAgentChange={setAgent}
-					onInput={setInput}
-					onSend={() => void send()}
-					inputRef={inputRef}
-				/>
-			</section>
+			{showToken && (
+				<div className="chat-token-bar">
+					<input
+						type="password"
+						placeholder="Bearer AGENT_API_TOKEN"
+						value={tokenDraft}
+						onChange={e => setTokenDraft(e.target.value)}
+					/>
+					<button type="button" className="chat-header-btn" onClick={() => { setAgentToken(tokenDraft); setShowToken(false); }}>
+						Salvar
+					</button>
+				</div>
+			)}
+
+			{backendOnline === false ? (
+				<div className="chat-boot-error">
+					Backend offline na 3210. Confira PrincyAiAgentBackend, Ollama e <code>npm run build:frontend</code>.
+				</div>
+			) : null}
+
+			<div className="chat-scroll" ref={scrollRef}>
+				{showWelcome ? <ChatWelcome onPick={text => void send(text)} /> : null}
+				<div className="chat-turn-list">
+					{messages.map(msg => (
+						<ChatMessageBubble
+							key={msg.id}
+							message={msg}
+							streaming={msg.id === streamingId}
+						/>
+					))}
+				</div>
+				<ChatThinking visible={busy} status={statusLine} />
+			</div>
+
+			<ChatComposer
+				input={input}
+				busy={busy}
+				agent={agent}
+				models={models}
+				statusLine={statusLine}
+				backendOnline={backendOnline}
+				onAgentChange={setAgent}
+				onInput={setInput}
+				onSend={() => void send()}
+				onQuickPrompt={quickPrompt}
+				inputRef={inputRef}
+			/>
+
+			{props?.user ? (
+				<footer className="chat-footer-user">
+					<span>{props.user.name}</span>
+					{props.onLogout ? (
+						<button type="button" className="chat-header-btn" onClick={() => void logout()}>Sair</button>
+					) : null}
+				</footer>
+			) : null}
 		</div>
 	);
 }

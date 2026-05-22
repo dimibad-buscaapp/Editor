@@ -77,7 +77,7 @@ await registerAgentRoutes(app);
 await registerLogviewRoutes(app);
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
-const frontendDist = path.resolve(currentDir, '../frontend');
+const frontendDist = path.resolve(currentDir, '../../dist/frontend');
 	if (fs.existsSync(frontendDist)) {
 	await app.register(staticFiles, {
 		root: frontendDist,
