@@ -28,12 +28,14 @@ princyai.com, www.princyai.com {
 		redir /webeditor/ permanent
 	}
 
-	# Diagnostico de boot (HTML estatico — nao passa pelo node :3200)
+	# /webeditor/log -> Code Web :3200 (pathname /log) OU Caddy estatico (fallback)
 	@webeditor_log path /webeditor/log /webeditor/log/
 	handle @webeditor_log {
-		root * C:/Apps/Editor/deploy/windows/code-web/webeditor-log
-		rewrite * /index.html
-		file_server
+		reverse_proxy 127.0.0.1:3200 {
+			header_up Host {host}
+			header_up X-Forwarded-Host {host}
+			header_up X-Forwarded-Proto {scheme}
+		}
 	}
 
 	# NAO usar handle_path: o Code Web precisa receber /webeditor/... completo

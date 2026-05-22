@@ -24,7 +24,9 @@ Copy-Item deploy\windows\code-web\Caddyfile C:\Caddy\Caddyfile -Force
 Restart-Service PrincyCaddy
 ```
 
-Arquivos estaticos: `deploy\windows\code-web\webeditor-log\index.html` (servidos pelo Caddy, nao pelo node :3200).
+Servido pelo Code Web (`/webeditor/log` -> pathname `/log` em :3200).
+
+Log **tempo real** do VPS: `GET /princy-api/api/editor/runtime-log` (tail de `logs\code-web.*`, `caddy.*`, `agent-backend.*`).
 
 ## Landing com botao novo
 

@@ -9,6 +9,7 @@ import { getCompileJobStatus } from './compileService.js';
 import { listSegmentEngines } from './orchestrator/engines.js';
 import type { ModelSegment } from './orchestrator/types.js';
 import { config } from './config.js';
+import { readRuntimeLogs } from './editorRuntimeLog.js';
 import { buildRagSystemPrompt, indexAgentFile, retrieveAgentRelevantChunks } from './rag.js';
 
 const agentModelSchema = z.enum(['princy', 'deepseek', 'qwen', 'codellama', 'llama3', 'mistral', 'openai']);
@@ -155,7 +156,7 @@ const publicAgentPathsWhenDashboardChat = new Set([
 export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 	app.addHook('preHandler', async (request, reply) => {
 		const path = request.url.split('?')[0] ?? request.url;
-		if (path === '/api/agent/health' || path === '/api/agent/bootstrap') {
+		if (path === '/api/agent/health' || path === '/api/agent/bootstrap' || path === '/api/editor/runtime-log') {
 			return;
 		}
 		if (config.publicChatEnabled && publicAgentPathsWhenDashboardChat.has(path)) {
@@ -186,6 +187,12 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 		cors: 'dynamic',
 		streamJobs: true
 	}));
+
+	app.get('/api/editor/runtime-log', async (request) => {
+		const query = request.query as { lines?: string };
+		const lines = Math.min(200, Math.max(10, Number(query.lines ?? 80) || 80));
+		return readRuntimeLogs(lines);
+	});
 
 	app.get('/api/agent/models', async () => {
 		return {

@@ -114,6 +114,7 @@ const APP_ROOT = dirname(FileAccess.asFileUri('').fsPath);
 const STATIC_PATH = `/static`;
 const CALLBACK_PATH = `/callback`;
 const WEB_EXTENSION_PATH = `/web-extension-resource`;
+const BOOT_LOG_PATH = `/log`;
 
 export class WebClientServer {
 
@@ -143,6 +144,9 @@ export class WebClientServer {
 		try {
 			if (pathname.startsWith(STATIC_PATH) && pathname.charCodeAt(STATIC_PATH.length) === CharCode.Slash) {
 				return this._handleStatic(req, res, pathname.substring(STATIC_PATH.length));
+			}
+			if (pathname === BOOT_LOG_PATH || pathname === `${BOOT_LOG_PATH}/` || pathname.startsWith(`${BOOT_LOG_PATH}/`)) {
+				return this._handleBootLog(req, res);
 			}
 			if (pathname === '/') {
 				return this._handleRoot(req, res, parsedUrl);
@@ -495,6 +499,16 @@ export class WebClientServer {
 			result.push(`'sha256-${hash}'`);
 		}
 		return result;
+	}
+
+	/**
+	 * Diagnostico de boot do web editor (/webeditor/log)
+	 */
+	private async _handleBootLog(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+		const projectRoot = join(APP_ROOT, '..');
+		const htmlPath = join(projectRoot, 'deploy', 'windows', 'code-web', 'webeditor-log', 'index.html');
+		const headers: Record<string, string> = Object.create(null);
+		return serveFile(htmlPath, CacheControl.NO_CACHING, this._logService, req, res, headers);
 	}
 
 	/**
