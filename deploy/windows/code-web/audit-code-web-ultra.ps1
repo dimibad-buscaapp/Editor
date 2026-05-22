@@ -1,4 +1,4 @@
-# Pente fino Code-OSS Web (Princy) porta 3200 — tela branca, 502, base path, compile, Caddy, NSSM.
+# Pente fino Code-OSS Web (Princy) porta 3200 - tela branca, 502, base path, compile, Caddy, NSSM.
 # Admin VPS:
 #   powershell -ExecutionPolicy Bypass -File deploy\windows\code-web\audit-code-web-ultra.ps1
 #   powershell -ExecutionPolicy Bypass -File deploy\windows\code-web\audit-code-web-ultra.ps1 -Fix
@@ -51,7 +51,7 @@ function Test-HttpProbe {
 		if ($RequireWorkbench -and -not $hasWb) { $ok = $false }
 		$color = if ($ok) { 'Green' } else { 'Yellow' }
 		Write-Host ("  {0}: HTTP {1} len={2} workbench={3}" -f $Label, $r.StatusCode, $r.Content.Length, $hasWb) -ForegroundColor $color
-		if (-not $ok -and $RequireWorkbench) { Add-Issue "$Label — HTML sem WORKBENCH ($Url)" }
+		if (-not $ok -and $RequireWorkbench) { Add-Issue "$Label - HTML sem WORKBENCH ($Url)" }
 		return $ok
 	}
 	catch {
@@ -60,8 +60,8 @@ function Test-HttpProbe {
 			Write-Host ("  {0}: HTTP 404 (esperado em alguns probes)" -f $Label) -ForegroundColor DarkGray
 			return $true
 		}
-		Write-Host ("  {0}: FALHA — {1}" -f $Label, $_.Exception.Message) -ForegroundColor Red
-		Add-Issue "$Label — $Url — $($_.Exception.Message)"
+		Write-Host ("  {0}: FALHA - {1}" -f $Label, $_.Exception.Message) -ForegroundColor Red
+		Add-Issue "$Label - $Url - $($_.Exception.Message)"
 		return $false
 	}
 }
@@ -93,10 +93,10 @@ foreach ($name in $artifacts.Keys) {
 	Write-Host ("  {0}: {1}" -f $name, $(if ($ok) { 'OK' } else { 'AUSENTE' })) -ForegroundColor $color
 }
 if (-not (Test-Path (Join-Path $ProjectRoot "out\server-main.js"))) {
-	Add-Issue "Compile ausente — rode: npm run compile-incremental && npm run compile-web"
+	Add-Issue "Compile ausente - rode: npm run compile-incremental; npm run compile-web"
 }
 if (-not $hasProd) {
-	Add-Issue "Compile PRODUCAO incompleto (workbench.html ou workbench.web.main.css) — browser fica branco/lento em modo DEV"
+	Add-Issue "Compile PRODUCAO incompleto (workbench.html ou workbench.web.main.css) - browser fica branco/lento em modo DEV"
 	Add-Warn "Correcao: deploy\windows\code-web\compile-princy-code-web-production.ps1 (30-90 min)"
 }
 
@@ -105,7 +105,7 @@ Write-Host ""
 Write-Host "[2] Servico PrincyAiCodeWeb" -ForegroundColor Cyan
 $svc = Get-Service PrincyAiCodeWeb -ErrorAction SilentlyContinue
 if (-not $svc) {
-	Add-Issue "Servico PrincyAiCodeWeb nao instalado — fix-princy-code-web-service.ps1"
+	Add-Issue "Servico PrincyAiCodeWeb nao instalado - fix-princy-code-web-service.ps1"
 	Write-Host "  Servico: NAO INSTALADO" -ForegroundColor Red
 } else {
 	Write-Host ("  Status: {0}" -f $svc.Status) -ForegroundColor $(if ($svc.Status -eq 'Running') { 'Green' } else { 'Red' })
@@ -113,7 +113,7 @@ if (-not $svc) {
 }
 
 if (-not (Test-PortListening -Port $CodeWebPort)) {
-	Add-Issue "Porta $CodeWebPort nao escuta — processo Code Web parado ou crash"
+	Add-Issue "Porta $CodeWebPort nao escuta - processo Code Web parado ou crash"
 } else {
 	Write-Host "  Porta ${CodeWebPort}: LISTENING" -ForegroundColor Green
 }
@@ -131,9 +131,9 @@ if ($nssm) {
 	}
 	if ($envExtra -match 'VSCODE_DEV=1') {
 		if ($hasProd) {
-			Add-Warn "NSSM tem VSCODE_DEV=1 mas existe compile PROD — reinstale servico (fix-princy-code-web-service.ps1)"
+			Add-Warn "NSSM tem VSCODE_DEV=1 mas existe compile PROD - reinstale servico (fix-princy-code-web-service.ps1)"
 		} else {
-			Add-Issue "NSSM VSCODE_DEV=1 sem bundle PROD — centenas de modulos JS falham (tela branca)"
+			Add-Issue "NSSM VSCODE_DEV=1 sem bundle PROD - centenas de modulos JS falham (tela branca)"
 		}
 	} elseif ($hasProd) {
 		Write-Host "  NSSM env: sem VSCODE_DEV (producao OK)" -ForegroundColor Green
@@ -153,7 +153,7 @@ if (Test-Path $logOut) {
 		if ($line.Line -match [regex]::Escape($base)) {
 			Write-Host ("  Log: {0}" -f $line.Line.Trim()) -ForegroundColor Green
 		} else {
-			Add-Issue "Log mostra Web UI na RAIZ — falta $base no URL"
+			Add-Issue "Log mostra Web UI na RAIZ - falta $base no URL"
 			Write-Host ("  Log: {0}" -f $line.Line.Trim()) -ForegroundColor Red
 		}
 	}
@@ -162,7 +162,7 @@ if (Test-Path $logErr) {
 	$tail = Get-Content $logErr -Tail 8 -ErrorAction SilentlyContinue
 	$fatal = $tail | Where-Object { $_ -match 'Error|ENOENT|EADDRINUSE|Cannot find module' }
 	if ($fatal) {
-		Add-Warn "code-web.err.log tem erros recentes — veja logs\code-web.err.log"
+		Add-Warn "code-web.err.log tem erros recentes - veja logs\code-web.err.log"
 		Write-Host "  --- code-web.err.log (ultimas linhas) ---" -ForegroundColor DarkYellow
 		$tail | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkYellow }
 	}
@@ -176,7 +176,7 @@ $repoCaddy = Join-Path $ProjectRoot "deploy\windows\code-web\Caddyfile"
 if (Test-Path $caddyFile) {
 	$ct = Get-Content $caddyFile -Raw
 	if ($ct -match 'handle_path\s+/webeditor') {
-		Add-Issue "Caddyfile usa handle_path /webeditor — REMOVE (strip path = 404 em JS = tela branca)"
+		Add-Issue "Caddyfile usa handle_path /webeditor - REMOVE (strip path = 404 em JS = tela branca)"
 		Write-Host "  Caddy: ERRO handle_path /webeditor" -ForegroundColor Red
 	} elseif ($ct -match 'handle\s+/webeditor') {
 		Write-Host "  Caddy: OK handle /webeditor*" -ForegroundColor Green
@@ -184,19 +184,19 @@ if (Test-Path $caddyFile) {
 		Add-Issue "Caddyfile sem handle /webeditor*"
 	}
 } else {
-	Add-Issue "C:\Caddy\Caddyfile ausente — copie de deploy\windows\code-web\Caddyfile"
+	Add-Issue "C:\Caddy\Caddyfile ausente - copie de deploy\windows\code-web\Caddyfile"
 }
 if (Test-Path $repoCaddy) {
 	$repoHash = (Get-FileHash $repoCaddy -Algorithm SHA256).Hash
 	$liveHash = if (Test-Path $caddyFile) { (Get-FileHash $caddyFile -Algorithm SHA256).Hash } else { '' }
 	if ($liveHash -ne $repoHash) {
-		Add-Warn "Caddyfile em C:\Caddy difere do repo — Copy-Item e Restart-Service PrincyCaddy"
+		Add-Warn "Caddyfile em C:\Caddy difere do repo - Copy-Item e Restart-Service PrincyCaddy"
 	}
 }
 $caddySvc = Get-Service PrincyCaddy -ErrorAction SilentlyContinue
 if ($caddySvc) {
 	Write-Host ("  PrincyCaddy: {0}" -f $caddySvc.Status) -ForegroundColor $(if ($caddySvc.Status -eq 'Running') { 'Green' } else { 'Red' })
-	if ($caddySvc.Status -ne 'Running') { Add-Issue "PrincyCaddy parado — HTTPS/webeditor timeout ou 502" }
+	if ($caddySvc.Status -ne 'Running') { Add-Issue "PrincyCaddy parado - HTTPS/webeditor timeout ou 502" }
 }
 
 # --- 4) HTTP probes ---
@@ -209,7 +209,7 @@ if (Test-PortListening -Port $CodeWebPort) {
 	$assetUrl = "http://127.0.0.1:${CodeWebPort}${base}/static/out/vs/code/browser/workbench/workbench.js"
 	Test-HttpProbe "Asset workbench.js" $assetUrl | Out-Null
 	if (-not (Test-HttpProbe "Asset workbench.js HEAD" $assetUrl)) {
-		Add-Warn "workbench.js nao encontrado nesse path — compile-web ou base path incorreto"
+		Add-Warn "workbench.js nao encontrado nesse path - compile-web ou base path incorreto"
 	}
 }
 Test-HttpProbe "HTTPS editor" "https://${PublicHost}${base}/" -RequireWorkbench | Out-Null
@@ -227,7 +227,7 @@ Write-Host "  CERTO:  https://princyai.com/webeditor/" -ForegroundColor Green
 $envFile = Join-Path $ProjectRoot "apps\ai-dashboard\.env"
 if (Test-Path $envFile) {
 	$et = Get-Content $envFile -Raw
-	if ($et -match 'CODE_WEB_URL[^\n]*princyai\.com"' -and $et -notmatch 'webeditor') {
+	if ($et -match 'CODE_WEB_URL' -and $et -match 'princyai\.com' -and $et -notmatch 'webeditor') {
 		Add-Warn ".env CODE_WEB_URL sem /webeditor"
 	}
 }
