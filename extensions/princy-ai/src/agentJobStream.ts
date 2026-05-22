@@ -3,6 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/// <reference lib="dom" />
+
 import type { ChatResponse } from './agentClient';
 
 interface FetchResponse {

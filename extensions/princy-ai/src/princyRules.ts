@@ -3,6 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/// <reference lib="dom" />
+
 import * as vscode from 'vscode';
 
 const MAX_RULES_CHARS = 32_000;
