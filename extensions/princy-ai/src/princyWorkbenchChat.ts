@@ -41,7 +41,8 @@ async function applyPrincyDefaultChat(): Promise<void> {
 	await chat.update('agentHost.enabled', false, target);
 
 	const workbench = vscode.workspace.getConfiguration('workbench');
-	await workbench.update('secondarySideBar.defaultVisibility', 'visible', target);
+	await workbench.update('secondarySideBar.defaultVisibility', 'maximized', target);
+	await workbench.update('secondarySideBar.forceMaximized', true, target);
 	await workbench.update('startupEditor', 'none', target);
 
 	const princy = vscode.workspace.getConfiguration('princyai');
@@ -99,11 +100,52 @@ async function migrateWebAgentEndpoint(): Promise<void> {
 	await princy.update('agentEndpoint', endpoint, vscode.ConfigurationTarget.Global);
 }
 
+function delay(ms: number): Promise<void> {
+	return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function tryCommand(command: string): Promise<boolean> {
+	try {
+		await vscode.commands.executeCommand(command);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+/** Garante barra lateral direita visível (layout Cursor). */
+export async function ensurePrincyChatShellVisible(): Promise<void> {
+	await tryCommand('workbench.action.focusAuxiliaryBar');
+	await tryCommand('workbench.action.maximizeAuxiliaryBar');
+}
+
 /** Abre o container Princy Ai — não chama princyai.chat.focus (evita loop com provider.focus). */
 export async function focusPrincyChatPanel(): Promise<void> {
-	try {
-		await vscode.commands.executeCommand(PRINCY_CHAT_VIEW);
-	} catch {
-		// view ainda não registrada
+	await ensurePrincyChatShellVisible();
+	const steps = [
+		PRINCY_CHAT_VIEW,
+		'princyai.open',
+		'princyai.chat.focus'
+	];
+	for (let attempt = 0; attempt < 6; attempt++) {
+		for (const command of steps) {
+			if (await tryCommand(command)) {
+				return;
+			}
+		}
+		await delay(350 + attempt * 400);
+	}
+}
+
+/** Várias tentativas após o workbench carregar (extensão web pode ativar tarde). */
+export function scheduleOpenPrincyChatOnStartup(): void {
+	const delays = [400, 1200, 2800, 5500];
+	for (const ms of delays) {
+		setTimeout(() => {
+			if (!vscode.workspace.getConfiguration('princyai').get<boolean>('ui.openChatOnStartup', true)) {
+				return;
+			}
+			void focusPrincyChatPanel();
+		}, ms);
 	}
 }

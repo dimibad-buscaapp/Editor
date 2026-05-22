@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { focusPrincyChatPanel } from './princyWorkbenchChat';
+import { scheduleOpenPrincyChatOnStartup } from './princyWorkbenchChat';
 
 export function registerPrincyWorkbenchUi(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(
@@ -34,7 +34,8 @@ async function applyMinimalWorkbench(): Promise<void> {
 	await wb.update('statusBar.visible', true, target);
 	await wb.update('layoutControl.enabled', false, target);
 	await wb.update('tips.enabled', false, target);
-	await wb.update('secondarySideBar.defaultVisibility', 'visible', target);
+	await wb.update('secondarySideBar.defaultVisibility', 'maximized', target);
+	await wb.update('secondarySideBar.forceMaximized', true, target);
 	await wb.update('panel.defaultLocation', 'bottom', target);
 	await wb.update('panel.opensMaximized', 'never', target);
 	await wb.update('commandCenter.enabled', true, target);
@@ -50,6 +51,6 @@ async function applyMinimalWorkbench(): Promise<void> {
 	await bc.update('enabled', true, target);
 
 	if (princy.get<boolean>('ui.openChatOnStartup', true)) {
-		setTimeout(() => void focusPrincyChatPanel(), 900);
+		scheduleOpenPrincyChatOnStartup();
 	}
 }

@@ -156,6 +156,17 @@ export function buildChatPanelHtml(cspSource: string, nonce: string): string {
 			border-color: var(--vscode-focusBorder, #3F3F46);
 			background: var(--vscode-list-hoverBackground, #27272A);
 		}
+		@keyframes chat-turn-enter {
+			from { opacity: 0; transform: translateY(6px); }
+			to { opacity: 1; transform: translateY(0); }
+		}
+		@keyframes chat-blink {
+			50% { opacity: 0; }
+		}
+		@keyframes chat-pulse {
+			0%, 100% { opacity: 0.45; }
+			50% { opacity: 1; }
+		}
 		.chat-turn-list {
 			display: flex;
 			flex-direction: column;
@@ -166,6 +177,7 @@ export function buildChatPanelHtml(cspSource: string, nonce: string): string {
 			flex-direction: column;
 			gap: 6px;
 			max-width: 100%;
+			animation: chat-turn-enter 0.22s ease-out;
 		}
 		.chat-turn.user {
 			align-items: flex-end;
@@ -221,6 +233,15 @@ export function buildChatPanelHtml(cspSource: string, nonce: string): string {
 		}
 		.chat-turn.assistant.streaming .chat-turn-body {
 			min-height: 1.2em;
+		}
+		.cursor-blink::after {
+			content: '▋';
+			margin-left: 1px;
+			animation: chat-blink 1s step-end infinite;
+			color: var(--princy-muted);
+		}
+		.chat-welcome {
+			animation: chat-turn-enter 0.35s ease-out;
 		}
 		.chat-thinking {
 			display: none;
@@ -314,6 +335,7 @@ export function buildChatPanelHtml(cspSource: string, nonce: string): string {
 			background: var(--vscode-input-background, var(--princy-elevated));
 			overflow: hidden;
 			box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+			transition: border-color 0.15s ease, box-shadow 0.15s ease;
 		}
 		.chat-input-container:focus-within {
 			border-color: var(--vscode-focusBorder, #3F3F46);
@@ -399,9 +421,11 @@ export function buildChatPanelHtml(cspSource: string, nonce: string): string {
 			border-radius: 50%;
 			flex-shrink: 0;
 			background: var(--vscode-errorForeground, #f48771);
+			animation: chat-pulse 2.4s ease-in-out infinite;
 		}
 		.chat-backend-dot.online {
 			background: var(--vscode-testing-iconPassed, #73c991);
+			animation: none;
 		}
 		.chat-toolbar-right {
 			display: flex;
@@ -435,21 +459,19 @@ export function buildChatPanelHtml(cspSource: string, nonce: string): string {
 			font-weight: 600;
 			background: var(--vscode-button-background, var(--princy-accent));
 			color: var(--vscode-button-foreground, var(--princy-accent-fg));
+			transition: transform 0.12s ease, background 0.12s ease;
 		}
 		.chat-send-btn:hover {
 			background: var(--vscode-button-hoverBackground, #E4E4E7);
+			transform: scale(1.04);
+		}
+		.chat-send-btn:active {
+			transform: scale(0.96);
 		}
 		.chat-send-btn:disabled {
 			opacity: 0.45;
 			cursor: not-allowed;
 		}
-		.cursor-blink::after {
-			content: '▋';
-			margin-left: 1px;
-			animation: blink 1s step-end infinite;
-			color: var(--vscode-descriptionForeground, #9d9d9d);
-		}
-		@keyframes blink { 50% { opacity: 0; } }
 		.cmd-btn {
 			margin-top: 8px;
 			height: 24px;

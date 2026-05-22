@@ -58,6 +58,7 @@ $workbenchHtml = Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench
 $logsDir = Join-Path $ProjectRoot "logs"
 
 $hasProd = Test-PrincyCodeWebProdBuild -ProjectRoot $ProjectRoot
+
 if (-not (Test-Path $serverMain)) {
 	Write-Host "ERRO: falta out\server-main.js (compile ou bundle incompleto)." -ForegroundColor Red
 	Write-Host '  cd C:\Apps\Editor; $env:NODE_OPTIONS="--max-old-space-size=8192"; $env:VSCODE_SKIP_PRELAUNCH="1"' -ForegroundColor Yellow

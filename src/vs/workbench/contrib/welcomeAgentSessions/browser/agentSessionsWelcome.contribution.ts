@@ -142,10 +142,28 @@ class AgentSessionsWelcomeRunnerContribution extends Disposable implements IWork
 		// Princy Ai uses the princy-ai webview sidebar — native Agent Sessions welcome embeds ChatWidget without agents.
 		if (isPrincyAiProduct()) {
 			await this.editorGroupsService.whenReady;
-			try {
-				await this.commandService.executeCommand('workbench.view.extension.princyai');
-			} catch {
-				await this.commandService.executeCommand('princyai.open');
+			const openPrincyChat = async (): Promise<boolean> => {
+				try {
+					await this.commandService.executeCommand('workbench.action.focusAuxiliaryBar');
+					await this.commandService.executeCommand('workbench.action.maximizeAuxiliaryBar');
+					await this.commandService.executeCommand('workbench.view.extension.princyai');
+					return true;
+				} catch {
+					try {
+						await this.commandService.executeCommand('princyai.open');
+						return true;
+					} catch {
+						return false;
+					}
+				}
+			};
+			for (const waitMs of [0, 900, 2200, 4500]) {
+				if (waitMs > 0) {
+					await new Promise<void>(resolve => setTimeout(resolve, waitMs));
+				}
+				if (await openPrincyChat()) {
+					return;
+				}
 			}
 			return;
 		}
