@@ -23,15 +23,27 @@ if (-not (Test-Path $serverMain) -or -not (Test-Path $workbenchDevHtml)) {
 	exit 1
 }
 
-$useDev = $true
-if ($Production) {
-	if ((Test-Path $workbenchHtml) -and (Test-Path (Join-Path $ProjectRoot "out\vs\workbench\workbench.web.main.css"))) {
-		$useDev = $false
-	} else {
-		Write-Host "AVISO: producao pedida mas falta workbench.html ou workbench.web.main.css - usando modo DEV." -ForegroundColor Yellow
+$workbenchCss = Join-Path $ProjectRoot "out\vs\workbench\workbench.web.main.css"
+$hasProductionBuild = (Test-Path $workbenchHtml) -and (Test-Path $workbenchCss)
+
+$useDev = $false
+if ($Dev) {
+	$useDev = $true
+} elseif ($Production) {
+	if (-not $hasProductionBuild) {
+		Write-Host "ERRO: -Production mas falta workbench.html ou workbench.web.main.css" -ForegroundColor Red
+		Write-Host "  Rode: deploy\windows\code-web\compile-princy-code-web-production.ps1" -ForegroundColor Yellow
+		exit 1
+	}
+	$useDev = $false
+} else {
+	# VPS publico: producao quando compile completo (DEV = centenas de modulos, muito lento)
+	$useDev = -not $hasProductionBuild
+	if ($useDev) {
+		Write-Host "AVISO: compile de PRODUCAO incompleto - modo DEV (lento, pode parecer travado)." -ForegroundColor Yellow
+		Write-Host "  Rode: deploy\windows\code-web\compile-princy-code-web-production.ps1" -ForegroundColor Yellow
 	}
 }
-if ($Dev) { $useDev = $true }
 
 $env:NODE_OPTIONS = "--max-old-space-size=8192"
 $env:VSCODE_SKIP_PRELAUNCH = "1"

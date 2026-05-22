@@ -41,7 +41,8 @@ node out\server-main.js
 | Nome | `PrincyAiCodeWeb` |
 | Startup | `Automatic` (SERVICE_AUTO_START) |
 | Runner | `deploy\windows\code-web\run-princy-code-web.ps1` |
-| Args NSSM | `-ProjectRoot ... -HostName 0.0.0.0 -Port 3200 -ServerBasePath /webeditor -Dev` |
+| Args NSSM | `-ProjectRoot ... -HostName 0.0.0.0 -Port 3200 -ServerBasePath /webeditor` (producao auto se compile OK) |
+| Compile producao | `deploy\windows\code-web\compile-princy-code-web-production.ps1` |
 | Logs | `logs\code-web.out.log`, `logs\code-web.err.log` |
 
 ## Comandos VPS (Administrador)
@@ -65,6 +66,7 @@ powershell -ExecutionPolicy Bypass -File deploy\windows\Start-PrincyAlwaysOnline
 | Forbidden | Sem `--without-connection-token` | Usar `run-princy-code-web.ps1` (ja inclui) |
 | EADDRINUSE | Dois processos na 3200 | `Stop-CodeWebPort.ps1` + um so servico |
 | Tela branca | VSCODE_DEV + meta undefined antigo | `git pull` + reiniciar servico |
+| Demora / nao abre OSS | Modo DEV (`VSCODE_DEV=1`, milhares de .js) | `compile-princy-code-web-production.ps1` + reiniciar servico |
 | Starting infinito | Porta ocupada / script PS quebrado | `Start-PrincyAlwaysOnline.ps1` |
 
 ## Teste rapido
