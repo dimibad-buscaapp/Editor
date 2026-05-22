@@ -47,6 +47,33 @@ function formatChatHttpError(status: number, body: string): string {
 	return body.trim() || `Erro HTTP ${status}`;
 }
 
+function agentUrl(path: string): string {
+	const normalized = path.startsWith('/') ? path : `/${path}`;
+	if (typeof window === 'undefined') {
+		return normalized;
+	}
+	const base = resolveAgentApiBase(window.location.hostname, window.location.port);
+	if (!base) {
+		return normalized;
+	}
+	return `${base.replace(/\/$/, '')}${normalized}`;
+}
+
+async function parseJsonResponse<T>(response: Response, label: string): Promise<T> {
+	const text = await response.text();
+	if (text.trimStart().startsWith('<')) {
+		throw new Error(
+			`${label}: resposta HTML em vez de JSON. ` +
+				'Use https://dashboard.princyai.com/#/chat ou confira backend :3210 e Caddy /princy-api.'
+		);
+	}
+	try {
+		return JSON.parse(text) as T;
+	} catch {
+		throw new Error(`${label}: JSON invalido (${text.slice(0, 120)})`);
+	}
+}
+
 function buildHeaders(): HeadersInit {
 	const headers: Record<string, string> = {
 		'Content-Type': 'application/json',
