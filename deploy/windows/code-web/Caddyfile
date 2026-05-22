@@ -1,7 +1,7 @@
-# princyai.com/           -> index landing (3220)
-# princyai.com/webeditor/ -> Code-OSS Web (3200) — --server-base-path /webeditor
-# princyai.com/princy-api -> agent API (3210)
-# dashboard.princyai.com  -> dashboard + chat (3210)
+# Princy Ai — 3 servicos no VPS (127.0.0.1)
+#   Landing/Index  → 3220  (princyai.com/)
+#   Code Web       → 3200  (/webeditor* — usar handle, NAO handle_path)
+#   Agent API      → 3210  (/princy-api* — handle_path; dashboard; logview; /api)
 
 {
 	email dimi.bad@gmail.com
@@ -10,13 +10,8 @@
 princyai.com, www.princyai.com {
 	encode zstd gzip
 
+	# Agent API (prefixo /princy-api removido pelo handle_path)
 	handle_path /princy-api/* {
-		reverse_proxy 127.0.0.1:3210
-	}
-
-	# LogView independente (HTML + logs sistema) — agent :3210, nao abre o projeto React
-	@logview path /logview /logview/*
-	handle @logview {
 		reverse_proxy 127.0.0.1:3210 {
 			header_up Host {host}
 			header_up X-Forwarded-Host {host}
@@ -24,7 +19,15 @@ princyai.com, www.princyai.com {
 		}
 	}
 
-	# Chat/dashboard em princyai.com/#/chat chama /api/agent/* (nao cair na landing :3220)
+	# Agent: Starter Log + chat em princyai.com que chama /api/*
+	handle /logview* {
+		reverse_proxy 127.0.0.1:3210 {
+			header_up Host {host}
+			header_up X-Forwarded-Host {host}
+			header_up X-Forwarded-Proto {scheme}
+		}
+	}
+
 	handle /api/* {
 		reverse_proxy 127.0.0.1:3210 {
 			header_up Host {host}
@@ -38,17 +41,7 @@ princyai.com, www.princyai.com {
 		redir /webeditor/ permanent
 	}
 
-	# /webeditor/log -> Code Web :3200 (pathname /log) OU Caddy estatico (fallback)
-	@webeditor_log path /webeditor/log /webeditor/log/
-	handle @webeditor_log {
-		reverse_proxy 127.0.0.1:3200 {
-			header_up Host {host}
-			header_up X-Forwarded-Host {host}
-			header_up X-Forwarded-Proto {scheme}
-		}
-	}
-
-	# NAO usar handle_path: o Code Web precisa receber /webeditor/... completo
+	# Code Web — path completo /webeditor/... (NAO usar handle_path)
 	handle /webeditor* {
 		reverse_proxy 127.0.0.1:3200 {
 			header_up Host {host}
@@ -57,6 +50,7 @@ princyai.com, www.princyai.com {
 		}
 	}
 
+	# Landing / index (tudo o resto)
 	handle {
 		reverse_proxy 127.0.0.1:3220 {
 			header_up Host {host}
