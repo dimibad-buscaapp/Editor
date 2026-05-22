@@ -90,7 +90,7 @@ function Install-PrincyCaddyService {
 	& $Nssm set $ServiceName AppStderr (Join-Path $LogsDir "caddy.err.log")
 	& $Nssm set $ServiceName Start SERVICE_AUTO_START
 	& $Nssm set $ServiceName AppRestartDelay 5000
-	& $Nssm reset $ServiceName AppExit
+	& $Nssm set $ServiceName AppExit Default Restart
 	Write-Host "Servico NSSM criado" -ForegroundColor Green
 }
 
