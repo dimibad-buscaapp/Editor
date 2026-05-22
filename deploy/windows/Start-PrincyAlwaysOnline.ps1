@@ -32,9 +32,9 @@ function Wait-Port {
 
 function Stop-PrincyPort {
 	param([int]$Port)
-	$script = Join-Path $ProjectRoot "deploy\windows\code-web\Stop-CodeWebPort.ps1"
-	if (Test-Path $script) {
-		& powershell -ExecutionPolicy Bypass -File $script -Port $Port
+	$stopScript = Join-Path $ProjectRoot "deploy\windows\code-web\Stop-CodeWebPort.ps1"
+	if (Test-Path $stopScript) {
+		& powershell -ExecutionPolicy Bypass -File $stopScript -Port $Port
 	}
 }
 
@@ -47,7 +47,7 @@ Set-Location $ProjectRoot
 $hostsScript = Join-Path $ProjectRoot "deploy\windows\princy-hosts.ps1"
 if (Test-Path $hostsScript) { . $hostsScript }
 
-Write-Host "=== Princy Ai — sempre online ===" -ForegroundColor Cyan
+Write-Host "=== Princy Ai - sempre online ===" -ForegroundColor Cyan
 Write-Host "Editor :3200 | API/Dashboard :3210 | Index :3220 | HTTPS :443" -ForegroundColor DarkGray
 Write-Host ""
 
@@ -55,7 +55,6 @@ if (-not $SkipGitPull) {
 	git pull 2>&1 | Out-Host
 }
 
-# Parar tudo e liberar portas
 $names = @('PrincyAiCodeWeb', 'PrincyAiAgentBackend', 'PrincyAiIndex', 'PrincyCaddy')
 foreach ($n in $names) {
 	Stop-Service $n -Force -ErrorAction SilentlyContinue
@@ -65,7 +64,6 @@ Stop-PrincyPort -Port 3200
 Stop-PrincyPort -Port 3210
 Stop-PrincyPort -Port 3220
 
-# Config estatica
 $caddySrc = Join-Path $ProjectRoot "deploy\windows\code-web\Caddyfile"
 $caddyDst = Join-Path $CaddyDir "Caddyfile"
 if (Test-Path $caddySrc) {
@@ -86,15 +84,17 @@ if (Test-Path $settingsSrc) {
 New-Item -ItemType Directory -Force (Join-Path $ProjectRoot "logs") | Out-Null
 New-Item -ItemType Directory -Force (Join-Path $ProjectRoot "workspaces\default") | Out-Null
 
-# NSSM
 if ($ReinstallServices) {
-	Write-Host "`nReinstalando servicos NSSM ..." -ForegroundColor Cyan
-	& powershell -ExecutionPolicy Bypass -File (Join-Path $ProjectRoot "deploy\windows\install-princy-production-services.ps1") `
-		-ProjectRoot $ProjectRoot -CaddyDir $CaddyDir -SkipBuild
-} else {
-	Write-Host "`nCorrigindo PrincyAiCodeWeb (3200) ..." -ForegroundColor Cyan
-	& powershell -ExecutionPolicy Bypass -File (Join-Path $ProjectRoot "deploy\windows\code-web\fix-princy-code-web-service.ps1") `
-		-ProjectRoot $ProjectRoot
+	Write-Host ""
+	Write-Host "Reinstalando servicos NSSM ..." -ForegroundColor Cyan
+	$installScript = Join-Path $ProjectRoot "deploy\windows\install-princy-production-services.ps1"
+	& powershell -ExecutionPolicy Bypass -File $installScript -ProjectRoot $ProjectRoot -CaddyDir $CaddyDir -SkipBuild
+}
+else {
+	Write-Host ""
+	Write-Host "Corrigindo PrincyAiCodeWeb (3200) ..." -ForegroundColor Cyan
+	$fixScript = Join-Path $ProjectRoot "deploy\windows\code-web\fix-princy-code-web-service.ps1"
+	& powershell -ExecutionPolicy Bypass -File $fixScript -ProjectRoot $ProjectRoot
 	$indexInstall = Join-Path $ProjectRoot "deploy\windows\index\install-princy-index-service.ps1"
 	if (Test-Path $indexInstall) {
 		$idx = Get-Service PrincyAiIndex -ErrorAction SilentlyContinue
@@ -114,7 +114,6 @@ if ($ReinstallServices) {
 	}
 }
 
-# Startup automatico
 foreach ($n in $names) {
 	$s = Get-Service $n -ErrorAction SilentlyContinue
 	if ($s) {
@@ -122,8 +121,8 @@ foreach ($n in $names) {
 	}
 }
 
-# Subir em ordem
-Write-Host "`nIniciando servicos ..." -ForegroundColor Cyan
+Write-Host ""
+Write-Host "Iniciando servicos ..." -ForegroundColor Cyan
 Start-Service PrincyAiAgentBackend -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 2
 Start-Service PrincyAiIndex -ErrorAction SilentlyContinue
@@ -132,8 +131,9 @@ Start-Service PrincyAiCodeWeb -ErrorAction SilentlyContinue
 
 if (-not (Wait-Port -Port 3200 -Seconds 60)) {
 	Write-Host "ERRO: porta 3200 nao escutando." -ForegroundColor Red
-	if (Test-Path (Join-Path $ProjectRoot "logs\code-web.err.log")) {
-		Get-Content (Join-Path $ProjectRoot "logs\code-web.err.log") -Tail 20
+	$errLog = Join-Path $ProjectRoot "logs\code-web.err.log"
+	if (Test-Path $errLog) {
+		Get-Content $errLog -Tail 20
 	}
 	exit 1
 }
@@ -142,29 +142,36 @@ Write-Host "Porta 3200 OK" -ForegroundColor Green
 Start-Service PrincyCaddy -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 3
 
-Write-Host "`n--- Status ---" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "--- Status ---" -ForegroundColor Cyan
 Get-Service PrincyAi* | Format-Table Name, Status, StartType -AutoSize
 Get-Service PrincyCaddy -ErrorAction SilentlyContinue | Format-Table Name, Status, StartType -AutoSize
 
-Write-Host "`n--- Log Code Web (ultimas linhas) ---" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "--- Log Code Web ---" -ForegroundColor Cyan
 $outLog = Join-Path $ProjectRoot "logs\code-web.out.log"
 if (Test-Path $outLog) {
 	Select-String -Path $outLog -Pattern "Web UI available" | Select-Object -Last 1
 	Get-Content $outLog -Tail 4
 }
 
-Write-Host "`n--- HTTP ---" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "--- HTTP ---" -ForegroundColor Cyan
 try {
 	$r1 = Invoke-WebRequest "http://127.0.0.1:3200/webeditor/" -UseBasicParsing -TimeoutSec 15
-	Write-Host "Local 3200/webeditor: $($r1.StatusCode)" -ForegroundColor Green
-} catch {
-	Write-Host "Local 3200/webeditor: FALHA $_" -ForegroundColor Red
+	Write-Host ('Local 3200/webeditor: ' + $r1.StatusCode) -ForegroundColor Green
+}
+catch {
+	Write-Host ('Local 3200/webeditor: FALHA ' + $_.Exception.Message) -ForegroundColor Red
 }
 try {
 	$r2 = Invoke-WebRequest "https://princyai.com/webeditor/" -UseBasicParsing -TimeoutSec 20
-	Write-Host "HTTPS webeditor: $($r2.StatusCode)" -ForegroundColor Green
-} catch {
-	Write-Host "HTTPS webeditor: FALHA $_" -ForegroundColor Yellow
+	Write-Host ('HTTPS webeditor: ' + $r2.StatusCode) -ForegroundColor Green
+}
+catch {
+	Write-Host ('HTTPS webeditor: FALHA ' + $_.Exception.Message) -ForegroundColor Yellow
 }
 
-Write-Host "`nPronto: https://princyai.com/webeditor/" -ForegroundColor Green
+$editorUrl = "https://princyai.com/webeditor/"
+Write-Host ""
+Write-Host ("Pronto: " + $editorUrl) -ForegroundColor Green
