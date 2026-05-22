@@ -49,6 +49,22 @@ function Stop-PortListener {
 	Start-Sleep -Seconds 2
 }
 
+# NSSM escreve em stderr mensagens inofensivas ("service has not been started"); nao abortar o script.
+function Invoke-NssmQuiet {
+	param(
+		[string]$NssmExe,
+		[Parameter(ValueFromRemainingArguments = $true)]
+		[string[]]$NssmArgs
+	)
+	$prevEap = $ErrorActionPreference
+	$ErrorActionPreference = 'Continue'
+	try {
+		& $NssmExe @NssmArgs 2>&1 | Out-Null
+	} finally {
+		$ErrorActionPreference = $prevEap
+	}
+}
+
 Write-Host "=== Fix PrincyAiCodeWeb (node direto) ===" -ForegroundColor Cyan
 
 $serverMain = Join-Path $ProjectRoot "out\server-main.js"
@@ -104,8 +120,8 @@ if ($existing) {
 	if ($existing.Status -eq 'Paused') {
 		Write-Host "Servico $ServiceName PAUSED - removendo instalacao NSSM ..." -ForegroundColor Yellow
 	}
-	$null = & $nssm stop $ServiceName confirm 2>&1
-	$null = & $nssm remove $ServiceName confirm 2>&1
+	Invoke-NssmQuiet -NssmExe $nssm stop $ServiceName confirm
+	Invoke-NssmQuiet -NssmExe $nssm remove $ServiceName confirm
 	Start-Sleep -Seconds 3
 }
 Stop-PortListener -ListenPort $Port
