@@ -14,10 +14,10 @@ princyai.com, www.princyai.com {
 		reverse_proxy 127.0.0.1:3210
 	}
 
-	# LogView dashboard (HTML no agent :3210 — nao depende do Code Web)
-	@logview path /logview /logview/
+	# LogView React (mesmo visual do chat) — landing SPA :3220
+	@logview path /logview /logview/*
 	handle @logview {
-		reverse_proxy 127.0.0.1:3210 {
+		reverse_proxy 127.0.0.1:3220 {
 			header_up Host {host}
 			header_up X-Forwarded-Host {host}
 			header_up X-Forwarded-Proto {scheme}

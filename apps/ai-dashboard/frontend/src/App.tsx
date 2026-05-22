@@ -5,8 +5,16 @@ import { HomePage } from './pages/HomePage.js';
 import { HubPage } from './pages/HubPage.js';
 import { LoginPage } from './pages/LoginPage.js';
 import { ChatPage } from './pages/ChatPage.js';
+import { LogViewPage } from './pages/LogViewPage.js';
 import { LogsPage } from './pages/LogsPage.js';
 import { navigate, parseHashRoute, type AppRoute } from './router.js';
+
+function isLogviewPath(): boolean {
+	if (typeof window === 'undefined') {
+		return false;
+	}
+	return /^\/logview\/?$/i.test(window.location.pathname);
+}
 
 export function App(): ReactElement {
 	const [route, setRoute] = useState<AppRoute>(() => parseHashRoute());
@@ -20,6 +28,9 @@ export function App(): ReactElement {
 	}, []);
 
 	useEffect(() => {
+		if (isLogviewPath()) {
+			return;
+		}
 		api.me()
 			.then(result => setUser(result.user))
 			.finally(() => setBoot(false));
@@ -28,6 +39,10 @@ export function App(): ReactElement {
 	function onAuthenticated(next: User): void {
 		setUser(next);
 		navigate('dashboard');
+	}
+
+	if (isLogviewPath()) {
+		return <LogViewPage />;
 	}
 
 	if (route === 'chat') {

@@ -2,6 +2,8 @@
  *  Princy Ai — in-memory request log for /logs UI (VPS debugging).
  *--------------------------------------------------------------------------------------------*/
 
+import { appendBootTrace } from './bootTraceLog.js';
+
 export type RequestLogEntry = {
 	readonly at: string;
 	readonly method: string;
@@ -15,9 +17,16 @@ const MAX_ENTRIES = 200;
 const entries: RequestLogEntry[] = [];
 
 export function recordRequest(entry: Omit<RequestLogEntry, 'at'>): void {
-	entries.unshift({
+	const row = {
 		at: new Date().toISOString(),
 		...entry
+	};
+	entries.unshift(row);
+	appendBootTrace({
+		level: entry.statusCode >= 500 ? 'error' : entry.statusCode >= 400 ? 'warn' : 'access',
+		phase: 'api-backend',
+		message: `${entry.method} ${entry.url}`,
+		detail: `HTTP ${entry.statusCode} · ${entry.durationMs}ms`
 	});
 	if (entries.length > MAX_ENTRIES) {
 		entries.length = MAX_ENTRIES;

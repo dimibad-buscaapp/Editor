@@ -9,6 +9,8 @@ import { getCompileJobStatus } from './compileService.js';
 import { listSegmentEngines } from './orchestrator/engines.js';
 import type { ModelSegment } from './orchestrator/types.js';
 import { config } from './config.js';
+import { appendBootTrace, getBootTrace, resetBootTraceSession, type BootTraceLevel } from './bootTraceLog.js';
+import { buildLogviewBundle } from './logviewBundle.js';
 import { readRuntimeLogs } from './editorRuntimeLog.js';
 import { probeEditorStack } from './editorProbes.js';
 import { buildRagSystemPrompt, indexAgentFile, retrieveAgentRelevantChunks } from './rag.js';
@@ -196,6 +198,39 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 	});
 
 	app.get('/api/editor/stack-probes', async () => probeEditorStack());
+
+	app.get('/api/editor/logview-bundle', async (request) => {
+		const query = request.query as { lines?: string };
+		const lines = Math.min(150, Math.max(20, Number(query.lines ?? 100) || 100));
+		return buildLogviewBundle(lines);
+	});
+
+	app.get('/api/editor/boot-trace', async () => ({
+		ok: true,
+		ts: Date.now(),
+		trace: getBootTrace(250)
+	}));
+
+	app.post('/api/editor/boot-trace/reset', async () => {
+		resetBootTraceSession();
+		appendBootTrace({ level: 'info', phase: 'logview', message: 'Sessao de trace reiniciada' });
+		return { ok: true };
+	});
+
+	app.post('/api/editor/boot-trace/client', async (request) => {
+		const body = request.body as { level?: BootTraceLevel; phase?: string; message?: string; detail?: string };
+		if (!body?.message) {
+			return { ok: false, message: 'message obrigatorio' };
+		}
+		const level = (body.level ?? 'info') as BootTraceLevel;
+		appendBootTrace({
+			level,
+			phase: body.phase ?? 'browser',
+			message: body.message,
+			detail: body.detail
+		});
+		return { ok: true };
+	});
 
 	app.get('/api/agent/models', async () => {
 		return {
