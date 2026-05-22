@@ -11,13 +11,10 @@ $ErrorActionPreference = "Stop"
 
 Set-Location $ProjectRoot
 
-$scriptPath = Join-Path $ProjectRoot "scripts\code-server.bat"
 $serverMain = Join-Path $ProjectRoot "out\server-main.js"
 $workbenchDevHtml = Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench-dev.html"
+$nodeExe = (Get-Command node.exe -ErrorAction Stop).Source
 
-if (-not (Test-Path $scriptPath)) {
-	throw "Code Server script not found at $scriptPath"
-}
 if (-not (Test-Path $serverMain) -or -not (Test-Path $workbenchDevHtml)) {
 	Write-Host "Compile ausente. Rode start-princy-code-web.ps1 uma vez antes do servico."
 	exit 1
@@ -25,6 +22,8 @@ if (-not (Test-Path $serverMain) -or -not (Test-Path $workbenchDevHtml)) {
 
 $env:NODE_OPTIONS = "--max-old-space-size=8192"
 $env:VSCODE_SKIP_PRELAUNCH = "1"
+$env:NODE_ENV = "development"
+$env:VSCODE_DEV = "1"
 
 New-Item -ItemType Directory -Force $WorkspacePath | Out-Null
 if (-not $UserDataDir) {
@@ -67,4 +66,6 @@ if ($ServerBasePath) {
 	$serverArgs += '--server-base-path', $base
 }
 
-& $scriptPath @serverArgs + $extensionArgs
+Write-Host "Starting: $nodeExe $serverMain $($serverArgs -join ' ')"
+& $nodeExe $serverMain @serverArgs
+exit $LASTEXITCODE

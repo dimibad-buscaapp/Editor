@@ -109,16 +109,7 @@ if (-not $UserDataDir) {
 }
 New-Item -ItemType Directory -Force $UserDataDir | Out-Null
 
-$disabledExtensions = @(
-	'GitHub.copilot',
-	'GitHub.copilot-chat',
-	'GitHub.vscode-pull-request-github',
-	'vscode.github-authentication',
-	'vscode.microsoft-authentication',
-	'vscode.vscode-api-tests'
-)
-$extensionArgs = foreach ($ext in $disabledExtensions) { '--disable-extension'; $ext }
-Write-Host "Disabled extensions: $($disabledExtensions -join ', ')"
+Write-Host "Copilot/auth extensions: desligados via settings + product.json (nao via --disable-extension no server)"
 Write-Host "User data dir: $UserDataDir"
 
 $serverArgs = @(
@@ -136,4 +127,5 @@ if ($ServerBasePath) {
 	Write-Host "Server base path: $base (URL publica: https://princyai.com$base/)"
 }
 
-& $scriptPath @serverArgs + $extensionArgs
+# Modo manual: usa code-server.bat (pode pedir Terminate batch job ao Ctrl+C)
+& $scriptPath @serverArgs
