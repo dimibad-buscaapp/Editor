@@ -10,7 +10,13 @@ import {
 	setAgentToken,
 	streamAgentChat
 } from '../chatClient.js';
-import { ChatComposer, ChatMessageBubble, newChatMessageId, type ChatUiMessage } from '../chatUi.js';
+import {
+	ChatComposer,
+	ChatMessageBubble,
+	ChatWelcome,
+	newChatMessageId,
+	type ChatUiMessage
+} from '../chatUi.js';
 import { navigate } from '../router.js';
 import { resolveEditorUrl } from '../princyHosts.js';
 import { api, type User } from '../api.js';
@@ -25,15 +31,7 @@ export function ChatPage(props?: {
 }): ReactElement {
 	const [models, setModels] = useState<readonly AgentModelInfo[]>([]);
 	const [agent, setAgent] = useState<AgentId>('deepseek');
-	const [messages, setMessages] = useState<readonly ChatUiMessage[]>([
-		{
-			id: newChatMessageId(),
-			role: 'assistant',
-			content: props?.user
-				? `Ola, ${props.user.name}. Chat Princy Ai com o mesmo visual do assistente — escolha o modelo e envie.`
-				: 'Ola. Sou o Princy Ai — chat direto na porta 3210. Escolha o modelo, descreva a tarefa e envie.'
-		}
-	]);
+	const [messages, setMessages] = useState<readonly ChatUiMessage[]>([]);
 	const [input, setInput] = useState('');
 	const [busy, setBusy] = useState(false);
 	const [statusLine, setStatusLine] = useState('');
@@ -44,14 +42,20 @@ export function ChatPage(props?: {
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const inputRef = useRef<HTMLTextAreaElement>(null);
 
+	const showWelcome = messages.length === 0;
+
 	useEffect(() => {
 		document.body.classList.add('chat-body');
-		return () => document.body.classList.remove('chat-body');
+		document.documentElement.classList.add('chat-body');
+		return () => {
+			document.body.classList.remove('chat-body');
+			document.documentElement.classList.remove('chat-body');
+		};
 	}, []);
 
 	useEffect(() => {
 		scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-	}, [messages, busy]);
+	}, [messages, busy, showWelcome]);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -74,7 +78,7 @@ export function ChatPage(props?: {
 			} catch (error) {
 				if (!cancelled) {
 					setBackendOnline(false);
-					setMessages(prev => [...prev, {
+					setMessages([{
 						id: newChatMessageId(),
 						role: 'system',
 						content: error instanceof Error ? error.message : 'Falha ao conectar ao backend na porta 3210'
@@ -87,8 +91,8 @@ export function ChatPage(props?: {
 		};
 	}, []);
 
-	const send = useCallback(async () => {
-		const text = input.trim();
+	const send = useCallback(async (textOverride?: string) => {
+		const text = (textOverride ?? input).trim();
 		if (!text || busy) {
 			return;
 		}
@@ -134,12 +138,9 @@ export function ChatPage(props?: {
 	}, [agent, busy, input]);
 
 	function newChat(): void {
-		setMessages([{
-			id: newChatMessageId(),
-			role: 'assistant',
-			content: 'Nova conversa. Como posso ajudar?'
-		}]);
+		setMessages([]);
 		setStatusLine('');
+		setInput('');
 	}
 
 	async function logout(): Promise<void> {
@@ -156,14 +157,17 @@ export function ChatPage(props?: {
 		<div className="chat-app">
 			<aside className="chat-sidebar">
 				<div className="chat-brand">
-					<span className="chat-logo" aria-hidden="true">P</span>
+					<span className="chat-logo" aria-hidden="true">◇</span>
 					<div>
 						<strong>Princy Ai</strong>
-						<span className="muted">
-							{props?.user ? 'Dashboard · Chat IA' : 'Chat · porta 3210'}
-						</span>
+						<span className="muted">Chat</span>
 					</div>
 				</div>
+
+				<button type="button" className="chat-side-btn primary" onClick={newChat}>
+					<span className="chat-side-btn-icon" aria-hidden="true">+</span>
+					Nova conversa
+				</button>
 
 				{props?.user ? (
 					<div className="chat-user-card">
@@ -172,30 +176,12 @@ export function ChatPage(props?: {
 					</div>
 				) : null}
 
-				<button type="button" className="chat-side-btn primary" onClick={newChat}>
-					+ Nova conversa
-				</button>
-
-				<label className="chat-field">
-					<span>Modelo</span>
-					<select value={agent} onChange={e => setAgent(e.target.value as AgentId)} disabled={busy}>
-						{models.length === 0 ? (
-							<option value="deepseek">DeepSeek Coder</option>
-						) : (
-							models.map(m => (
-								<option key={m.id} value={m.id}>{m.label}</option>
-							))
-						)}
-					</select>
-				</label>
-
 				<nav className="chat-nav">
 					<a href={EDITOR_URL} target="_blank" rel="noreferrer">Editor Code Web</a>
-					<a href="/logview/?autostart=1" target="_blank" rel="noreferrer">Starter Log (sistema)</a>
+					<a href="/logview/?autostart=1" target="_blank" rel="noreferrer">Starter Log</a>
 					{props?.user ? (
-						<button type="button" onClick={() => navigate('workspace')}>Arquivos / workspace</button>
+						<button type="button" onClick={() => navigate('workspace')}>Workspace</button>
 					) : null}
-					<button type="button" onClick={() => navigate('hub')}>Hub</button>
 					{!props?.user ? (
 						<button type="button" onClick={() => navigate('login')}>Login</button>
 					) : null}
@@ -205,7 +191,7 @@ export function ChatPage(props?: {
 				{(needsToken || getAgentToken()) && (
 					<div className="chat-token">
 						<button type="button" className="chat-side-btn ghost" onClick={() => setShowToken(v => !v)}>
-							{showToken ? 'Ocultar token API' : 'Token API (opcional)'}
+							{showToken ? 'Ocultar token' : 'Token API'}
 						</button>
 						{showToken && (
 							<>
@@ -239,28 +225,44 @@ export function ChatPage(props?: {
 
 			<section className="chat-main">
 				<header className="chat-topbar">
-					<h1>Assistente</h1>
-					{statusLine ? <span className="chat-status">{statusLine}</span> : null}
+					<div className="chat-topbar-title">
+						<h1>Chat</h1>
+						<span className="chat-topbar-sub muted">Assistente IA</span>
+					</div>
+					{backendOnline === false ? (
+						<span className="chat-topbar-badge error">Offline</span>
+					) : backendOnline ? (
+						<span className="chat-topbar-badge ok">Online</span>
+					) : null}
 				</header>
+
 				{backendOnline === false ? (
 					<div className="chat-banner error">
-						Backend offline na 3210. Rode start-princy-agent-backend.ps1 e confira Ollama (ollama pull deepseek-coder).
+						Backend offline na 3210. Confira PrincyAiAgentBackend e Ollama.
 					</div>
 				) : null}
 
 				<div className="chat-thread" ref={scrollRef}>
-					{messages.map(msg => (
-						<ChatMessageBubble key={msg.id} message={msg} busy={busy} />
-					))}
+					{showWelcome ? (
+						<ChatWelcome onPick={text => void send(text)} />
+					) : (
+						messages.map(msg => (
+							<ChatMessageBubble key={msg.id} message={msg} busy={busy} />
+						))
+					)}
 				</div>
 
 				<ChatComposer
 					input={input}
 					busy={busy}
+					agent={agent}
+					models={models}
+					statusLine={statusLine}
+					backendOnline={backendOnline}
+					onAgentChange={setAgent}
 					onInput={setInput}
 					onSend={() => void send()}
 					inputRef={inputRef}
-					hint="Estilo Cursor · motores DeepSeek, Qwen, Princy consenso"
 				/>
 			</section>
 		</div>
