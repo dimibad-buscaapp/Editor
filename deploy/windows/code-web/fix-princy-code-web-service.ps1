@@ -101,9 +101,9 @@ if ($existing) {
 }
 Stop-PortListener -ListenPort $Port
 
-$serverMainRel = "out\server-main.js"
+$serverMainAbs = $serverMain
 $appParams = @(
-	$serverMainRel,
+	$serverMainAbs,
 	$WorkspacePath,
 	'--host', '0.0.0.0',
 	'--port', "$Port",

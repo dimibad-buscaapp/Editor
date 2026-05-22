@@ -10,6 +10,15 @@ O Caddy **nao pode** usar `handle_path /webeditor/*` (remove o prefixo `/webedit
 
 Sem isso, JS/CSS e WebSocket retornam 404 e a pagina fica branca.
 
+## Diagnostico completo (pente fino)
+
+```powershell
+cd C:\Apps\Editor
+git pull
+powershell -ExecutionPolicy Bypass -File deploy\windows\code-web\audit-code-web-ultra.ps1
+powershell -ExecutionPolicy Bypass -File deploy\windows\code-web\audit-code-web-ultra.ps1 -Fix
+```
+
 ## Correcao no VPS (um comando)
 
 ```powershell

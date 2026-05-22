@@ -10,6 +10,15 @@ Este é o deploy principal do Princy Ai neste momento. Ele abre a experiência P
 - Porta interna: `3200`
 - Dominio: `princyai.com`
 
+## Tela branca em /webeditor/
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\deploy\windows\code-web\audit-code-web-ultra.ps1
+powershell -ExecutionPolicy Bypass -File .\deploy\windows\code-web\audit-code-web-ultra.ps1 -Fix
+```
+
+Ver tambem [WEBEDITOR-BLANK.md](../WEBEDITOR-BLANK.md).
+
 ## Fontes (JetBrains Mono)
 
 Instale as fontes do editor antes do primeiro uso:
