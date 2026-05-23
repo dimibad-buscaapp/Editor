@@ -9,16 +9,41 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+function Invoke-NssmQuiet {
+	param([string]$NssmExe, [string[]]$NssmArgs)
+	$prev = $ErrorActionPreference
+	$ErrorActionPreference = "Continue"
+	try {
+		& $NssmExe @NssmArgs 2>&1 | Out-Null
+	} finally {
+		$ErrorActionPreference = $prev
+	}
+}
+
+function Get-NssmFromInstalledService {
+	param([string]$Name)
+	$svc = Get-CimInstance Win32_Service -Filter "Name='$Name'" -ErrorAction SilentlyContinue
+	if (-not $svc?.PathName) { return $null }
+	if ($svc.PathName -match '^"([^"]+\\nssm\.exe)"') { return $Matches[1] }
+	if ($svc.PathName -match '^([^\s]+\\nssm\.exe)') { return $Matches[1] }
+	return $null
+}
+
 function Get-NssmPath {
+	$fromSvc = Get-NssmFromInstalledService -Name "PrincyAiAgentBackend"
+	if ($fromSvc -and (Test-Path $fromSvc)) { return $fromSvc }
 	$cmd = Get-Command nssm.exe -ErrorAction SilentlyContinue
 	if ($cmd) { return $cmd.Source }
 	foreach ($path in @(
 		"${env:ProgramFiles}\nssm\nssm.exe",
-		"${env:ProgramFiles(x86)}\nssm\nssm.exe"
+		"${env:ProgramFiles(x86)}\nssm\nssm.exe",
+		"C:\Tools\nssm\nssm.exe",
+		"C:\nssm\nssm.exe",
+		"C:\Caddy\nssm.exe"
 	)) {
 		if (Test-Path $path) { return $path }
 	}
-	throw "nssm.exe nao encontrado. winget install NSSM.NSSM"
+	throw "nssm.exe nao encontrado. Instale: winget install NSSM.NSSM"
 }
 
 function Resolve-NodeExe {
@@ -34,7 +59,42 @@ function Resolve-NodeExe {
 	throw "node.exe nao encontrado. Instale Node.js LTS."
 }
 
+function Remove-AgentService {
+	param([string]$Name, [string]$NssmExe)
+	$existing = Get-Service $Name -ErrorAction SilentlyContinue
+	if (-not $existing) { return }
+
+	Write-Host "Estado actual: $($existing.Status)" -ForegroundColor DarkGray
+	if ($existing.Status -eq "Paused") {
+		Write-Host "Servico $Name PAUSED - a limpar ..." -ForegroundColor Yellow
+		Resume-Service $Name -ErrorAction SilentlyContinue
+		Start-Sleep -Seconds 1
+	}
+	if ($existing.Status -in @("Running", "Paused", "StartPending")) {
+		Stop-Service $Name -Force -ErrorAction SilentlyContinue
+		Start-Sleep -Seconds 2
+	}
+	if ($NssmExe) {
+		Invoke-NssmQuiet -NssmExe $NssmExe -NssmArgs @("stop", $Name, "confirm")
+		Invoke-NssmQuiet -NssmExe $NssmExe -NssmArgs @("remove", $Name, "confirm")
+	}
+	if (Get-Service $Name -ErrorAction SilentlyContinue) {
+		Write-Host "NSSM remove incompleto - sc.exe delete ..." -ForegroundColor Yellow
+		sc.exe stop $Name 2>&1 | Out-Null
+		Start-Sleep -Seconds 2
+		sc.exe delete $Name 2>&1 | Out-Null
+	}
+	for ($i = 0; $i -lt 30; $i++) {
+		if (-not (Get-Service $Name -ErrorAction SilentlyContinue)) { break }
+		Start-Sleep -Seconds 1
+	}
+	if (Get-Service $Name -ErrorAction SilentlyContinue) {
+		throw "Servico $Name ainda existe. Reinicie o VPS e execute de novo."
+	}
+}
+
 $nssm = Get-NssmPath
+Write-Host "NSSM: $nssm" -ForegroundColor DarkGray
 $nodeExe = Resolve-NodeExe
 $appRoot = Join-Path $ProjectRoot "apps\ai-dashboard"
 $serverJs = Join-Path $appRoot "dist\backend\server.js"
@@ -49,46 +109,25 @@ if (-not (Test-Path $serverJs)) {
 New-Item -ItemType Directory -Force $logsDir | Out-Null
 
 function Stop-PortListener {
-	param([int]$Port)
-	$line = netstat -ano | Select-String "LISTENING" | Select-String ":$Port "
+	param([int]$ListenPort)
+	$line = netstat -ano | Select-String "LISTENING" | Select-String ":$ListenPort "
 	if (-not $line) { return }
-	$pid = ($line.ToString() -split '\s+')[-1]
-	if ($pid -match '^\d+$') {
-		Write-Host "Liberando porta $Port (PID $pid) ..."
-		Stop-Process -Id ([int]$pid) -Force -ErrorAction SilentlyContinue
+	$procId = ($line.ToString() -split '\s+')[-1]
+	if ($procId -match '^\d+$') {
+		Write-Host "Liberando porta $ListenPort (PID $procId) ..."
+		Stop-Process -Id ([int]$procId) -Force -ErrorAction SilentlyContinue
 		Start-Sleep -Seconds 2
 	}
 }
 
-$existing = Get-Service $ServiceName -ErrorAction SilentlyContinue
-if ($existing) {
-	if ($existing.Status -eq 'Paused') {
-		Write-Host "Servico $ServiceName PAUSED - removendo instalacao NSSM ..." -ForegroundColor Yellow
-		Resume-Service $ServiceName -ErrorAction SilentlyContinue
-		Start-Sleep -Seconds 1
-	}
-	if ($existing.Status -eq 'Running' -or $existing.Status -eq 'Paused') {
-		Stop-Service $ServiceName -Force -ErrorAction SilentlyContinue
-		Start-Sleep -Seconds 2
-	}
-	& $nssm stop $ServiceName confirm 2>$null
-	& $nssm remove $ServiceName confirm
-}
-for ($i = 0; $i -lt 30; $i++) {
-	if (-not (Get-Service $ServiceName -ErrorAction SilentlyContinue)) { break }
-	Start-Sleep -Seconds 1
-}
-if (Get-Service $ServiceName -ErrorAction SilentlyContinue) {
-	throw "Servico $ServiceName ainda existe apos remocao. Reinicie o VPS ou aguarde 1 minuto e tente de novo."
-}
-
-Stop-PortListener -Port $Port
+Remove-AgentService -Name $ServiceName -NssmExe $nssm
+Stop-PortListener -ListenPort $Port
 
 Write-Host "Node: $nodeExe"
 Write-Host "Server: $serverJs"
 Write-Host "AppDirectory: $appRoot"
 
-& $nssm install $ServiceName $nodeExe $serverJs
+Invoke-NssmQuiet -NssmExe $nssm -NssmArgs @("install", $ServiceName, $nodeExe, $serverJs)
 & $nssm set $ServiceName AppDirectory $appRoot
 & $nssm set $ServiceName AppStdout (Join-Path $logsDir "agent-backend.out.log")
 & $nssm set $ServiceName AppStderr (Join-Path $logsDir "agent-backend.err.log")
@@ -97,7 +136,7 @@ Write-Host "AppDirectory: $appRoot"
 & $nssm set $ServiceName AppExit Default Restart
 & $nssm set $ServiceName AppEnvironmentExtra "NODE_OPTIONS=--max-old-space-size=8192" "API_PORT=$Port"
 
-Write-Host "Servico reinstalado. Iniciando ..."
+Write-Host "Servico reinstalado. Iniciando ..." -ForegroundColor Green
 Start-Service $ServiceName
 Start-Sleep -Seconds 5
 Get-Service $ServiceName
@@ -105,5 +144,9 @@ try {
 	Invoke-WebRequest "http://127.0.0.1:$Port/api/agent/health" -UseBasicParsing | Select-Object StatusCode, Content
 } catch {
 	Write-Host "Health falhou. Log:" -ForegroundColor Red
-	Get-Content (Join-Path $logsDir "agent-backend.err.log") -Tail 30 -ErrorAction SilentlyContinue
+	$errLog = Join-Path $logsDir "agent-backend.err.log"
+	if (Test-Path $errLog) {
+		Get-Content $errLog -Tail 30
+	}
+	exit 1
 }
