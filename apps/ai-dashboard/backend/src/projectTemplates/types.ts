@@ -1,4 +1,5 @@
-import type { BuildTarget } from '../actionRun/types.js';
+/** Build kinds for templates (kept local so Fase 4 does not depend on actionRun). */
+export type BuildTarget = 'web' | 'api' | 'exe' | 'apk';
 
 export type ProjectTemplateId =
 	| 'apk'
