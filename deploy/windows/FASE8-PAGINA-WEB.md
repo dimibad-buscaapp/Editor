@@ -48,17 +48,28 @@ Após build web de projeto com sucesso, o Build Center grava `previewUrl` no man
 | `PRINCY_SITES_PREVIEW_ROOT` | `{WORKSPACE_STORAGE}/princy-sites-preview` |
 | `PRINCY_PUBLIC_ORIGIN` | `https://princyai.com` |
 
-## Preparação VPS
+## Preparação VPS (script único)
+
+PowerShell **como Administrador**, na raiz do repo:
+
+```powershell
+cd C:\Apps\Editor
+powershell -ExecutionPolicy Bypass -File .\deploy\windows\deploy-fase8-pagina-web.ps1
+```
+
+O script faz: `git pull`, pastas de sites, build do agent, Caddy (`C:\Caddy\Caddyfile`), reinstala `PrincyAiAgentBackend`, sync da extensão e testes em `/api/sites`.
+
+### Manual (passo a passo)
 
 ```powershell
 cd C:\Apps\Editor
 git pull --no-rebase origin main
-.\deploy\windows\ensure-princy-sites-folder.ps1
-cd apps\ai-dashboard
-npm run build
-# Se o Caddyfile mudou:
-caddy reload --config deploy\windows\code-web\Caddyfile
-Restart-Service PrincyAiAgentBackend
+powershell -ExecutionPolicy Bypass -File .\deploy\windows\ensure-princy-sites-folder.ps1
+powershell -ExecutionPolicy Bypass -File .\deploy\windows\agent-backend\build-princy-agent-backend.ps1
+Copy-Item .\deploy\windows\code-web\Caddyfile C:\Caddy\Caddyfile -Force
+C:\Caddy\caddy.exe reload --config C:\Caddy\Caddyfile
+powershell -ExecutionPolicy Bypass -File .\deploy\windows\agent-backend\fix-princy-agent-backend-service.ps1
+powershell -ExecutionPolicy Bypass -File .\deploy\windows\code-web\sync-princy-ai-out-extensions.ps1
 ```
 
 ## Extensão Princy AI
@@ -73,7 +84,9 @@ No **Build Center**, com tipo **Web** e um projeto selecionado:
 ## Verificação rápida
 
 ```powershell
+Invoke-RestMethod http://127.0.0.1:3210/api/sites
 Invoke-RestMethod https://princyai.com/princy-api/api/sites
+powershell -ExecutionPolicy Bypass -File .\deploy\windows\code-web\verify-princy-chat-api.ps1
 ```
 
 (Com `AGENT_API_TOKEN` definido, use `Authorization: Bearer ...` nas rotas POST.)

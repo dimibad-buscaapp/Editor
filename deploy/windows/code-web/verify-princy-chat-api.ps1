@@ -114,6 +114,45 @@ Test-JsonHealth "Code Web proxy agent" "http://127.0.0.1:${CodeWebPort}/princy-a
 Test-JsonHealth "HTTPS Caddy agent" "https://${PublicHost}/princy-api/api/agent/health" | Out-Null
 
 Write-Host ""
+Write-Host "[Fase 8 /api/sites]" -ForegroundColor Cyan
+try {
+	$r = Invoke-RestMethod "http://127.0.0.1:${ApiPort}/api/sites" -TimeoutSec 20
+	if ($r.ok -eq $true) {
+		Write-Host "  API direta /api/sites: OK (sites=$($r.sites.Count))" -ForegroundColor Green
+	} else {
+		$issues += "/api/sites - ok nao true"
+		Write-Host "  API direta /api/sites: resposta inesperada" -ForegroundColor Red
+	}
+} catch {
+	$issues += "/api/sites - $($_.Exception.Message)"
+	Write-Host "  API direta /api/sites: FALHA" -ForegroundColor Red
+}
+try {
+	$r = Invoke-RestMethod "https://${PublicHost}/princy-api/api/sites" -TimeoutSec 25
+	if ($r.ok -eq $true) {
+		Write-Host "  HTTPS /princy-api/api/sites: OK" -ForegroundColor Green
+	} else {
+		$issues += "HTTPS /api/sites - ok nao true"
+		Write-Host "  HTTPS /princy-api/api/sites: resposta inesperada" -ForegroundColor Red
+	}
+} catch {
+	$issues += "HTTPS /api/sites - $($_.Exception.Message)"
+	Write-Host "  HTTPS /princy-api/api/sites: FALHA" -ForegroundColor Red
+}
+$sitesPreview = Join-Path $ProjectRoot "apps\ai-dashboard\workspace-storage\princy-sites-preview"
+$sitesPub = Join-Path $ProjectRoot "apps\ai-dashboard\workspace-storage\princy-sites"
+foreach ($pair in @(
+	@{ Label = "princy-sites-preview"; Path = $sitesPreview },
+	@{ Label = "princy-sites"; Path = $sitesPub }
+)) {
+	if (Test-Path $pair.Path) {
+		Write-Host "  $($pair.Label): $($pair.Path)" -ForegroundColor DarkGray
+	} else {
+		Write-Host "  $($pair.Label): ausente (crie com ensure-princy-sites-folder.ps1)" -ForegroundColor Yellow
+	}
+}
+
+Write-Host ""
 Write-Host "[Extensao web]" -ForegroundColor Cyan
 $extJs = Join-Path $ProjectRoot "extensions\princy-ai\dist\browser\extension.js"
 if (Test-Path $extJs) {
