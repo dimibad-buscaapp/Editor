@@ -18,6 +18,8 @@ export type BuildManifest = {
 	readonly artifactName?: string;
 	readonly artifactReady: boolean;
 	readonly errorMessage?: string;
+	/** Fase 8: URL de preview apos build web de projeto. */
+	readonly previewUrl?: string;
 };
 
 export type StartBuildInput = {
@@ -38,6 +40,7 @@ export type BuildStatusResponse = {
 	readonly artifactName?: string;
 	readonly workspacePath: string;
 	readonly projectSlug?: string;
+	readonly previewUrl?: string;
 };
 
 export type BuildLogsResponse = {

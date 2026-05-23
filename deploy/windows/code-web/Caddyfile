@@ -36,6 +36,23 @@ princyai.com, www.princyai.com {
 		}
 	}
 
+	# Fase 8: sites estaticos (preview + publicados) no agent :3210
+	handle /princy-sites* {
+		reverse_proxy 127.0.0.1:3210 {
+			header_up Host {host}
+			header_up X-Forwarded-Host {host}
+			header_up X-Forwarded-Proto {scheme}
+		}
+	}
+
+	handle /princy-sites-preview* {
+		reverse_proxy 127.0.0.1:3210 {
+			header_up Host {host}
+			header_up X-Forwarded-Host {host}
+			header_up X-Forwarded-Proto {scheme}
+		}
+	}
+
 	@webeditor_root path /webeditor
 	handle @webeditor_root {
 		redir /webeditor/ permanent

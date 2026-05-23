@@ -121,6 +121,22 @@ export const config = {
 		const storageRoot = path.resolve(process.env.WORKSPACE_STORAGE_ROOT ?? './workspace-storage');
 		return path.join(storageRoot, 'builds');
 	})(),
+	/** Fase 8: sites publicados em /princy-sites/{slug}/ */
+	sitesPublishedRoot: (() => {
+		const storageRoot = path.resolve(process.env.WORKSPACE_STORAGE_ROOT ?? './workspace-storage');
+		return path.resolve(process.env.PRINCY_SITES_ROOT ?? path.join(storageRoot, 'princy-sites'));
+	})(),
+	/** Fase 8: preview em /princy-sites-preview/{slug}/ */
+	sitesPreviewRoot: (() => {
+		const storageRoot = path.resolve(process.env.WORKSPACE_STORAGE_ROOT ?? './workspace-storage');
+		return path.resolve(
+			process.env.PRINCY_SITES_PREVIEW_ROOT ?? path.join(storageRoot, 'princy-sites-preview')
+		);
+	})(),
+	sitesPublishedPathPrefix: '/princy-sites',
+	sitesPreviewPathPrefix: '/princy-sites-preview',
+	/** Origem publica para URLs de sites (ex. https://princyai.com). */
+	publicOrigin: stripTrailingSlash(process.env.PRINCY_PUBLIC_ORIGIN ?? 'https://princyai.com'),
 	buildArtifactMaxMb: Number(process.env.PRINCY_BUILD_ARTIFACT_MAX_MB ?? '500'),
 	compileJobWaitTimeoutMs: Number(process.env.PRINCY_COMPILE_WAIT_MS ?? String(30 * 60_000)),
 	allowedWorkspaceRoots: (() => {
@@ -130,11 +146,25 @@ export const config = {
 			process.env.PRINCY_PROJECTS_ROOT ?? path.join(storageRoot, 'projetos')
 		);
 		const buildsRoot = path.join(storageRoot, 'builds');
+		const sitesPublishedRoot = path.resolve(
+			process.env.PRINCY_SITES_ROOT ?? path.join(storageRoot, 'princy-sites')
+		);
+		const sitesPreviewRoot = path.resolve(
+			process.env.PRINCY_SITES_PREVIEW_ROOT ?? path.join(storageRoot, 'princy-sites-preview')
+		);
 		const extra = (process.env.PRINCY_ALLOWED_WORKSPACE_ROOTS ?? '')
 			.split(',')
 			.map(value => value.trim())
 			.filter(Boolean)
 			.map(value => path.resolve(value));
-		return [...new Set([...extra, editorRoot, projectsRoot, buildsRoot, storageRoot])];
+		return [...new Set([
+			...extra,
+			editorRoot,
+			projectsRoot,
+			buildsRoot,
+			sitesPublishedRoot,
+			sitesPreviewRoot,
+			storageRoot
+		])];
 	})()
 };

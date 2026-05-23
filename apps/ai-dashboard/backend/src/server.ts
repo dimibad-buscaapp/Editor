@@ -15,6 +15,7 @@ import { registerBuildRoutes } from './buildRoutes.js';
 import { registerAgentRoutes } from './agentRoutes.js';
 import { registerProjectRoutes } from './projectRoutes.js';
 import { registerLogviewRoutes } from './logviewRoutes.js';
+import { registerSiteRoutes, registerSiteStatic } from './sites/siteRoutes.js';
 import { recordRequest } from './requestLog.js';
 import { registerRoutes } from './routes.js';
 
@@ -79,10 +80,13 @@ app.addHook('onRequest', async request => {
 ensureBuildStorageLayout();
 recoverInterruptedBuilds();
 
+await registerSiteStatic(app);
+
 await registerRoutes(app);
 await registerAgentRoutes(app);
 await registerProjectRoutes(app);
 await registerBuildRoutes(app);
+await registerSiteRoutes(app);
 await registerLogviewRoutes(app);
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
@@ -94,7 +98,11 @@ const frontendDist = path.resolve(currentDir, '../../dist/frontend');
 		index: ['index.html'],
 		allowedPath: (_pathName, _root, request) => {
 			const url = request.url.split('?')[0] ?? request.url;
-			return !url.startsWith('/api/') && !url.startsWith('/v1/') && !url.startsWith('/logview');
+			return !url.startsWith('/api/')
+				&& !url.startsWith('/v1/')
+				&& !url.startsWith('/logview')
+				&& !url.startsWith('/princy-sites')
+				&& !url.startsWith('/princy-sites-preview');
 		}
 	});
 

@@ -718,11 +718,11 @@ export function buildChatPanelHtml(cspSource: string, nonce: string, styleUri?: 
 			</div>
 			<div class="build-center-form">
 				<label class="chat-sr-only" for="bcBuildType">Tipo</label>
-				<select id="bcBuildType" class="chat-model-select" title="Tipo">
+				<select id="bcBuildType" class="chat-model-select" title="Tipo de build">
 					<option value="web">Web</option>
 					<option value="api">API</option>
-					<option value="exe">EXE</option>
-					<option value="apk">APK</option>
+					<option value="exe" title="Windows: Electron + electron-builder">EXE</option>
+					<option value="apk" title="Android: Capacitor + Gradle">APK</option>
 				</select>
 				<label class="chat-sr-only" for="bcProject">Projeto</label>
 				<select id="bcProject" class="chat-model-select" title="Projeto">
@@ -730,6 +730,21 @@ export function buildChatPanelHtml(cspSource: string, nonce: string, styleUri?: 
 				</select>
 				<button type="button" class="chat-toolbar-btn" id="bcStartBtn">Iniciar build</button>
 				<button type="button" class="chat-toolbar-btn" id="bcDownloadBtn" disabled>Download</button>
+			</div>
+			<div class="web-publisher-panel" id="webPublisherPanel" style="display:none">
+				<div class="web-publisher-stepper" id="webPublisherStepper" aria-label="Fluxo pagina web">
+					<span class="web-step" data-step="create">1 Criar</span>
+					<span class="web-step" data-step="code">2 Codigo</span>
+					<span class="web-step active" data-step="build">3 Build</span>
+					<span class="web-step" data-step="preview">4 Preview</span>
+					<span class="web-step" data-step="publish">5 Publicar</span>
+				</div>
+				<div class="web-publisher-urls" id="webPublisherUrls"></div>
+				<div class="web-publisher-actions">
+					<button type="button" class="chat-toolbar-btn" id="bcGoCreatorBtn" title="Abrir Creator">Creator</button>
+					<button type="button" class="chat-toolbar-btn" id="bcPreviewBtn" disabled>Abrir preview</button>
+					<button type="button" class="chat-toolbar-btn" id="bcPublishBtn" disabled>Publicar</button>
+				</div>
 			</div>
 			<pre class="build-center-log" id="buildCenterLog" aria-live="polite"></pre>
 		</div>
@@ -859,11 +874,18 @@ function getChatPanelScript(): string {
 		const bcProject = document.getElementById('bcProject');
 		const bcStartBtn = document.getElementById('bcStartBtn');
 		const bcDownloadBtn = document.getElementById('bcDownloadBtn');
+		const webPublisherPanel = document.getElementById('webPublisherPanel');
+		const webPublisherUrls = document.getElementById('webPublisherUrls');
+		const webPublisherStepper = document.getElementById('webPublisherStepper');
+		const bcGoCreatorBtn = document.getElementById('bcGoCreatorBtn');
+		const bcPreviewBtn = document.getElementById('bcPreviewBtn');
+		const bcPublishBtn = document.getElementById('bcPublishBtn');
 		const buildCenterLog = document.getElementById('buildCenterLog');
 		const buildCenterStatusBadge = document.getElementById('buildCenterStatusBadge');
 		let buildCenterProjects = [];
 		let activeBuildId = null;
 		let buildLogSource = null;
+		let currentSiteInfo = null;
 		const ACTION_STEP_LABELS = ['Entender', 'Plano', 'Arquivos', 'Diff', 'Aprovar', 'Build', 'Test', 'Resultado'];
 
 		if (!input) {
@@ -946,6 +968,7 @@ function getChatPanelScript(): string {
 			if (followups) followups.style.display = mode === 'composer' ? 'none' : '';
 			if (composerBtn) composerBtn.style.display = mode === 'composer' ? 'none' : '';
 			if (buildCenterPanel) buildCenterPanel.style.display = mode === 'buildCenter' ? 'flex' : 'none';
+			if (mode === 'buildCenter') updateWebPublisherVisibility();
 			if (creatorPanel) creatorPanel.style.display = mode === 'creator' ? 'flex' : 'none';
 			if (input && mode === 'creator') input.placeholder = MODE_PLACEHOLDERS.creator;
 			if (actionRunPanel && (mode === 'chat' || mode === 'creator' || mode === 'buildCenter')) {
@@ -976,7 +999,110 @@ function getChatPanelScript(): string {
 			if (current && Array.from(bcProject.options).some(o => o.value === current)) {
 				bcProject.value = current;
 			}
+			const slug = bcProject.value;
+			if (slug && bcBuildType?.value === 'web') {
+				vscode.postMessage({ type: 'loadSiteInfo', slug });
+			}
 		}
+
+		function updateWebPublisherVisibility() {
+			const isWeb = bcBuildType?.value === 'web';
+			if (webPublisherPanel) webPublisherPanel.style.display = isWeb ? 'flex' : 'none';
+			if (!isWeb) return;
+			const slug = bcProject?.value;
+			if (slug) vscode.postMessage({ type: 'loadSiteInfo', slug });
+			else renderWebPublisherUrls(null);
+		}
+
+		function setWebStepState(step, state) {
+			if (!webPublisherStepper) return;
+			const el = webPublisherStepper.querySelector('[data-step="' + step + '"]');
+			if (!el) return;
+			el.classList.remove('active', 'done');
+			if (state === 'active') el.classList.add('active');
+			if (state === 'done') el.classList.add('done');
+		}
+
+		function renderWebPublisherUrls(site) {
+			currentSiteInfo = site;
+			if (!webPublisherUrls) return;
+			webPublisherUrls.innerHTML = '';
+			if (!site) {
+				if (bcPreviewBtn) bcPreviewBtn.disabled = true;
+				if (bcPublishBtn) bcPublishBtn.disabled = true;
+				return;
+			}
+			if (site.hasPreview) {
+				const p = document.createElement('p');
+				p.innerHTML = 'Preview: <a href="#" data-url="' + site.previewUrl + '">' + site.previewUrl + '</a>';
+				webPublisherUrls.appendChild(p);
+				if (bcPreviewBtn) bcPreviewBtn.disabled = false;
+				setWebStepState('preview', 'done');
+			} else {
+				if (bcPreviewBtn) bcPreviewBtn.disabled = true;
+				setWebStepState('preview', 'active');
+			}
+			if (site.hasPublished) {
+				const pub = document.createElement('p');
+				pub.innerHTML = 'Publicado: <a href="#" data-url="' + site.publishedUrl + '">' + site.publishedUrl + '</a>';
+				webPublisherUrls.appendChild(pub);
+				setWebStepState('publish', 'done');
+			} else {
+				setWebStepState('publish', site.hasPreview ? 'active' : '');
+				if (bcPublishBtn) bcPublishBtn.disabled = !site.hasPreview;
+			}
+			for (const a of webPublisherUrls.querySelectorAll('a[data-url]')) {
+				a.addEventListener('click', ev => {
+					ev.preventDefault();
+					const url = a.getAttribute('data-url');
+					if (url) vscode.postMessage({ type: 'openSitePreview', url });
+				});
+			}
+		}
+
+		bcBuildType?.addEventListener('change', () => {
+			updateWebPublisherVisibility();
+			if (bcBuildType?.value === 'web' && bcProject?.value) {
+				vscode.postMessage({ type: 'loadSiteInfo', slug: bcProject.value });
+			}
+		});
+
+		bcProject?.addEventListener('change', () => {
+			if (bcBuildType?.value === 'web' && bcProject?.value) {
+				vscode.postMessage({ type: 'loadSiteInfo', slug: bcProject.value });
+			} else {
+				renderWebPublisherUrls(null);
+			}
+		});
+
+		bcGoCreatorBtn?.addEventListener('click', () => setChatMode('creator', true));
+
+		bcPreviewBtn?.addEventListener('click', () => {
+			const slug = bcProject?.value;
+			if (!slug) {
+				setStatus('Selecione um projeto');
+				return;
+			}
+			if (currentSiteInfo?.previewUrl) {
+				vscode.postMessage({ type: 'openSitePreview', url: currentSiteInfo.previewUrl });
+				return;
+			}
+			vscode.postMessage({ type: 'syncSitePreview', slug, projectSlug: slug });
+		});
+
+		bcPublishBtn?.addEventListener('click', () => {
+			const slug = bcProject?.value;
+			if (!slug) {
+				setStatus('Selecione um projeto');
+				return;
+			}
+			vscode.postMessage({
+				type: 'publishSite',
+				slug,
+				projectSlug: slug,
+				buildId: activeBuildId || undefined
+			});
+		});
 
 		function appendBuildCenterLog(text) {
 			if (!buildCenterLog || !text) return;
@@ -1383,6 +1509,30 @@ function getChatPanelScript(): string {
 				setBuildCenterStatus(message.status);
 				if (message.status === 'success' && bcDownloadBtn) bcDownloadBtn.disabled = false;
 				if (message.status === 'error' || message.status === 'success') closeBuildLogStream();
+				if (message.status === 'success' && bcBuildType?.value === 'web') {
+					setWebStepState('build', 'done');
+					setWebStepState('preview', 'active');
+					if (message.previewUrl) {
+						renderWebPublisherUrls({
+							slug: bcProject?.value || '',
+							previewUrl: message.previewUrl,
+							publishedUrl: '',
+							hasPreview: true,
+							hasPublished: false
+						});
+					}
+					if (bcProject?.value) {
+						vscode.postMessage({ type: 'loadSiteInfo', slug: bcProject.value });
+					}
+				}
+			}
+			if (message.type === 'siteInfo') {
+				renderWebPublisherUrls(message.site || null);
+			}
+			if (message.type === 'sitePublished') {
+				renderWebPublisherUrls(message.site || null);
+				setWebStepState('publish', 'done');
+				setStatus('Site publicado');
 			}
 			if (message.type === 'buildCenterLog') {
 				appendBuildCenterLog(message.text || '');

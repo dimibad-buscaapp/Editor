@@ -46,6 +46,10 @@ type WebviewMessage =
 	| { readonly type: 'startBuilder'; readonly target: import('./agentClient').BuildTarget }
 	| { readonly type: 'startBuildCenter'; readonly target: import('./agentClient').BuildTarget; readonly projectSlug?: string; readonly note?: string }
 	| { readonly type: 'downloadBuildCenter'; readonly buildId: string }
+	| { readonly type: 'loadSiteInfo'; readonly slug: string }
+	| { readonly type: 'syncSitePreview'; readonly slug: string; readonly projectSlug?: string }
+	| { readonly type: 'publishSite'; readonly slug: string; readonly projectSlug?: string; readonly buildId?: string }
+	| { readonly type: 'openSitePreview'; readonly url: string }
 	| { readonly type: 'createProject'; readonly templateId: ProjectTemplateId; readonly projectName: string; readonly runInstall?: boolean }
 	| { readonly type: 'openCreatedProject'; readonly projectPath: string }
 	| { readonly type: 'buildCreatedProject'; readonly projectPath: string; readonly target: import('./agentClient').BuildTarget };
@@ -169,6 +173,18 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 				break;
 			case 'downloadBuildCenter':
 				await this.downloadBuildCenterArtifact(message.buildId);
+				break;
+			case 'loadSiteInfo':
+				await this.loadSiteInfo(message.slug);
+				break;
+			case 'syncSitePreview':
+				await this.syncSitePreview(message.slug, message.projectSlug);
+				break;
+			case 'publishSite':
+				await this.publishSite(message.slug, message.projectSlug, message.buildId);
+				break;
+			case 'openSitePreview':
+				await vscode.env.openExternal(vscode.Uri.parse(message.url));
 				break;
 			case 'createProject':
 				await this.runCreateProject(message.templateId, message.projectName, message.runInstall ?? true);
@@ -739,7 +755,8 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 					type: 'buildCenterStatus',
 					buildId: snapshot.buildId,
 					status: snapshot.status,
-					artifactReady: snapshot.artifactReady
+					artifactReady: snapshot.artifactReady,
+					previewUrl: snapshot.previewUrl
 				});
 			});
 			const summary = final.status === 'success'
@@ -750,8 +767,12 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 				type: 'buildCenterStatus',
 				buildId: final.buildId,
 				status: final.status,
-				artifactReady: final.artifactReady
+				artifactReady: final.artifactReady,
+				previewUrl: final.previewUrl
 			});
+			if (buildTarget === 'web' && projectSlug) {
+				void this.loadSiteInfo(projectSlug);
+			}
 			if (legacyBuilder) {
 				this.view?.webview.postMessage({ type: 'actionRun', phase: final.status === 'success' ? 'completed' : 'failed', resultSummary: summary });
 			}
@@ -771,6 +792,41 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 		try {
 			const url = await this.client.getBuildDownloadUrl(buildId);
 			await vscode.env.openExternal(vscode.Uri.parse(url));
+		} catch (error) {
+			const errText = error instanceof Error ? error.message : String(error);
+			void vscode.window.showErrorMessage(errText);
+		}
+	}
+
+	private async loadSiteInfo(slug: string): Promise<void> {
+		try {
+			const site = await this.client.getSiteInfo(slug);
+			this.view?.webview.postMessage({ type: 'siteInfo', site });
+		} catch {
+			this.view?.webview.postMessage({ type: 'siteInfo', site: null });
+		}
+	}
+
+	private async syncSitePreview(slug: string, projectSlug?: string): Promise<void> {
+		try {
+			const result = await this.client.syncSitePreview(slug, { projectSlug: projectSlug ?? slug });
+			this.view?.webview.postMessage({ type: 'siteInfo', site: result.site });
+			await vscode.env.openExternal(vscode.Uri.parse(result.previewUrl));
+		} catch (error) {
+			const errText = error instanceof Error ? error.message : String(error);
+			void vscode.window.showErrorMessage(errText);
+		}
+	}
+
+	private async publishSite(slug: string, projectSlug?: string, buildId?: string): Promise<void> {
+		try {
+			const result = await this.client.publishSite(slug, {
+				projectSlug: projectSlug ?? slug,
+				...(buildId ? { buildId } : {})
+			});
+			this.recordTurn('assistant', `Site publicado: ${result.publishedUrl}`);
+			this.view?.webview.postMessage({ type: 'sitePublished', site: result.site, publishedUrl: result.publishedUrl });
+			this.view?.webview.postMessage({ type: 'append', role: 'assistant', text: `Site publicado em ${result.publishedUrl}` });
 		} catch (error) {
 			const errText = error instanceof Error ? error.message : String(error);
 			void vscode.window.showErrorMessage(errText);

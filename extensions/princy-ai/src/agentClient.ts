@@ -105,6 +105,17 @@ export interface BuildCenterStatusResponse {
 	readonly artifactName?: string;
 	readonly workspacePath: string;
 	readonly projectSlug?: string;
+	readonly previewUrl?: string;
+}
+
+export interface SiteInfo {
+	readonly slug: string;
+	readonly previewUrl: string;
+	readonly publishedUrl: string;
+	readonly hasPreview: boolean;
+	readonly hasPublished: boolean;
+	readonly publishedAt?: number;
+	readonly sourceProjectPath?: string;
 }
 
 export interface ProjectListEntry {
@@ -478,6 +489,49 @@ export class AgentClient {
 	public async listProjects(): Promise<{ readonly projectsRoot: string; readonly projects: readonly ProjectListEntry[] }> {
 		const result = await this.get<{ readonly ok: boolean; readonly projectsRoot: string; readonly projects: readonly ProjectListEntry[] }>('/api/projects');
 		return { projectsRoot: result.projectsRoot, projects: result.projects ?? [] };
+	}
+
+	public async getSiteInfo(slug: string): Promise<SiteInfo> {
+		const result = await this.get<{ readonly ok: boolean; readonly site: SiteInfo }>(
+			`/api/sites/${encodeURIComponent(slug)}`
+		);
+		if (!result.site) {
+			throw new Error('Site nao encontrado');
+		}
+		return result.site;
+	}
+
+	public async syncSitePreview(slug: string, input?: {
+		readonly projectSlug?: string;
+		readonly projectPath?: string;
+	}): Promise<{ readonly previewUrl: string; readonly site: SiteInfo }> {
+		const result = await this.post<{
+			readonly ok: boolean;
+			readonly previewUrl?: string;
+			readonly site?: SiteInfo;
+			readonly message?: string;
+		}>(`/api/sites/${encodeURIComponent(slug)}/preview-sync`, input ?? {});
+		if (!result.ok || !result.previewUrl) {
+			throw new Error(result.message ?? 'Falha ao sincronizar preview');
+		}
+		return { previewUrl: result.previewUrl, site: result.site! };
+	}
+
+	public async publishSite(slug: string, input?: {
+		readonly projectSlug?: string;
+		readonly projectPath?: string;
+		readonly buildId?: string;
+	}): Promise<{ readonly publishedUrl: string; readonly site: SiteInfo }> {
+		const result = await this.post<{
+			readonly ok: boolean;
+			readonly publishedUrl?: string;
+			readonly site?: SiteInfo;
+			readonly message?: string;
+		}>(`/api/sites/${encodeURIComponent(slug)}/publish`, input ?? {});
+		if (!result.ok || !result.publishedUrl) {
+			throw new Error(result.message ?? 'Falha ao publicar site');
+		}
+		return { publishedUrl: result.publishedUrl, site: result.site! };
 	}
 
 	public async pollBuildCenter(

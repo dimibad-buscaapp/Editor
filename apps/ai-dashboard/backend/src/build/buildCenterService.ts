@@ -2,6 +2,8 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { config } from '../config.js';
+import { runCapacitorApkPipeline } from './capacitorApkPipeline.js';
+import { runElectronExePipeline } from './electronExePipeline.js';
 import { collectBuildArtifact } from './artifactCollector.js';
 import {
 	ensureBuildStorageLayout,
@@ -21,6 +23,7 @@ import type {
 	StartBuildInput
 } from './types.js';
 import { internalToPublicStatus } from './types.js';
+import { syncPreview } from '../sites/webSiteService.js';
 
 export { listProjectSlugs };
 
@@ -218,7 +221,8 @@ function toStatusResponse(manifest: BuildManifest): BuildStatusResponse {
 		artifactReady: manifest.artifactReady,
 		artifactName: manifest.artifactName,
 		workspacePath: manifest.workspacePath,
-		projectSlug: manifest.projectSlug
+		projectSlug: manifest.projectSlug,
+		previewUrl: manifest.previewUrl
 	};
 }
 
@@ -360,12 +364,26 @@ async function finalizeSuccess(active: ActiveBuild): Promise<void> {
 		active.artifactName = artifactName;
 		active.internalStatus = 'READY';
 		active.finishedAt = Date.now();
+
+		let previewUrl: string | undefined;
+		const isEditorPlatform = path.resolve(active.workspacePath) === path.resolve(config.editorProjectRoot);
+		if (active.type === 'web' && !isEditorPlatform && active.projectSlug) {
+			try {
+				previewUrl = await syncPreview(active.projectSlug, active.workspacePath);
+				appendLog(active.buildId, active.type, `\n[sites] Preview: ${previewUrl}\n`);
+			} catch (previewError) {
+				const previewMessage = previewError instanceof Error ? previewError.message : String(previewError);
+				appendLog(active.buildId, active.type, `\n[sites] Aviso preview: ${previewMessage}\n`);
+			}
+		}
+
 		updateManifest(active, {
 			internalStatus: 'READY',
 			status: 'success',
 			artifactName,
 			artifactReady: true,
-			finishedAt: active.finishedAt
+			finishedAt: active.finishedAt,
+			...(previewUrl ? { previewUrl } : {})
 		});
 		appendLog(active.buildId, active.type, `\n[build] Sucesso. Artefato: ${artifactName}\n`);
 	} catch (error) {
@@ -407,21 +425,11 @@ async function runProjectBuild(active: ActiveBuild): Promise<void> {
 		case 'api':
 			await runNpm(active, ['run', 'build']);
 			break;
-		case 'exe': {
-			const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8')) as { scripts?: Record<string, string> };
-			if (pkg.scripts?.['build:exe']) {
-				await runNpm(active, ['run', 'build:exe']);
-			} else if (pkg.scripts?.dist) {
-				await runNpm(active, ['run', 'dist']);
-			} else if (pkg.scripts?.build) {
-				await runNpm(active, ['run', 'build']);
-			} else {
-				throw new Error('Script build, dist ou build:exe nao definido em package.json');
-			}
+		case 'exe':
+			await runElectronExeBuild(active);
 			break;
-		}
 		case 'apk':
-			await runApkGradle(active);
+			await runCapacitorApkBuild(active);
 			break;
 	}
 }
@@ -448,35 +456,54 @@ async function runEditorPlatformBuild(active: ActiveBuild): Promise<void> {
 			break;
 		}
 		case 'exe': {
-			const scriptPath = path.join(config.editorProjectRoot, 'deploy', 'windows', 'code-web', 'compile-princy-windows.ps1');
-			if (process.platform === 'win32' && fs.existsSync(scriptPath)) {
-				await runProcess(active, 'powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptPath, '-ProjectRoot', config.editorProjectRoot], config.editorProjectRoot, timeoutMs);
+			const isEditorRoot = path.resolve(active.workspacePath) === path.resolve(config.editorProjectRoot);
+			if (isEditorRoot) {
+				const scriptPath = path.join(config.editorProjectRoot, 'deploy', 'windows', 'code-web', 'compile-princy-windows.ps1');
+				if (process.platform === 'win32' && fs.existsSync(scriptPath)) {
+					await runProcess(active, 'powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptPath, '-ProjectRoot', config.editorProjectRoot], config.editorProjectRoot, timeoutMs);
+				} else {
+					await runNpm(active, ['run', 'compile'], config.editorProjectRoot);
+				}
 			} else {
-				await runNpm(active, ['run', 'compile'], config.editorProjectRoot);
+				await runElectronExeBuild(active);
 			}
 			break;
 		}
 		case 'apk':
-			await runApkGradle(active);
-			break;
+			throw new Error('Build APK de plataforma Editor nao suportado; use um projeto template APK.');
 	}
 }
 
-async function runApkGradle(active: ActiveBuild): Promise<void> {
-	const root = active.workspacePath;
-	const candidates = [
-		path.join(root, 'gradlew.bat'),
-		path.join(root, 'gradlew'),
-		path.join(root, 'android', 'gradlew.bat'),
-		path.join(root, 'android', 'gradlew')
-	];
-	const gradlew = candidates.find(candidate => fs.existsSync(candidate));
-	if (!gradlew) {
-		active.internalStatus = 'SKIPPED';
-		throw new Error('Nenhum projeto Android encontrado (gradlew ausente)');
+async function runCapacitorApkBuild(active: ActiveBuild): Promise<void> {
+	await runCapacitorApkPipeline(active.workspacePath, {
+		log: message => appendLog(active.buildId, active.type, message),
+		runNpm: args => runNpm(active, args),
+		runNpx: args => runNpx(active, args, TARGET_TIMEOUT_MS.apk),
+		runGradle: (androidDir, gradleArgs) => runGradleAssemble(active, androidDir, gradleArgs)
+	});
+}
+
+async function runElectronExeBuild(active: ActiveBuild): Promise<void> {
+	await runElectronExePipeline(active.workspacePath, {
+		log: message => appendLog(active.buildId, active.type, message),
+		runNpm: args => runNpm(active, args),
+		runNpx: args => runNpx(active, args, TARGET_TIMEOUT_MS.exe)
+	});
+}
+
+async function runNpx(active: ActiveBuild, args: string[], timeoutMs?: number): Promise<void> {
+	const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+	await runProcess(active, npx, args, active.workspacePath, timeoutMs ?? TARGET_TIMEOUT_MS[active.type]);
+}
+
+async function runGradleAssemble(active: ActiveBuild, androidDir: string, args: string[]): Promise<void> {
+	const gradlew = process.platform === 'win32'
+		? path.join(androidDir, 'gradlew.bat')
+		: path.join(androidDir, 'gradlew');
+	if (!fs.existsSync(gradlew)) {
+		throw new Error('gradlew nao encontrado em android/');
 	}
-	const cwd = path.dirname(gradlew);
-	await runProcess(active, gradlew, ['assembleDebug'], cwd, TARGET_TIMEOUT_MS.apk);
+	await runProcess(active, gradlew, args, androidDir, TARGET_TIMEOUT_MS.apk);
 }
 
 async function runNpm(active: ActiveBuild, args: string[], cwd?: string): Promise<void> {

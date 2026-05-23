@@ -66,8 +66,10 @@ Restart-Service PrincyAiAgentBackend
 
 Painel **Build Center** no chat Princy: tipo, projeto, logs em tempo real (SSE), download do artefato.
 
+Sites web (preview + publicar): ver [FASE8-PAGINA-WEB.md](FASE8-PAGINA-WEB.md).
+
 ## Limites (MVP)
 
-- APK: requer `gradlew` no projeto (skeleton pode estar incompleto).
-- EXE: requer `electron-builder` ou script `build:exe` no `package.json`.
+- APK: pipeline Capacitor completo — ver [FASE6-APK.md](FASE6-APK.md) (JDK 17 + Android SDK no VPS).
+- EXE: pipeline Electron — ver [FASE7-EXE.md](FASE7-EXE.md) (Windows + electron-builder).
 - Artefato max: `PRINCY_BUILD_ARTIFACT_MAX_MB` (default 500).
