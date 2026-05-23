@@ -432,6 +432,16 @@ function scanBuiltinExtensions(extensionsRoot: string): Array<IScannedBuiltinExt
 			if (!isWebExtension(packageJSON)) {
 				continue;
 			}
+			if (packageJSON.browser) {
+				let browserMain = String(packageJSON.browser);
+				if (!browserMain.endsWith('.js')) {
+					browserMain = `${browserMain}.js`;
+				}
+				const browserMainPath = path.join(extensionsPath, extensionFolder, browserMain);
+				if (!fs.existsSync(browserMainPath)) {
+					continue;
+				}
+			}
 			const children = fs.readdirSync(path.join(extensionsPath, extensionFolder));
 			const packageNLSPath = children.filter(child => child === 'package.nls.json')[0];
 			const packageNLS = packageNLSPath ? JSON.parse(fs.readFileSync(path.join(extensionsPath, extensionFolder, packageNLSPath), 'utf8')) : undefined;
@@ -794,8 +804,10 @@ async function transpile(outDir: string, excludeTests: boolean): Promise<void> {
 // Bundle (Goal 2: JS → bundled JS)
 // ============================================================================
 
-async function bundle(outDir: string, doMinify: boolean, doNls: boolean, doManglePrivates: boolean, target: BuildTarget, sourceMapBaseUrl?: string): Promise<void> {
-	await cleanDir(outDir);
+async function bundle(outDir: string, doMinify: boolean, doNls: boolean, doManglePrivates: boolean, target: BuildTarget, sourceMapBaseUrl?: string, skipClean?: boolean): Promise<void> {
+	if (!skipClean) {
+		await cleanDir(outDir);
+	}
 
 	// Write build date file (used by packaging to embed in product.json).
 	// Reuse the date from out-build/date if it exists (written by the gulp

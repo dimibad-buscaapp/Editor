@@ -1,5 +1,19 @@
 # Chat do webeditor (Princy IA :3210)
 
+## Por que git pull sozinho nao muda tema/chat
+
+1. **Servidor enviava lista vazia de extensoes** — `webClientServer.ts` punha `WORKBENCH_BUILTIN_EXTENSIONS = []` e `workbench.html` (prod) **nao tinha** a meta tag. A extensao princy-ai nunca carregava.
+2. **Bundle esbuild ignorava `--no-clean`** — limpava `out/` sem necessidade.
+3. **Falta `npm run compile-web`** — sem `extension.js` o painel de chat nao existe.
+4. **Falta `bundle-server-web-out`** — servidor e workbench.js antigos continuam servindo.
+
+## Correcao aplicada (codigo)
+
+- Servidor injeta `princy-ai` no HTML em cada request.
+- `workbench.html` tem meta `vscode-workbench-builtin-extensions`.
+- Scanner mescla bundle + meta DOM.
+- Build lista `extensions/` e exige `dist/browser/extension.js`.
+
 ## Por que o chat não funciona (checklist)
 
 | # | Sintoma | Causa | Correção |

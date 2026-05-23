@@ -54,16 +54,20 @@ export class BuiltinExtensionsScannerService implements IBuiltinExtensionsScanne
 				if (environmentService.isBuilt) {
 					// Built time configuration (do NOT modify)
 					bundledExtensions = [/*BUILD->INSERT_BUILTIN_EXTENSIONS*/];
-				} else {
-					// Find builtin extensions by checking for DOM
-					// eslint-disable-next-line no-restricted-syntax
-					const builtinExtensionsElement = mainWindow.document.getElementById('vscode-workbench-builtin-extensions');
-					const builtinExtensionsElementAttribute = builtinExtensionsElement ? builtinExtensionsElement.getAttribute('data-settings') : undefined;
-					if (builtinExtensionsElementAttribute) {
-						try {
-							bundledExtensions = JSON.parse(builtinExtensionsElementAttribute);
-						} catch (error) { /* ignore error*/ }
-					}
+				}
+
+				// Princy Code Web: servidor injeta princy-ai no HTML (meta). Mesclar com o bundle
+				// para o tema/chat funcionarem mesmo se o esbuild nao listou a extensao.
+				// eslint-disable-next-line no-restricted-syntax
+				const builtinExtensionsElement = mainWindow.document.getElementById('vscode-workbench-builtin-extensions');
+				const builtinExtensionsElementAttribute = builtinExtensionsElement ? builtinExtensionsElement.getAttribute('data-settings') : undefined;
+				if (builtinExtensionsElementAttribute) {
+					try {
+						const fromDom = JSON.parse(builtinExtensionsElementAttribute) as IBundledExtension[];
+						if (Array.isArray(fromDom) && fromDom.length > 0) {
+							bundledExtensions = mergeBundledExtensions(bundledExtensions, fromDom);
+						}
+					} catch (error) { /* ignore error*/ }
 				}
 
 				this.builtinExtensionsPromises = bundledExtensions.map(async e => {
@@ -105,6 +109,17 @@ export class BuiltinExtensionsScannerService implements IBuiltinExtensionsScanne
 			return localizeManifest(this.logService, manifest, fallbackTranslations);
 		}
 	}
+}
+
+function mergeBundledExtensions(built: IBundledExtension[], fromDom: IBundledExtension[]): IBundledExtension[] {
+	const byPath = new Map<string, IBundledExtension>();
+	for (const extension of built) {
+		byPath.set(extension.extensionPath, extension);
+	}
+	for (const extension of fromDom) {
+		byPath.set(extension.extensionPath, extension);
+	}
+	return [...byPath.values()];
 }
 
 registerSingleton(IBuiltinExtensionsScannerService, BuiltinExtensionsScannerService, InstantiationType.Delayed);

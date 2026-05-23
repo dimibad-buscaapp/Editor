@@ -125,6 +125,15 @@ if (Test-Path $scannerJs) {
 	Add-Issue "builtinExtensionsScannerService.js ausente - rode npm run bundle-server-web-out"
 	Write-Host "  builtinExtensionsScannerService.js: AUSENTE" -ForegroundColor Red
 }
+$wbHtmlOut = Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench.html"
+if (Test-Path $wbHtmlOut) {
+	if (Select-String -Path $wbHtmlOut -Pattern 'vscode-workbench-builtin-extensions' -Quiet) {
+		Write-Host "  workbench.html meta builtin: OK" -ForegroundColor Green
+	} else {
+		Add-Issue "workbench.html sem meta vscode-workbench-builtin-extensions - copie de src ou rebundle"
+		Write-Host "  workbench.html meta builtin: AUSENTE" -ForegroundColor Red
+	}
+}
 
 # --- 2) Servico Windows ---
 Write-Host ""

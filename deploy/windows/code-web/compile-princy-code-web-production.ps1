@@ -62,6 +62,15 @@ if (-not (Test-Path $extJs)) {
 }
 Write-Host "OK: princy-ai browser bundle" -ForegroundColor Green
 
+$wbHtmlSrc = Join-Path $ProjectRoot "src\vs\code\browser\workbench\workbench.html"
+$wbHtmlOut = Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench.html"
+if (Test-Path $wbHtmlSrc) {
+	$wbDir = Split-Path $wbHtmlOut -Parent
+	if (-not (Test-Path $wbDir)) { New-Item -ItemType Directory -Force $wbDir | Out-Null }
+	Copy-Item $wbHtmlSrc $wbHtmlOut -Force
+	Write-Host "OK: workbench.html (meta princy-ai) copiado para out/" -ForegroundColor Green
+}
+
 Write-Host ""
 Write-Host "[3/3] bundle-server-web-out (esbuild: workbench.js + workbench.css + princy-ai builtin) ..." -ForegroundColor Cyan
 npm run bundle-server-web-out

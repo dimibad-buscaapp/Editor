@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { createReadStream, promises } from 'fs';
+import { createReadStream, existsSync, promises } from 'fs';
 import type * as http from 'http';
 import * as url from 'url';
 import * as cookie from 'cookie';
@@ -431,8 +431,7 @@ export class WebClientServer {
 			}
 			values['WORKBENCH_BUILTIN_EXTENSIONS'] = asJSON(bundledExtensions);
 		} else {
-			// Princy/production: literal "undefined" in data-settings quebra JSON.parse no boot.
-			values['WORKBENCH_BUILTIN_EXTENSIONS'] = asJSON([]);
+			values['WORKBENCH_BUILTIN_EXTENSIONS'] = asJSON(await this._loadPrincyWebBuiltinExtensions());
 		}
 
 		let data;
@@ -499,6 +498,30 @@ export class WebClientServer {
 			result.push(`'sha256-${hash}'`);
 		}
 		return result;
+	}
+
+	/**
+	 * Carrega princy-ai para o meta WORKBENCH_BUILTIN_EXTENSIONS (tema + chat lateral).
+	 * Requer extensions/princy-ai/dist/browser/extension.js (npm run compile-web).
+	 */
+	private async _loadPrincyWebBuiltinExtensions(): Promise<{ extensionPath: string; packageJSON: IExtensionManifest }[]> {
+		const projectRoot = join(APP_ROOT, '..');
+		const packageJSONPath = join(projectRoot, 'extensions', 'princy-ai', 'package.json');
+		const browserMainPath = join(projectRoot, 'extensions', 'princy-ai', 'dist', 'browser', 'extension.js');
+		if (!existsSync(packageJSONPath) || !existsSync(browserMainPath)) {
+			this._logService.warn(
+				`[WebClientServer] princy-ai ausente: compile com "npm run compile-web" (${browserMainPath})`
+			);
+			return [];
+		}
+		try {
+			const packageJSON = JSON.parse((await promises.readFile(packageJSONPath)).toString()) as IExtensionManifest;
+			this._logService.info('[WebClientServer] Builtin web: princy-ai (tema + chat)');
+			return [{ extensionPath: 'princy-ai', packageJSON }];
+		} catch (error) {
+			this._logService.warn(`[WebClientServer] Falha ao ler princy-ai: ${error}`);
+			return [];
+		}
 	}
 
 	/**
