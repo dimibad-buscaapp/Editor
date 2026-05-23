@@ -5,7 +5,9 @@ param(
 	[string]$ProjectRoot = "C:\Apps\Editor",
 	[string]$PublicHost = "princyai.com",
 	[int]$ApiPort = 3210,
-	[int]$CodeWebPort = 3200
+	[int]$CodeWebPort = 3200,
+	[int]$SseTimeoutSec = 45,
+	[switch]$SkipComposer
 )
 
 $ErrorActionPreference = "Continue"
@@ -38,6 +40,51 @@ function Test-JsonHealth {
 	}
 }
 
+function Test-AgentJobStream {
+	param([string]$JobId, [int]$ApiPort, [int]$TimeoutSec)
+	$url = "http://127.0.0.1:${ApiPort}/api/agent/jobs/$([uri]::EscapeDataString($JobId))/stream"
+	$request = [System.Net.HttpWebRequest]::Create($url)
+	$request.Method = 'GET'
+	$request.Timeout = $TimeoutSec * 1000
+	$request.ReadWriteTimeout = $TimeoutSec * 1000
+	$request.Accept = 'text/event-stream'
+	try {
+		$response = $request.GetResponse()
+		$stream = $response.GetResponseStream()
+		$reader = New-Object System.IO.StreamReader($stream)
+		$deadline = (Get-Date).AddSeconds($TimeoutSec)
+		$body = ''
+		$sawDelta = $false
+		$sawDone = $false
+		$sawState = $false
+		while ((Get-Date) -lt $deadline) {
+			$line = $reader.ReadLine()
+			if ($null -eq $line) { Start-Sleep -Milliseconds 200; continue }
+			$body += "$line`n"
+			if ($line -match '"type"\s*:\s*"delta"') { $sawDelta = $true }
+			if ($line -match '"type"\s*:\s*"done"') { $sawDone = $true; break }
+			if ($line -match '"type"\s*:\s*"state"') { $sawState = $true }
+			if ($line -match '"type"\s*:\s*"error"') {
+				$reader.Close()
+				$response.Close()
+				return @{ ok = $false; reason = "SSE error event: $line" }
+			}
+		}
+		$reader.Close()
+		$response.Close()
+		if ($sawDone -or $sawDelta) {
+			return @{ ok = $true; delta = $sawDelta; done = $sawDone; state = $sawState }
+		}
+		if ($sawState) {
+			return @{ ok = $true; delta = $false; done = $false; state = $true; reason = 'SSE state only (job may still run)' }
+		}
+		return @{ ok = $false; reason = 'SSE timeout sem delta/done/state' }
+	}
+	catch {
+		return @{ ok = $false; reason = $_.Exception.Message }
+	}
+}
+
 # Servicos
 foreach ($name in @('PrincyAiAgentBackend', 'PrincyAiCodeWeb', 'PrincyCaddy')) {
 	$svc = Get-Service $name -ErrorAction SilentlyContinue
@@ -55,10 +102,16 @@ foreach ($name in @('PrincyAiAgentBackend', 'PrincyAiCodeWeb', 'PrincyCaddy')) {
 }
 
 Write-Host ""
-Write-Host "[HTTP]" -ForegroundColor Cyan
-Test-JsonHealth "API direta :3210" "http://127.0.0.1:${ApiPort}/api/agent/health" | Out-Null
-Test-JsonHealth "Code Web proxy :3200" "http://127.0.0.1:${CodeWebPort}/princy-api/api/agent/health" | Out-Null
-Test-JsonHealth "HTTPS Caddy /princy-api" "https://${PublicHost}/princy-api/api/agent/health" | Out-Null
+Write-Host "[HTTP /api/health]" -ForegroundColor Cyan
+Test-JsonHealth "API direta :3210 /api/health" "http://127.0.0.1:${ApiPort}/api/health" | Out-Null
+Test-JsonHealth "Code Web proxy /api/health" "http://127.0.0.1:${CodeWebPort}/princy-api/api/health" | Out-Null
+Test-JsonHealth "HTTPS Caddy /api/health" "https://${PublicHost}/princy-api/api/health" | Out-Null
+
+Write-Host ""
+Write-Host "[HTTP /api/agent/health]" -ForegroundColor Cyan
+Test-JsonHealth "API direta :3210 agent" "http://127.0.0.1:${ApiPort}/api/agent/health" | Out-Null
+Test-JsonHealth "Code Web proxy agent" "http://127.0.0.1:${CodeWebPort}/princy-api/api/agent/health" | Out-Null
+Test-JsonHealth "HTTPS Caddy agent" "https://${PublicHost}/princy-api/api/agent/health" | Out-Null
 
 Write-Host ""
 Write-Host "[Extensao web]" -ForegroundColor Cyan
@@ -98,12 +151,13 @@ catch {
 }
 
 Write-Host ""
-Write-Host "[Agent jobs]" -ForegroundColor Cyan
+Write-Host "[Agent jobs + SSE]" -ForegroundColor Cyan
 $jobBody = @{
 	agent   = 'deepseek'
 	message = 'ping'
 	context = 'verify-script'
 } | ConvertTo-Json -Compress
+$jobId = $null
 try {
 	$jobResp = Invoke-RestMethod -Uri "http://127.0.0.1:${ApiPort}/api/agent/jobs" -Method Post -Body $jobBody -ContentType 'application/json' -TimeoutSec 30
 	$jobId = $jobResp.jobId
@@ -112,6 +166,15 @@ try {
 		Write-Host "  POST /api/agent/jobs jobId=$jobId : OK" -ForegroundColor Green
 		$snap = Invoke-RestMethod -Uri "http://127.0.0.1:${ApiPort}/api/agent/jobs/$([uri]::EscapeDataString($jobId))" -Method Get -TimeoutSec 30
 		Write-Host ("  GET job state={0}" -f $snap.state) -ForegroundColor DarkGray
+
+		$sse = Test-AgentJobStream -JobId $jobId -ApiPort $ApiPort -TimeoutSec $SseTimeoutSec
+		if ($sse.ok) {
+			Write-Host ("  SSE stream: OK (delta={0} done={1} state={2})" -f $sse.delta, $sse.done, $sse.state) -ForegroundColor Green
+		}
+		else {
+			$issues += "SSE stream: $($sse.reason)"
+			Write-Host ("  SSE stream: FALHA - {0}" -f $sse.reason) -ForegroundColor Red
+		}
 	}
 	else {
 		$issues += 'POST /api/agent/jobs sem jobId'
@@ -121,6 +184,31 @@ try {
 catch {
 	$issues += "Agent jobs: $($_.Exception.Message)"
 	Write-Host ("  Agent jobs: FALHA - {0}" -f $_.Exception.Message) -ForegroundColor Red
+}
+
+if (-not $SkipComposer) {
+	Write-Host ""
+	Write-Host "[Composer plan]" -ForegroundColor Cyan
+	$composerBody = @{
+		agent       = 'deepseek'
+		instruction = 'List one file in the workspace root. Reply with minimal JSON plan only.'
+	} | ConvertTo-Json -Compress
+	try {
+		$plan = Invoke-RestMethod -Uri "http://127.0.0.1:${ApiPort}/api/agent/composer-plan" -Method Post -Body $composerBody -ContentType 'application/json' -TimeoutSec 120
+		$hasPlan = ($null -ne $plan.summary) -or ($null -ne $plan.operations)
+		if ($hasPlan) {
+			$opCount = if ($plan.operations) { @($plan.operations).Count } else { 0 }
+			Write-Host ("  POST composer-plan: OK summary={0} operations={1}" -f [bool]$plan.summary, $opCount) -ForegroundColor Green
+		}
+		else {
+			$issues += 'composer-plan sem summary/operations'
+			Write-Host '  POST composer-plan: resposta sem estrutura de plano' -ForegroundColor Red
+		}
+	}
+	catch {
+		$issues += "composer-plan: $($_.Exception.Message) (Ollama/Postgres?)"
+		Write-Host ("  POST composer-plan: FALHA - {0}" -f $_.Exception.Message) -ForegroundColor Red
+	}
 }
 
 Write-Host ""

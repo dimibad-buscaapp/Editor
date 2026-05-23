@@ -65,7 +65,7 @@ if ($nssm) {
 		Write-Host "NSSM: OK (--server-base-path $basePath)" -ForegroundColor Green
 	} else {
 		$issues += "NSSM PrincyAiCodeWeb sem --server-base-path $basePath (editor ainda na raiz :3200)"
-		Write-Host "NSSM: ERRO — reinstale com ensure-webeditor-base-path.ps1" -ForegroundColor Red
+		Write-Host "NSSM: ERRO - reinstale com ensure-webeditor-base-path.ps1" -ForegroundColor Red
 		if ($params) { Write-Host "  $params" -ForegroundColor DarkYellow }
 	}
 }

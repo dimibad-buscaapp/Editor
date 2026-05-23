@@ -103,3 +103,15 @@ Restart-Service PrincyAiAgentBackend
 powershell -ExecutionPolicy Bypass -File C:\Apps\Editor\deploy\windows\check-princy-ports.ps1
 Get-Service PrincyAiAgentBackend, PrincyAiCodeWeb, PrincyCaddy
 ```
+
+---
+
+## Fase 1 — Estabilizar base
+
+Checklist HTTP, chat, streaming e layout: **[FASE1-ESTABILIZAR.md](FASE1-ESTABILIZAR.md)**
+
+```powershell
+powershell -ExecutionPolicy Bypass -File C:\Apps\Editor\deploy\windows\run-fase1-validation.ps1
+```
+
+Gate 0 rapido (Task Scheduler opcional): `install-princy-phase1-scheduled-task.ps1`
