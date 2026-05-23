@@ -47,16 +47,22 @@ Browser (extensão) → /princy-api/api/agent/chat
 }
 ```
 
-## Deploy completo (VPS)
+## Deploy completo (VPS) — um comando
 
 ```powershell
 cd C:\Apps\Editor
 git pull
+powershell -ExecutionPolicy Bypass -File deploy\windows\code-web\apply-princy-webeditor-hotfix.ps1
+```
+
+Ou manualmente:
+
+```powershell
 powershell -ExecutionPolicy Bypass -File deploy\windows\code-web\compile-princy-code-web-production.ps1
 powershell -ExecutionPolicy Bypass -File deploy\windows\code-web\verify-princy-chat-api.ps1
-Restart-Service PrincyAiAgentBackend
-Restart-Service PrincyAiCodeWeb
 ```
+
+**Nao use** `start-princy-code-web.ps1` sem bundle prod — o `code-server.bat` antigo forçava `VSCODE_DEV=1` (visual VS Code padrao).
 
 Testes:
 

@@ -71,19 +71,30 @@ else {
 	Write-Host "  princy-ai browser bundle: AUSENTE" -ForegroundColor Red
 }
 
-$scannerJs = Join-Path $ProjectRoot "out\vs\workbench\services\extensionManagement\browser\builtinExtensionsScannerService.js"
-if (Test-Path $scannerJs) {
-	if (Select-String -Path $scannerJs -Pattern '"princy-ai"' -Quiet) {
-		Write-Host "  princy-ai no bundle builtin (scanner): OK" -ForegroundColor Green
-	}
-	else {
-		$issues += "princy-ai ausente em builtinExtensionsScannerService.js - recompile: compile-web ANTES de bundle-server-web-out"
-		Write-Host "  princy-ai no bundle builtin: AUSENTE (visual fica VS Code padrao)" -ForegroundColor Red
-	}
+$wbJs = Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench.js"
+$serverMain = Join-Path $ProjectRoot "out\server-main.js"
+$inWb = (Test-Path $wbJs) -and (Select-String -Path $wbJs -Pattern "princy-ai" -Quiet)
+$inSrv = (Test-Path $serverMain) -and (Select-String -Path $serverMain -Pattern "princy-ai" -Quiet)
+if ($inWb -or $inSrv) {
+	Write-Host "  princy-ai no bundle (workbench=$inWb server=$inSrv): OK" -ForegroundColor Green
 }
 else {
-	$issues += "Falta out/.../builtinExtensionsScannerService.js - rode npm run bundle-server-web-out"
-	Write-Host "  builtinExtensionsScannerService.js: AUSENTE" -ForegroundColor Red
+	$issues += "princy-ai ausente em workbench.js e server-main.js - rode apply-princy-webeditor-hotfix.ps1"
+	Write-Host "  princy-ai no bundle: AUSENTE" -ForegroundColor Red
+}
+
+try {
+	$html = (Invoke-WebRequest "http://127.0.0.1:${CodeWebPort}/webeditor/" -UseBasicParsing -TimeoutSec 20).Content
+	if ($html -match 'princy-ai') {
+		Write-Host "  HTML /webeditor/ contem princy-ai: OK" -ForegroundColor Green
+	}
+	else {
+		$issues += "HTML do webeditor sem princy-ai — reinicie servico apos bundle"
+		Write-Host "  HTML /webeditor/ sem princy-ai" -ForegroundColor Red
+	}
+}
+catch {
+	Write-Host "  HTML /webeditor/ nao testado (servico parado?)" -ForegroundColor Yellow
 }
 
 Write-Host ""

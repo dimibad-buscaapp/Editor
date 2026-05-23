@@ -130,5 +130,19 @@ if ($ServerBasePath) {
 	Write-Host "Server base path: $base (URL publica: https://princyai.com$base/)"
 }
 
-# Modo manual: usa code-server.bat (pode pedir Terminate batch job ao Ctrl+C)
-& $scriptPath @serverArgs
+. (Join-Path $PSScriptRoot "Princy-CodeWeb-Build.ps1")
+$hasProd = Test-PrincyCodeWebProdBuild -ProjectRoot $ProjectRoot
+$nodeExe = (Get-Command node.exe -ErrorAction SilentlyContinue).Source
+if (-not $nodeExe) { $nodeExe = "${env:ProgramFiles}\nodejs\node.exe" }
+
+if ($hasProd -and (Test-Path $nodeExe)) {
+	Write-Host "Modo PRODUCAO: node direto (sem VSCODE_DEV do code-server.bat)" -ForegroundColor Green
+	$env:PRINCY_CODE_WEB_PROD = "1"
+	Remove-Item Env:VSCODE_DEV -ErrorAction SilentlyContinue
+	Remove-Item Env:NODE_ENV -ErrorAction SilentlyContinue
+	& $nodeExe $serverMain @serverArgs
+}
+else {
+	Write-Host "Modo DEV: code-server.bat (compile producao recomendado)" -ForegroundColor Yellow
+	& $scriptPath @serverArgs
+}

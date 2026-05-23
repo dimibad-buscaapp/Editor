@@ -62,15 +62,6 @@ if (-not (Test-Path $extJs)) {
 }
 Write-Host "OK: princy-ai browser bundle" -ForegroundColor Green
 
-$wbHtmlSrc = Join-Path $ProjectRoot "src\vs\code\browser\workbench\workbench.html"
-$wbHtmlOut = Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench.html"
-if (Test-Path $wbHtmlSrc) {
-	$wbDir = Split-Path $wbHtmlOut -Parent
-	if (-not (Test-Path $wbDir)) { New-Item -ItemType Directory -Force $wbDir | Out-Null }
-	Copy-Item $wbHtmlSrc $wbHtmlOut -Force
-	Write-Host "OK: workbench.html (meta princy-ai) copiado para out/" -ForegroundColor Green
-}
-
 Write-Host ""
 Write-Host "[3/3] bundle-server-web-out (esbuild: workbench.js + workbench.css + princy-ai builtin) ..." -ForegroundColor Cyan
 npm run bundle-server-web-out
@@ -78,14 +69,28 @@ if ($LASTEXITCODE -ne 0) {
 	throw "bundle-server-web-out falhou"
 }
 
-$scannerJs = Join-Path $ProjectRoot "out\vs\workbench\services\extensionManagement\browser\builtinExtensionsScannerService.js"
-if (-not (Test-Path $scannerJs)) {
-	throw "Ausente apos bundle: builtinExtensionsScannerService.js"
+# HTML com meta builtin (apos bundle — cleanDir pode ter apagado copia anterior)
+$wbHtmlSrc = Join-Path $ProjectRoot "src\vs\code\browser\workbench\workbench.html"
+$wbHtmlOut = Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench.html"
+$wbDevOut = Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench-dev.html"
+if (Test-Path $wbHtmlSrc) {
+	$wbDir = Split-Path $wbHtmlOut -Parent
+	if (-not (Test-Path $wbDir)) { New-Item -ItemType Directory -Force $wbDir | Out-Null }
+	Copy-Item $wbHtmlSrc $wbHtmlOut -Force
+	if (Test-Path (Join-Path $ProjectRoot "src\vs\code\browser\workbench\workbench-dev.html")) {
+		Copy-Item (Join-Path $ProjectRoot "src\vs\code\browser\workbench\workbench-dev.html") $wbDevOut -Force
+	}
+	Write-Host "OK: workbench.html copiado para out/ (meta princy-ai)" -ForegroundColor Green
 }
-if (-not (Select-String -Path $scannerJs -Pattern '"princy-ai"' -Quiet)) {
-	throw "princy-ai NAO foi injetado no bundle builtin — tema/chat Princy nao carregam no webeditor"
+
+$wbJs = Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench.js"
+$serverMain = Join-Path $ProjectRoot "out\server-main.js"
+$hasPrincyInWorkbench = (Test-Path $wbJs) -and (Select-String -Path $wbJs -Pattern "princy-ai" -Quiet)
+$hasPrincyInServer = (Test-Path $serverMain) -and (Select-String -Path $serverMain -Pattern "princy-ai" -Quiet)
+if (-not $hasPrincyInWorkbench -and -not $hasPrincyInServer) {
+	throw "princy-ai NAO aparece em workbench.js nem server-main.js — rebundle falhou"
 }
-Write-Host "OK: princy-ai registrado em builtinExtensionsScannerService.js" -ForegroundColor Green
+Write-Host "OK: princy-ai no bundle (workbench=$hasPrincyInWorkbench server=$hasPrincyInServer)" -ForegroundColor Green
 
 . (Join-Path $PSScriptRoot "Princy-CodeWeb-Build.ps1")
 

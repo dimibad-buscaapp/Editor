@@ -438,6 +438,12 @@ export class WebClientServer {
 		try {
 			const workbenchTemplate = (await promises.readFile(filePath)).toString();
 			data = workbenchTemplate.replace(/\{\{([^}]+)\}\}/g, (_, key) => values[key] ?? '');
+			// Hotfix: out/ antigo sem placeholder — injeta meta para princy-ai (tema + chat).
+			const builtinsAttr = values['WORKBENCH_BUILTIN_EXTENSIONS'];
+			if (builtinsAttr && builtinsAttr !== '[]' && !data.includes('id="vscode-workbench-builtin-extensions"')) {
+				const metaTag = `\t\t<meta id="vscode-workbench-builtin-extensions" data-settings="${builtinsAttr}">\n`;
+				data = data.replace('</head>', `${metaTag}\t</head>`);
+			}
 		} catch (e) {
 			res.writeHead(404, { 'Content-Type': 'text/plain' });
 			return void res.end('Not found');

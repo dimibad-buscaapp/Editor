@@ -7,9 +7,14 @@ set ROOT_DIR=%~dp0..
 
 pushd %ROOT_DIR%
 
-:: Configuration
-set NODE_ENV=development
-set VSCODE_DEV=1
+:: Configuration (producao Princy: defina PRINCY_CODE_WEB_PROD=1 para nao forcar modo DEV)
+if "%PRINCY_CODE_WEB_PROD%"=="1" (
+	set NODE_ENV=production
+	set VSCODE_DEV=
+) else (
+	set NODE_ENV=development
+	set VSCODE_DEV=1
+)
 
 :: Get electron, compile, built-in extensions
 if "%VSCODE_SKIP_PRELAUNCH%"=="" (
