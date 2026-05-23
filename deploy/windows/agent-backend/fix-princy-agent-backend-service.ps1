@@ -117,7 +117,7 @@ if (-not (Test-Path $envFile)) {
 		Copy-Item $example $envFile
 		Write-Host "Revise DATABASE_URL em $envFile" -ForegroundColor Yellow
 	} else {
-		Write-Host "AVISO: .env nao encontrado e sem example."x" -ForegroundColor Red
+		Write-Host "AVISO: .env nao encontrado e sem example template" -ForegroundColor Red
 	}
 }
 
