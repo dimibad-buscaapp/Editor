@@ -1,4 +1,4 @@
-# Deploy Fase 8 — sites web (preview + publicar)
+# Deploy Fase 8 - sites web (preview + publicar)
 # Admin no VPS: powershell -ExecutionPolicy Bypass -File deploy\windows\deploy-fase8-pagina-web.ps1
 
 param(
@@ -39,7 +39,7 @@ function Reload-Caddy {
 }
 
 Write-Host ""
-Write-Host "=== Deploy Fase 8 — Pagina web ===" -ForegroundColor Cyan
+Write-Host "=== Deploy Fase 8 - Pagina web ===" -ForegroundColor Cyan
 Write-Host "Raiz: $ProjectRoot"
 Write-Host ""
 
@@ -52,7 +52,7 @@ if (-not $SkipGitPull -and (Test-Path (Join-Path $ProjectRoot ".git"))) {
 Write-Host "[2/6] Pastas princy-sites ..." -ForegroundColor Cyan
 $sitesScript = Join-Path $ProjectRoot "deploy\windows\ensure-princy-sites-folder.ps1"
 if (-not (Test-Path $sitesScript)) {
-	throw "Script ausente: $sitesScript — faca git pull primeiro."
+	throw "Script ausente: $sitesScript - faca git pull primeiro."
 }
 powershell -ExecutionPolicy Bypass -File $sitesScript -ProjectRoot $ProjectRoot
 
@@ -114,8 +114,8 @@ if ($allOk) {
 	Write-Host "Preview:  https://princyai.com/princy-sites-preview/{slug}/"
 	Write-Host "Publicado: https://princyai.com/princy-sites/{slug}/"
 } else {
-	Write-Host "Deploy com falhas — veja logs:" -ForegroundColor Yellow
+	Write-Host "Deploy com falhas - veja logs:" -ForegroundColor Yellow
 	Write-Host "  C:\Apps\Editor\logs\agent-backend.err.log"
-	Write-Host "  cd apps\ai-dashboard; `$env:API_PORT=3210; node dist\backend\server.js"
+	Write-Host '  cd C:\Apps\Editor\apps\ai-dashboard; $env:API_PORT=3210; node dist\backend\server.js'
 	exit 1
 }
