@@ -508,7 +508,8 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 				this.pollCompileJob(response.metadata.compile_job_id);
 			}
 		} catch (error) {
-			const errText = `Erro: ${error instanceof Error ? error.message : 'Erro desconhecido'}`;
+			const errDetail = error instanceof Error ? error.message : 'Erro desconhecido';
+			const errText = `Erro: ${errDetail}`;
 			this.recordTurn('assistant', errText);
 			this.view?.webview.postMessage({ type: 'streamEnd', text: '', suggestedCommands: [] });
 			this.view?.webview.postMessage({
@@ -516,12 +517,11 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 				role: 'assistant',
 				text: errText
 			});
-			const errText = error instanceof Error ? error.message : 'Erro desconhecido';
 			this.view?.webview.postMessage({
 				type: 'status',
-				text: errText.includes('Failed to fetch') || errText.includes('inacessivel')
+				text: errDetail.includes('Failed to fetch') || errDetail.includes('inacessivel')
 					? 'Falha de rede — agent backend (3210)?'
-					: `Erro: ${errText.slice(0, 120)}${errText.length > 120 ? '…' : ''}`
+					: `Erro: ${errDetail.slice(0, 120)}${errDetail.length > 120 ? '…' : ''}`
 			});
 		}
 	}

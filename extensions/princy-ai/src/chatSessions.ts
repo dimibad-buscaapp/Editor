@@ -16,13 +16,13 @@ export interface ChatSession {
 	readonly id: string;
 	title: string;
 	mode: ChatMode;
-	readonly messages: ChatMessageTurn[];
+	messages: ChatMessageTurn[];
 	readonly createdAt: number;
 	updatedAt: number;
 }
 
 interface SessionStore {
-	readonly sessions: ChatSession[];
+	sessions: ChatSession[];
 	activeId?: string;
 }
 
