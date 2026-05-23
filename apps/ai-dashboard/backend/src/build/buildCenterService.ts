@@ -476,18 +476,18 @@ async function runEditorPlatformBuild(active: ActiveBuild): Promise<void> {
 
 async function runCapacitorApkBuild(active: ActiveBuild): Promise<void> {
 	await runCapacitorApkPipeline(active.workspacePath, {
-		log: message => appendLog(active.buildId, active.type, message),
-		runNpm: args => runNpm(active, args),
-		runNpx: args => runNpx(active, args, TARGET_TIMEOUT_MS.apk),
-		runGradle: (androidDir, gradleArgs) => runGradleAssemble(active, androidDir, gradleArgs)
+		log: (message: string) => appendLog(active.buildId, active.type, message),
+		runNpm: (args: string[]) => runNpm(active, args),
+		runNpx: (args: string[]) => runNpx(active, args, TARGET_TIMEOUT_MS.apk),
+		runGradle: (androidDir: string, gradleArgs: string[]) => runGradleAssemble(active, androidDir, gradleArgs)
 	});
 }
 
 async function runElectronExeBuild(active: ActiveBuild): Promise<void> {
 	await runElectronExePipeline(active.workspacePath, {
-		log: message => appendLog(active.buildId, active.type, message),
-		runNpm: args => runNpm(active, args),
-		runNpx: args => runNpx(active, args, TARGET_TIMEOUT_MS.exe)
+		log: (message: string) => appendLog(active.buildId, active.type, message),
+		runNpm: (args: string[]) => runNpm(active, args),
+		runNpx: (args: string[]) => runNpx(active, args, TARGET_TIMEOUT_MS.exe)
 	});
 }
 
