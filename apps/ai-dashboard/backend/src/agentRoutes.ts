@@ -152,7 +152,9 @@ const publicAgentPathsWhenDashboardChat = new Set([
 	'/api/agent/bootstrap',
 	'/api/agent/models',
 	'/api/agent/chat',
-	'/api/agent/chat/stream'
+	'/api/agent/chat/stream',
+	'/api/agent/composer-plan',
+	'/api/agent/jobs'
 ]);
 
 export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
@@ -161,7 +163,10 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 		if (path === '/api/agent/health' || path === '/api/agent/bootstrap' || path.startsWith('/api/editor/')) {
 			return;
 		}
-		if (config.publicChatEnabled && publicAgentPathsWhenDashboardChat.has(path)) {
+		if (config.publicChatEnabled && (
+			publicAgentPathsWhenDashboardChat.has(path) ||
+			path.startsWith('/api/agent/jobs/')
+		)) {
 			return;
 		}
 		if (request.url.startsWith('/api/agent/') || request.url.startsWith('/v1/')) {
@@ -846,12 +851,59 @@ function toChatMessage(message: z.infer<typeof openAiChatMessageSchema>): ChatMe
 	};
 }
 
+function normalizeComposerOperation(raw: unknown): z.infer<typeof composerOperationSchema> | undefined {
+	if (!raw || typeof raw !== 'object') {
+		return undefined;
+	}
+	const op = raw as Record<string, unknown>;
+	const type = op.type === 'edit' ? 'modify' : op.type;
+	const candidate = { ...op, type };
+	const parsed = composerOperationSchema.safeParse(candidate);
+	return parsed.success ? parsed.data : undefined;
+}
+
 function parseComposerPlan(value: string): z.infer<typeof composerPlanSchema> {
 	const json = extractJsonObject(value);
-	const parsed = composerPlanSchema.parse(JSON.parse(json));
+	const parsedUnknown: unknown = JSON.parse(json);
+	const direct = composerPlanSchema.safeParse(parsedUnknown);
+	if (direct.success) {
+		return {
+			...direct.data,
+			operations: direct.data.operations.map((operation, index) => ({
+				...operation,
+				id: operation.id ?? `op-${index + 1}`
+			}))
+		};
+	}
+
+	const obj = parsedUnknown as Record<string, unknown>;
+	const summary = typeof obj.summary === 'string' && obj.summary.trim().length > 0
+		? obj.summary.trim()
+		: 'Plano Composer (revise as operacoes sugeridas pela IA)';
+	const warnings = Array.isArray(obj.warnings)
+		? obj.warnings.filter((w): w is string => typeof w === 'string')
+		: [];
+	if (direct.error) {
+		warnings.push(`Schema parcial: ${direct.error.issues.map(issue => issue.message).join('; ')}`);
+	}
+	const affectedFiles = Array.isArray(obj.affectedFiles)
+		? obj.affectedFiles.filter((f): f is string => typeof f === 'string')
+		: [];
+	const operations: z.infer<typeof composerPlanSchema>['operations'] = [];
+	if (Array.isArray(obj.operations)) {
+		for (const rawOp of obj.operations) {
+			const op = normalizeComposerOperation(rawOp);
+			if (op) {
+				operations.push(op);
+			}
+		}
+	}
+
 	return {
-		...parsed,
-		operations: parsed.operations.map((operation, index) => ({
+		summary,
+		warnings,
+		affectedFiles,
+		operations: operations.map((operation, index) => ({
 			...operation,
 			id: operation.id ?? `op-${index + 1}`
 		}))

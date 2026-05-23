@@ -186,28 +186,48 @@ catch {
 	Write-Host ("  Agent jobs: FALHA - {0}" -f $_.Exception.Message) -ForegroundColor Red
 }
 
+function Get-HttpErrorBody {
+	param($ErrorRecord)
+	try {
+		if ($ErrorRecord.Exception.Response) {
+			$reader = New-Object System.IO.StreamReader($ErrorRecord.Exception.Response.GetResponseStream())
+			return $reader.ReadToEnd()
+		}
+	}
+	catch { }
+	return ''
+}
+
 if (-not $SkipComposer) {
 	Write-Host ""
 	Write-Host "[Composer plan]" -ForegroundColor Cyan
-	$composerBody = @{
+	$composerPayload = @{
 		agent       = 'deepseek'
-		instruction = 'List one file in the workspace root. Reply with minimal JSON plan only.'
-	} | ConvertTo-Json -Compress
+		instruction = 'Return JSON only: summary and operations array (can be empty). List one file in workspace root.'
+	}
+	$composerBody = $composerPayload | ConvertTo-Json -Compress -Depth 4
+	$composerBytes = [System.Text.Encoding]::UTF8.GetBytes($composerBody)
 	try {
-		$plan = Invoke-RestMethod -Uri "http://127.0.0.1:${ApiPort}/api/agent/composer-plan" -Method Post -Body $composerBody -ContentType 'application/json' -TimeoutSec 120
-		$hasPlan = ($null -ne $plan.summary) -or ($null -ne $plan.operations)
+		$plan = Invoke-RestMethod -Uri "http://127.0.0.1:${ApiPort}/api/agent/composer-plan" -Method Post -Body $composerBytes -ContentType 'application/json; charset=utf-8' -TimeoutSec 180
+		$hasPlan = ($null -ne $plan.summary) -and ($plan.summary.ToString().Length -gt 0)
 		if ($hasPlan) {
 			$opCount = if ($plan.operations) { @($plan.operations).Count } else { 0 }
-			Write-Host ("  POST composer-plan: OK summary={0} operations={1}" -f [bool]$plan.summary, $opCount) -ForegroundColor Green
+			Write-Host ("  POST composer-plan: OK summary={0} operations={1}" -f $true, $opCount) -ForegroundColor Green
+			if ($plan.warnings -and @($plan.warnings).Count -gt 0) {
+				Write-Host ("  avisos: {0}" -f (@($plan.warnings) -join '; ')) -ForegroundColor DarkYellow
+			}
 		}
 		else {
-			$issues += 'composer-plan sem summary/operations'
-			Write-Host '  POST composer-plan: resposta sem estrutura de plano' -ForegroundColor Red
+			$issues += 'composer-plan sem summary'
+			Write-Host '  POST composer-plan: resposta sem summary' -ForegroundColor Red
 		}
 	}
 	catch {
-		$issues += "composer-plan: $($_.Exception.Message) (Ollama/Postgres?)"
+		$detail = Get-HttpErrorBody $_
+		$issues += "composer-plan: $($_.Exception.Message)"
+		if ($detail) { $issues += "composer-plan body: $detail" }
 		Write-Host ("  POST composer-plan: FALHA - {0}" -f $_.Exception.Message) -ForegroundColor Red
+		if ($detail) { Write-Host ("  resposta: {0}" -f $detail.Substring(0, [Math]::Min(400, $detail.Length))) -ForegroundColor DarkYellow }
 	}
 }
 
