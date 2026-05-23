@@ -106,6 +106,21 @@ if (-not (Test-Path $serverJs)) {
 	exit 1
 }
 
+$envFile = Join-Path $appRoot ".env"
+if (-not (Test-Path $envFile)) {
+	Write-Host ".env ausente - a criar a partir do example ..." -ForegroundColor Yellow
+	$example = Join-Path $appRoot "deploy\windows\princyai.env.production.example"
+	if (-not (Test-Path $example)) {
+		$example = Join-Path $appRoot "deploy\windows\princyai.env.example"
+	}
+	if (Test-Path $example) {
+		Copy-Item $example $envFile
+		Write-Host "Revise DATABASE_URL em $envFile" -ForegroundColor Yellow
+	} else {
+		Write-Host "AVISO: .env nao encontrado e sem example."x" -ForegroundColor Red
+	}
+}
+
 New-Item -ItemType Directory -Force $logsDir | Out-Null
 
 function Stop-PortListener {
@@ -137,16 +152,40 @@ Invoke-NssmQuiet -NssmExe $nssm -NssmArgs @("install", $ServiceName, $nodeExe, $
 & $nssm set $ServiceName AppEnvironmentExtra "NODE_OPTIONS=--max-old-space-size=8192" "API_PORT=$Port"
 
 Write-Host "Servico reinstalado. Iniciando ..." -ForegroundColor Green
-Start-Service $ServiceName
-Start-Sleep -Seconds 5
-Get-Service $ServiceName
+$startOk = $false
+try {
+	Start-Service $ServiceName -ErrorAction Stop
+	$startOk = $true
+} catch {
+	Write-Host "Start-Service falhou: $($_.Exception.Message)" -ForegroundColor Yellow
+	Invoke-NssmQuiet -NssmExe $nssm -NssmArgs @("start", $ServiceName)
+	Start-Sleep -Seconds 3
+	$svc = Get-Service $ServiceName -ErrorAction SilentlyContinue
+	if ($svc -and $svc.Status -eq "Running") { $startOk = $true }
+}
+
+Start-Sleep -Seconds 3
+Get-Service $ServiceName -ErrorAction SilentlyContinue
+
+$errLog = Join-Path $logsDir "agent-backend.err.log"
+$outLog = Join-Path $logsDir "agent-backend.out.log"
+
+if (-not $startOk) {
+	Write-Host "Servico nao arrancou. Teste node directo:" -ForegroundColor Red
+	Write-Host "  cd $appRoot" -ForegroundColor DarkGray
+	Write-Host "  `$env:API_PORT=$Port; node dist\backend\server.js" -ForegroundColor DarkGray
+	if (Test-Path $errLog) {
+		Write-Host "`n--- agent-backend.err.log (ultimas 40 linhas) ---" -ForegroundColor Yellow
+		Get-Content $errLog -Tail 40
+	}
+	exit 1
+}
+
 try {
 	Invoke-WebRequest "http://127.0.0.1:$Port/api/agent/health" -UseBasicParsing | Select-Object StatusCode, Content
 } catch {
-	Write-Host "Health falhou. Log:" -ForegroundColor Red
-	$errLog = Join-Path $logsDir "agent-backend.err.log"
-	if (Test-Path $errLog) {
-		Get-Content $errLog -Tail 30
-	}
+	Write-Host "Health falhou apos start. Log:" -ForegroundColor Red
+	if (Test-Path $errLog) { Get-Content $errLog -Tail 30 }
+	if (Test-Path $outLog) { Get-Content $outLog -Tail 15 }
 	exit 1
 }
