@@ -96,6 +96,7 @@ const frontendDist = path.resolve(currentDir, '../../dist/frontend');
 		root: frontendDist,
 		prefix: '/',
 		index: ['index.html'],
+		decorateReply: false,
 		allowedPath: (_pathName, _root, request) => {
 			const url = request.url.split('?')[0] ?? request.url;
 			return !url.startsWith('/api/')

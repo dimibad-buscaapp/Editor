@@ -196,7 +196,7 @@ export async function registerSiteStatic(app: FastifyInstance): Promise<void> {
 	await app.register(staticFiles, {
 		root: config.sitesPreviewRoot,
 		prefix: `${config.sitesPreviewPathPrefix}/`,
-		decorateReply: true,
+		decorateReply: false,
 		wildcard: false
 	});
 
