@@ -5,7 +5,7 @@
 
 /// <reference lib="dom" />
 
-import type { ChatResponse } from './agentClient';
+import type { ActionRunSnapshot, ChatResponse, ComposerPlan } from './agentClient';
 
 interface FetchResponse {
 	readonly ok: boolean;
@@ -18,6 +18,10 @@ declare const fetch: (input: string, init?: { readonly headers?: Record<string, 
 export interface AgentJobStreamHandlers {
 	readonly onDelta: (text: string) => void;
 	readonly onState?: (state: string) => void;
+	readonly onPhase?: (phase: string, actionRun?: ActionRunSnapshot) => void;
+	readonly onComposerPlan?: (plan: ComposerPlan) => void;
+	readonly onTasks?: (tasks: ActionRunSnapshot['tasks']) => void;
+	readonly onAwaitingApproval?: (actionRun?: ActionRunSnapshot) => void;
 	readonly onDone: (response: ChatResponse) => void;
 	readonly onError: (message: string) => void;
 }
@@ -76,8 +80,12 @@ export async function subscribeAgentJobStream(
 				readonly type: string;
 				readonly text?: string;
 				readonly state?: string;
+				readonly phase?: string;
 				readonly message?: string;
 				readonly response?: ChatResponse;
+				readonly plan?: ComposerPlan;
+				readonly actionRun?: ActionRunSnapshot;
+				readonly tasks?: ActionRunSnapshot['tasks'];
 			};
 
 			if (payload.type === 'delta' && payload.text !== undefined) {
@@ -85,6 +93,21 @@ export async function subscribeAgentJobStream(
 			}
 			if (payload.type === 'state' && payload.state) {
 				handlers.onState?.(payload.state);
+				if (payload.state === 'AWAITING_APPROVAL') {
+					handlers.onAwaitingApproval?.(payload.actionRun);
+				}
+			}
+			if (payload.type === 'phase' && payload.phase) {
+				handlers.onPhase?.(payload.phase, payload.actionRun);
+				if (payload.phase === 'awaiting_approval') {
+					handlers.onAwaitingApproval?.(payload.actionRun);
+				}
+			}
+			if (payload.type === 'composerPlan' && payload.plan) {
+				handlers.onComposerPlan?.(payload.plan);
+			}
+			if (payload.type === 'tasks' && payload.tasks) {
+				handlers.onTasks?.(payload.tasks);
 			}
 			if (payload.type === 'done' && payload.response) {
 				handlers.onDone(payload.response);

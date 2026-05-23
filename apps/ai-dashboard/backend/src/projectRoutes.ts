@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { config } from './config.js';
+import { listProjectSlugs } from './build/buildCenterService.js';
 import { createProject, getInstallJob } from './projectCreatorService.js';
 import { getTemplate, listTemplates } from './projectTemplates/index.js';
 
@@ -16,6 +17,7 @@ const createProjectSchema = z.object({
 });
 
 const publicProjectPaths = new Set([
+	'/api/projects',
 	'/api/projects/templates'
 ]);
 
@@ -46,6 +48,12 @@ export async function registerProjectRoutes(app: FastifyInstance): Promise<void>
 		}
 		authorizeProjectRequest(request, reply);
 	});
+
+	app.get('/api/projects', async () => ({
+		ok: true,
+		projectsRoot: config.projectsRoot,
+		projects: listProjectSlugs()
+	}));
 
 	app.get('/api/projects/templates', async () => ({
 		ok: true,

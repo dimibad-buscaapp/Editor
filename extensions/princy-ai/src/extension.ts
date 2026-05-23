@@ -17,6 +17,7 @@ import { registerPrincyThemeOnActivate } from './princyTheme';
 import { ensurePrincyRulesTemplate } from './princyRules';
 import { registerWorkspaceIndexing } from './workspaceIndexService';
 import { registerPrincyWorkbenchUi } from './workbenchUi';
+import { registerPrincyStatusBar } from './princyStatusBar';
 import { registerPrincyChatIsolation } from './princyChatIsolation';
 import { registerPrincyDefaultChat } from './princyWorkbenchChat';
 import { ChatSessionManager } from './chatSessions';
@@ -116,6 +117,7 @@ export function activate(context: vscode.ExtensionContext): void {
 	registerPrincyThemeOnActivate(context);
 	registerWorkspaceIndexing(context, client);
 	registerPrincyWorkbenchUi(context);
+	registerPrincyStatusBar(context);
 	registerPrincyDefaultChat(context);
 	registerPrincyChatIsolation(context);
 	void ensurePrincyRulesTemplate();

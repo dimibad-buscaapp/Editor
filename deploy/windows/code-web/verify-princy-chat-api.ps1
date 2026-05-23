@@ -297,6 +297,7 @@ catch {
 }
 
 $smokeName = "princy-smoke-" + [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+$created = $null
 Write-Host ""
 Write-Host "[Fase 4 - Create webapp smoke]" -ForegroundColor Cyan
 try {
@@ -323,6 +324,66 @@ try {
 catch {
 	$issues += "Create project: $($_.Exception.Message)"
 	Write-Host ("  Create project: FALHA - {0}" -f $_.Exception.Message) -ForegroundColor Red
+}
+
+Write-Host ""
+Write-Host "[Fase 5 - Build Center]" -ForegroundColor Cyan
+$buildSlug = $null
+if ($created -and $created.ok -and $created.slug) {
+	$buildSlug = $created.slug
+}
+elseif ($smokeName) {
+	$buildSlug = $smokeName
+}
+if ($buildSlug) {
+	try {
+		$startBody = @{ type = 'web'; projectSlug = $buildSlug } | ConvertTo-Json -Compress
+		$started = Invoke-RestMethod -Uri "http://127.0.0.1:${ApiPort}/api/build/start" -Method Post -Body $startBody -ContentType 'application/json' -TimeoutSec 30
+		if (-not $started.ok -or -not $started.buildId) {
+			$issues += "build start: $($started.message)"
+			Write-Host ("  POST /api/build/start: FALHA - {0}" -f $started.message) -ForegroundColor Red
+		}
+		else {
+			$bid = $started.buildId
+			Write-Host ("  POST /api/build/start: OK id={0}" -f $bid) -ForegroundColor Green
+			$deadline = (Get-Date).AddMinutes(8)
+			$finalStatus = $null
+			while ((Get-Date) -lt $deadline) {
+				Start-Sleep -Seconds 3
+				$st = Invoke-RestMethod -Uri "http://127.0.0.1:${ApiPort}/api/build/$bid/status" -Method Get -TimeoutSec 20
+				$finalStatus = $st.status
+				if ($finalStatus -eq 'success' -or $finalStatus -eq 'error') { break }
+			}
+			if ($finalStatus -eq 'success') {
+				Write-Host ("  GET status: success") -ForegroundColor Green
+				try {
+					$dl = Invoke-WebRequest -Uri "http://127.0.0.1:${ApiPort}/api/build/$bid/download" -Method Get -UseBasicParsing -TimeoutSec 60
+					if ($dl.RawContentLength -gt 0) {
+						Write-Host ("  GET download: OK bytes={0}" -f $dl.RawContentLength) -ForegroundColor Green
+					}
+					else {
+						$issues += 'build download empty'
+						Write-Host '  GET download: vazio' -ForegroundColor Red
+					}
+				}
+				catch {
+					$issues += "build download: $($_.Exception.Message)"
+					Write-Host ("  GET download: FALHA - {0}" -f $_.Exception.Message) -ForegroundColor Red
+				}
+			}
+			else {
+				$issues += "build status=$finalStatus"
+				Write-Host ("  build terminou com status={0}" -f $finalStatus) -ForegroundColor Yellow
+			}
+		}
+	}
+	catch {
+		$issues += "Build Center: $($_.Exception.Message)"
+		Write-Host ("  Build Center: FALHA - {0}" -f $_.Exception.Message) -ForegroundColor Red
+	}
+}
+else {
+	Write-Host "  Build smoke: ignorado (sem projeto criado)" -ForegroundColor DarkGray
 }
 
 Write-Host ""

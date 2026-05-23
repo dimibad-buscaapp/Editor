@@ -1,7 +1,16 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { agentConfigs, createChatCompletion, createChatCompletionDetailed, type AgentModel, type ChatMessage } from './ai.js';
-import { getAgentJobSnapshot, startAgentJob } from './agentJob/runner.js';
+import {
+	approveAgentJob,
+	continueAgentJob,
+	getAgentActionRun,
+	getAgentJobSnapshot,
+	rejectAgentJob,
+	startAgentJob
+} from './agentJob/runner.js';
+import { generateComposerPlan, parseComposerPlan as parseComposerPlanFromService } from './composerPlanService.js';
+import { getBuildJob, startBuildJob } from './builderService.js';
 import { generateAgentChatCore, handleAgentChat } from './agentChatService.js';
 import { indexEditorProject } from './workspaceIndexer.js';
 import { buildAgentChatResponse, formatIntelligenceStatus } from './agentMetadata.js';
@@ -55,7 +64,23 @@ const chatSchema = z.object({
 		label: z.string(),
 		content: z.string()
 	})).optional(),
-	rulesText: z.string().max(50000).optional()
+	rulesText: z.string().max(50000).optional(),
+	mode: z.enum(['chat', 'composer', 'agent', 'builder']).optional(),
+	actionOnlyExplain: z.boolean().optional(),
+	skipPostApply: z.boolean().optional()
+});
+
+const buildTargetSchema = z.enum(['web', 'api', 'exe', 'apk']);
+
+const buildRequestSchema = z.object({
+	target: buildTargetSchema,
+	workspaceRoot: z.string().optional(),
+	priority: z.enum(['normal', 'high']).optional()
+});
+
+const continueJobSchema = z.object({
+	applied: z.boolean(),
+	paths: z.array(z.string()).optional()
 });
 
 const indexFileSchema = z.object({
@@ -154,7 +179,8 @@ const publicAgentPathsWhenDashboardChat = new Set([
 	'/api/agent/chat',
 	'/api/agent/chat/stream',
 	'/api/agent/composer-plan',
-	'/api/agent/jobs'
+	'/api/agent/jobs',
+	'/api/agent/build'
 ]);
 
 export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
@@ -344,7 +370,11 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 			filePath: body.filePath,
 			selectedText: body.selectedText,
 			shadowContext: body.shadowContext,
-			codeGraph: body.codeGraph
+			codeGraph: body.codeGraph,
+			mode: body.mode,
+			actionOnlyExplain: body.actionOnlyExplain ?? body.mode === 'chat',
+			skipPostApply: body.skipPostApply,
+			rulesText: body.rulesText
 		});
 
 		if (!snapshot.jobId?.trim()) {
@@ -375,19 +405,62 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 			return { ok: false, message: 'Agent job not found' };
 		}
 
+		const actionRun = getAgentActionRun(params.jobId);
+
 		return {
 			ok: true,
 			...snapshot,
+			actionRun,
 			intelligence_status: snapshot.response
 				? formatIntelligenceStatus(snapshot.response.metadata)
 				: `[Princy IA] ${snapshot.state} | ${snapshot.status}`
 		};
 	});
 
+	app.post('/api/agent/jobs/:jobId/approve', async request => {
+		const params = z.object({ jobId: z.string().min(1) }).parse(request.params);
+		return approveAgentJob(params.jobId);
+	});
+
+	app.post('/api/agent/jobs/:jobId/reject', async request => {
+		const params = z.object({ jobId: z.string().min(1) }).parse(request.params);
+		return rejectAgentJob(params.jobId);
+	});
+
+	app.post('/api/agent/jobs/:jobId/continue', async request => {
+		const params = z.object({ jobId: z.string().min(1) }).parse(request.params);
+		const body = continueJobSchema.parse(request.body ?? {});
+		return continueAgentJob(params.jobId, body);
+	});
+
+	app.post('/api/agent/build', async request => {
+		const body = buildRequestSchema.parse(request.body);
+		try {
+			const snapshot = startBuildJob(body.target, body.workspaceRoot);
+			return { ok: true, ...snapshot };
+		} catch (error) {
+			return {
+				ok: false,
+				message: error instanceof Error ? error.message : String(error)
+			};
+		}
+	});
+
+	app.get('/api/agent/build/:jobId', async request => {
+		const params = z.object({ jobId: z.string().min(1) }).parse(request.params);
+		const snapshot = getBuildJob(params.jobId);
+		if (!snapshot) {
+			return { ok: false, message: 'Build job not found' };
+		}
+		return { ok: true, ...snapshot };
+	});
+
 	app.get('/api/agent/jobs/:jobId/stream', async (request, reply) => {
 		const params = z.object({ jobId: z.string().min(1) }).parse(request.params);
 		let lastContent = '';
 		let lastState = '';
+		let lastPhase = '';
+		let lastPlanJson = '';
 
 		reply.raw.writeHead(200, {
 			'Content-Type': 'text/event-stream',
@@ -401,6 +474,7 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 
 		const poll = () => {
 			const snapshot = getAgentJobSnapshot(params.jobId);
+			const actionRun = getAgentActionRun(params.jobId);
 			if (!snapshot) {
 				send({ type: 'error', message: 'Agent job not found' });
 				reply.raw.end();
@@ -412,15 +486,43 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 				lastState = snapshot.state;
 			}
 
+			if (actionRun && actionRun.phase !== lastPhase) {
+				send({ type: 'phase', phase: actionRun.phase, actionRun });
+				lastPhase = actionRun.phase;
+			}
+
+			if (snapshot.composerPlan) {
+				const planJson = JSON.stringify(snapshot.composerPlan);
+				if (planJson !== lastPlanJson) {
+					send({
+						type: 'composerPlan',
+						plan: snapshot.composerPlan,
+						affectedFiles: snapshot.composerPlan.affectedFiles
+					});
+					lastPlanJson = planJson;
+				}
+			}
+
+			if (actionRun?.tasks?.length) {
+				send({ type: 'tasks', tasks: actionRun.tasks });
+			}
+
 			if (snapshot.content !== lastContent) {
 				send({ type: 'delta', text: snapshot.content });
 				lastContent = snapshot.content;
+			}
+
+			if (snapshot.state === 'AWAITING_APPROVAL') {
+				setTimeout(poll, 180);
+				return;
 			}
 
 			if (snapshot.response && (snapshot.status === 'COMPLETED' || snapshot.state === 'SUCCESS')) {
 				send({
 					type: 'done',
 					response: snapshot.response,
+					actionRun,
+					resultSummary: snapshot.resultSummary,
 					intelligence_status: formatIntelligenceStatus(snapshot.response.metadata)
 				});
 				reply.raw.end();
@@ -428,7 +530,7 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 			}
 
 			if (snapshot.status === 'FAILED' || snapshot.state === 'FAILED') {
-				send({ type: 'error', message: snapshot.error ?? 'Agent job failed' });
+				send({ type: 'error', message: snapshot.error ?? 'Agent job failed', actionRun });
 				reply.raw.end();
 				return;
 			}
@@ -462,7 +564,11 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 				filePath: body.filePath,
 				selectedText: body.selectedText,
 				shadowContext: body.shadowContext,
-				codeGraph: body.codeGraph
+				codeGraph: body.codeGraph,
+				mode: body.mode,
+				actionOnlyExplain: body.actionOnlyExplain ?? body.mode === 'chat',
+				skipPostApply: body.skipPostApply,
+				rulesText: body.rulesText
 			});
 
 			return {
@@ -652,29 +758,7 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 
 	app.post('/api/agent/composer-plan', async request => {
 		const body = composerPlanRequestSchema.parse(request.body);
-		const chunks = await retrieveAgentRelevantChunks(body.instruction);
-		const response = await createChatCompletion([
-			{
-				role: 'system',
-				content: [
-					buildRagSystemPrompt(chunks),
-					`Agente selecionado: ${agentConfigs[body.agent].label}.`,
-					'Voce esta no Composer Mode. Retorne somente JSON valido, sem Markdown.',
-					'O JSON deve seguir este formato:',
-					'{"summary":"...","warnings":["..."],"affectedFiles":["src/a.ts"],"operations":[{"type":"modify","filePath":"src/a.ts","search":"codigo antigo","replace":"codigo novo","rationale":"..."}]}',
-					'Use operacoes create, modify, delete e runCommand. Para modify, prefira search/replace pequeno em vez de arquivo inteiro.'
-				].join('\n\n')
-			},
-			{
-				role: 'user',
-				content: `${body.instruction}${buildSilentContext(body.shadowContext, body.codeGraph)}`
-			}
-		], body.agent, {
-			segment: 'LOGIC',
-			useOrchestrator: true
-		});
-
-		return parseComposerPlan(response);
+		return generateComposerPlan(body);
 	});
 
 	app.post('/api/agent/repair-after-command', async request => {
@@ -704,7 +788,7 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 			useOrchestrator: true
 		});
 
-		return parseComposerPlan(response);
+		return parseComposerPlanFromService(response);
 	});
 
 	app.post('/api/agent/index-file', async request => {
@@ -849,75 +933,4 @@ function toChatMessage(message: z.infer<typeof openAiChatMessageSchema>): ChatMe
 		role: message.role,
 		content
 	};
-}
-
-function normalizeComposerOperation(raw: unknown): z.infer<typeof composerOperationSchema> | undefined {
-	if (!raw || typeof raw !== 'object') {
-		return undefined;
-	}
-	const op = raw as Record<string, unknown>;
-	const type = op.type === 'edit' ? 'modify' : op.type;
-	const candidate = { ...op, type };
-	const parsed = composerOperationSchema.safeParse(candidate);
-	return parsed.success ? parsed.data : undefined;
-}
-
-function parseComposerPlan(value: string): z.infer<typeof composerPlanSchema> {
-	const json = extractJsonObject(value);
-	const parsedUnknown: unknown = JSON.parse(json);
-	const direct = composerPlanSchema.safeParse(parsedUnknown);
-	if (direct.success) {
-		return {
-			...direct.data,
-			operations: direct.data.operations.map((operation, index) => ({
-				...operation,
-				id: operation.id ?? `op-${index + 1}`
-			}))
-		};
-	}
-
-	const obj = parsedUnknown as Record<string, unknown>;
-	const summary = typeof obj.summary === 'string' && obj.summary.trim().length > 0
-		? obj.summary.trim()
-		: 'Plano Composer (revise as operacoes sugeridas pela IA)';
-	const warnings = Array.isArray(obj.warnings)
-		? obj.warnings.filter((w): w is string => typeof w === 'string')
-		: [];
-	if (direct.error) {
-		warnings.push(`Schema parcial: ${direct.error.issues.map(issue => issue.message).join('; ')}`);
-	}
-	const affectedFiles = Array.isArray(obj.affectedFiles)
-		? obj.affectedFiles.filter((f): f is string => typeof f === 'string')
-		: [];
-	const operations: z.infer<typeof composerPlanSchema>['operations'] = [];
-	if (Array.isArray(obj.operations)) {
-		for (const rawOp of obj.operations) {
-			const op = normalizeComposerOperation(rawOp);
-			if (op) {
-				operations.push(op);
-			}
-		}
-	}
-
-	return {
-		summary,
-		warnings,
-		affectedFiles,
-		operations: operations.map((operation, index) => ({
-			...operation,
-			id: operation.id ?? `op-${index + 1}`
-		}))
-	};
-}
-
-function extractJsonObject(value: string): string {
-	const trimmed = value.trim();
-	const fenced = /^```(?:json)?\s*([\s\S]*?)\s*```$/m.exec(trimmed);
-	const candidate = fenced?.[1] ?? trimmed;
-	const start = candidate.indexOf('{');
-	const end = candidate.lastIndexOf('}');
-	if (start === -1 || end === -1 || end <= start) {
-		throw new Error('A IA nao retornou um plano Composer em JSON valido.');
-	}
-	return candidate.slice(start, end + 1);
 }

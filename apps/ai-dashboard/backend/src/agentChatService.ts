@@ -29,6 +29,9 @@ export type AgentChatRequest = {
 	readonly codeGraph?: unknown;
 	readonly contextAttachments?: readonly ContextAttachmentInput[];
 	readonly rulesText?: string;
+	readonly mode?: 'chat' | 'composer' | 'agent' | 'builder';
+	readonly actionOnlyExplain?: boolean;
+	readonly skipPostApply?: boolean;
 };
 
 function resolveSegment(body: AgentChatRequest): ModelSegment {

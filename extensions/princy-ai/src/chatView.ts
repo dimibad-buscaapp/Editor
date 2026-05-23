@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { AgentClient, AgentDefinition, AgentModel, ComposerPlan, TerminalCommandResult } from './agentClient';
+import { AgentClient, AgentDefinition, AgentModel, ComposerPlan, ProjectTemplateId, TerminalCommandResult } from './agentClient';
 import { checkAgentBackend } from './agentConnectivity';
 import { focusPrincyChatPanel, PRINCY_CHAT_VIEW_ID } from './princyWorkbenchChat';
 import { buildChatPanelHtml } from './chatPanelHtml';
@@ -13,6 +13,10 @@ import type { NativeContextBundle } from './nativeContext';
 import { loadPrincyRules } from './princyRules';
 import { EMPTY_SHADOW_CONTEXT } from './shadowContext';
 import { ChatMode, ChatSessionManager } from './chatSessions';
+import { buildLineDiff } from './diffLines';
+import { mapAgentJobStateToStatus, setPrincyAiStatus, thinkingStepsForAgentState, labelForPrincyAiStatus } from './princyAiStatus';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 
 type ModelSegment = 'LOGIC' | 'FRONTEND' | 'BACKEND' | 'DEBUG';
 
@@ -34,7 +38,17 @@ type WebviewMessage =
 	| { readonly type: 'switchSession'; readonly sessionId: string }
 	| { readonly type: 'deleteSession'; readonly sessionId: string }
 	| { readonly type: 'setChatMode'; readonly mode: ChatMode }
-	| { readonly type: 'openSettings' };
+	| { readonly type: 'openSettings' }
+	| { readonly type: 'readFileForDiff'; readonly operationId: string; readonly filePath: string; readonly operation: import('./agentClient').ComposerOperation }
+	| { readonly type: 'approveActionRun'; readonly jobId: string; readonly instruction: string; readonly agent: AgentModel; readonly plan: ComposerPlan }
+	| { readonly type: 'rejectActionRun'; readonly jobId: string }
+	| { readonly type: 'verifyComposer'; readonly jobId: string; readonly instruction: string; readonly agent: AgentModel; readonly plan: ComposerPlan }
+	| { readonly type: 'startBuilder'; readonly target: import('./agentClient').BuildTarget }
+	| { readonly type: 'startBuildCenter'; readonly target: import('./agentClient').BuildTarget; readonly projectSlug?: string; readonly note?: string }
+	| { readonly type: 'downloadBuildCenter'; readonly buildId: string }
+	| { readonly type: 'createProject'; readonly templateId: ProjectTemplateId; readonly projectName: string; readonly runInstall?: boolean }
+	| { readonly type: 'openCreatedProject'; readonly projectPath: string }
+	| { readonly type: 'buildCreatedProject'; readonly projectPath: string; readonly target: import('./agentClient').BuildTarget };
 
 type ApplyComposerPlan = (
 	plan: ComposerPlan,
@@ -47,9 +61,17 @@ type ApplyComposerPlan = (
 	readonly repairPlan?: ComposerPlan;
 }>;
 
+type PendingActionRun = {
+	readonly jobId: string;
+	readonly instruction: string;
+	readonly agent: AgentModel;
+	readonly plan: ComposerPlan;
+};
+
 export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 	public static readonly viewType = 'princyai.chat';
 	private view: vscode.WebviewView | undefined;
+	private pendingActionRun: PendingActionRun | undefined;
 
 	public constructor(
 		private readonly extensionUri: vscode.Uri,
@@ -115,7 +137,47 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 					await this.requestComposerPlan(message.text, this.resolveAgentChoice(message.agent));
 					break;
 				}
+				if (message.chatMode === 'builder' || message.chatMode === 'buildCenter') {
+					await this.runBuildCenter(message.text, undefined, undefined, message.chatMode === 'builder');
+					break;
+				}
+				if (message.chatMode === 'creator') {
+					break;
+				}
 				await this.sendChatMessage(message.text, message.agent, message.segmentMode, message.priority, message.chatMode);
+				break;
+			case 'approveActionRun':
+				try {
+					await this.handleApproveActionRun(message);
+				} catch (error) {
+					const errText = error instanceof Error ? error.message : String(error);
+					this.view?.webview.postMessage({ type: 'status', text: errText });
+					this.view?.webview.postMessage({ type: 'append', role: 'assistant', text: errText });
+				}
+				break;
+			case 'rejectActionRun':
+				await this.handleRejectActionRun(message.jobId);
+				break;
+			case 'verifyComposer':
+				await this.handleVerifyComposer(message);
+				break;
+			case 'startBuilder':
+				await this.runBuildCenter(undefined, message.target);
+				break;
+			case 'startBuildCenter':
+				await this.runBuildCenter(message.note, message.target, message.projectSlug);
+				break;
+			case 'downloadBuildCenter':
+				await this.downloadBuildCenterArtifact(message.buildId);
+				break;
+			case 'createProject':
+				await this.runCreateProject(message.templateId, message.projectName, message.runInstall ?? true);
+				break;
+			case 'openCreatedProject':
+				await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(message.projectPath), true);
+				break;
+			case 'buildCreatedProject':
+				await this.runBuildCenter(undefined, message.target, undefined, false, message.projectPath);
 				break;
 			case 'requestComposer':
 				await this.requestComposerPlan(message.text, message.agent);
@@ -182,6 +244,9 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 			}
 			case 'openSettings':
 				await vscode.commands.executeCommand('workbench.action.openSettings');
+				break;
+			case 'readFileForDiff':
+				await this.replyFileDiff(message);
 				break;
 		}
 	}
@@ -260,9 +325,12 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 
 	private async initializeChatPanel(): Promise<void> {
 		this.pushSessionState();
+		const wsName = vscode.workspace.name ?? vscode.workspace.workspaceFolders?.[0]?.name ?? 'Workspace';
+		this.view?.webview.postMessage({ type: 'workspaceInfo', name: wsName });
 		const defaultAgent = vscode.workspace.getConfiguration('princyai').get<AgentModel>('defaultAgent', 'deepseek');
 		this.view?.webview.postMessage({ type: 'defaultAgent', agent: defaultAgent });
 		this.view?.webview.postMessage({ type: 'status', text: 'Pronto' });
+		void setPrincyAiStatus({ kind: 'ready', label: labelForPrincyAiStatus('ready') });
 
 		try {
 			const models = await this.client.models();
@@ -270,6 +338,8 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 		} catch {
 			this.view?.webview.postMessage({ type: 'agents', models: defaultAgents });
 		}
+
+		void this.loadCreatorTemplates();
 
 		void this.refreshBackendStatusLazy();
 	}
@@ -286,10 +356,13 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 				endpoint
 			});
 			if (!status.online) {
+				void setPrincyAiStatus({ kind: 'offline', label: labelForPrincyAiStatus('offline'), detail: status.message });
 				this.view?.webview.postMessage({
 					type: 'status',
 					text: 'Backend offline — inicie o agent na porta 3210'
 				});
+			} else {
+				void setPrincyAiStatus({ kind: 'ready', label: labelForPrincyAiStatus('ready'), detail: endpoint });
 			}
 		} catch {
 			// ignore — user can still type; send will show error
@@ -308,13 +381,20 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 	}
 
 	private shouldUseAgentJob(chatMode?: ChatMode): boolean {
-		if (chatMode === 'agent') {
+		if (chatMode === 'agent' || chatMode === 'chat') {
 			return true;
 		}
-		if (chatMode === 'composer') {
+		if (chatMode === 'composer' || chatMode === 'builder' || chatMode === 'buildCenter' || chatMode === 'creator') {
 			return false;
 		}
 		return !this.isSimpleChatMode();
+	}
+
+	private apiModeForChat(chatMode?: ChatMode): 'chat' | 'composer' | 'agent' | undefined {
+		if (chatMode === 'chat' || chatMode === 'agent') {
+			return chatMode;
+		}
+		return undefined;
 	}
 
 	private async requestComposerPlan(text: string, agent: AgentModel): Promise<void> {
@@ -448,7 +528,7 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 				codeGraph = nativeContext.codeGraph;
 			}
 
-			if (simple) {
+			if (simple && chatMode !== 'chat') {
 				const response = await this.client.chat({
 					agent: resolvedAgent,
 					message: cleanMessage,
@@ -469,30 +549,35 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 					text: reply,
 					suggestedCommands: response.suggestedCommands ?? []
 				});
+				void setPrincyAiStatus({ kind: 'ready', label: labelForPrincyAiStatus('ready') });
 				this.view?.webview.postMessage({ type: 'status', text: 'Pronto' });
 				return;
 			}
 
+			const isComposerJob = chatMode === 'composer';
 			const started = await this.client.startAgentJob({
 				agent: resolvedAgent,
 				message: cleanMessage,
 				context: workspaceContext,
 				force_segment: forceSegment,
 				priority,
-				trigger_compile: priority === 'high',
+				trigger_compile: chatMode === 'agent' ? (priority === 'high' || vscode.workspace.getConfiguration('princyai').get<boolean>('actionRun.autoCompileAfterApply', true)) : false,
 				filePath: editor?.document.uri.toString(),
 				selectedText,
 				shadowContext,
 				codeGraph,
 				contextAttachments: attachments,
-				rulesText: rulesText || undefined
+				rulesText: rulesText || undefined,
+				mode: this.apiModeForChat(chatMode) ?? (isComposerJob ? 'composer' : 'agent'),
+				actionOnlyExplain: chatMode === 'chat',
+				skipPostApply: chatMode === 'composer' && !vscode.workspace.getConfiguration('princyai').get<boolean>('composer.autoVerify', false)
 			});
 
 			if (!started.jobId?.trim()) {
 				throw new Error('Backend nao retornou jobId. Atualize o agent backend no VPS (git pull + npm run build:backend).');
 			}
 
-			const response = await this.pollAgentJob(started.jobId);
+			const response = await this.pollAgentJob(started.jobId, cleanMessage, resolvedAgent, chatMode);
 			const planBlock = response.plan?.length
 				? `Plano:\n${response.plan.map((step, index) => `${index + 1}. ${step}`).join('\n')}\n\n`
 				: '';
@@ -503,6 +588,7 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 				text: reply,
 				suggestedCommands: response.suggestedCommands ?? []
 			});
+			void setPrincyAiStatus({ kind: 'ready', label: labelForPrincyAiStatus('ready') });
 			this.view?.webview.postMessage({ type: 'status', text: 'Pronto' });
 			if (response.metadata?.compile_job_id) {
 				this.pollCompileJob(response.metadata.compile_job_id);
@@ -526,12 +612,196 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 		}
 	}
 
-	private async pollAgentJob(jobId: string): Promise<import('./agentClient').ChatResponse> {
+	private async handleApproveActionRun(message: Extract<WebviewMessage, { type: 'approveActionRun' }>): Promise<void> {
+		const operationIds = message.plan.operations.map(op => op.id);
+		this.view?.webview.postMessage({ type: 'thinking', steps: [
+			{ label: 'Aprovando plano...', state: 'done' },
+			{ label: 'Aplicando mudancas...', state: 'active' },
+			{ label: 'Compilando / testando...', state: 'pending' }
+		] });
+		const approve = await this.client.approveAgentJob(message.jobId);
+		if (!approve.ok) {
+			throw new Error(approve.message ?? 'Falha ao aprovar job');
+		}
+		const result = await this.applyComposerPlan(message.plan, operationIds, message.instruction, message.agent);
+		const cont = await this.client.continueAgentJob(message.jobId, result.appliedFiles);
+		if (!cont.ok) {
+			throw new Error(cont.message ?? 'Falha ao continuar job apos apply');
+		}
+		this.pendingActionRun = undefined;
+		this.view?.webview.postMessage({
+			type: 'actionRun',
+			phase: 'applying',
+			resultSummary: `Aplicado em ${result.appliedFiles.length} arquivo(s). Compilando...`
+		});
+	}
+
+	private async handleRejectActionRun(jobId: string): Promise<void> {
+		await this.client.rejectAgentJob(jobId);
+		this.pendingActionRun = undefined;
+		this.view?.webview.postMessage({ type: 'actionRun', phase: 'cancelled', resultSummary: 'Acao cancelada.' });
+		this.view?.webview.postMessage({ type: 'status', text: 'Cancelado' });
+	}
+
+	private async handleVerifyComposer(message: Extract<WebviewMessage, { type: 'verifyComposer' }>): Promise<void> {
+		await this.handleApproveActionRun({
+			type: 'approveActionRun',
+			jobId: message.jobId,
+			instruction: message.instruction,
+			agent: message.agent,
+			plan: message.plan
+		});
+	}
+
+	private async loadCreatorTemplates(): Promise<void> {
+		try {
+			const templates = await this.client.listProjectTemplates();
+			const { projectsRoot, projects } = await this.client.listProjects();
+			this.view?.webview.postMessage({ type: 'projectTemplates', templates, projectsRoot });
+			this.view?.webview.postMessage({ type: 'buildCenterProjects', projects });
+		} catch {
+			const fallbackRoot = vscode.workspace.getConfiguration('princyai').get<string>('projects.root', 'workspace-storage/projetos');
+			this.view?.webview.postMessage({ type: 'projectTemplates', templates: [], projectsRoot: fallbackRoot });
+			this.view?.webview.postMessage({ type: 'buildCenterProjects', projects: [] });
+		}
+	}
+
+	private async runCreateProject(templateId: ProjectTemplateId, projectName: string, runInstall: boolean): Promise<void> {
+		this.view?.webview.postMessage({ type: 'status', text: 'Criando projeto...' });
+		void setPrincyAiStatus({ kind: 'planning', label: 'IA: Criando projeto' });
+		try {
+			const result = await this.client.createProject(templateId, projectName, runInstall);
+			if (!result.ok || !result.projectPath) {
+				throw new Error(result.message ?? 'Falha ao criar projeto');
+			}
+			let installLog = '';
+			if (result.installJobId) {
+				this.view?.webview.postMessage({ type: 'status', text: 'Instalando dependencias...' });
+				const install = await this.client.pollCreateProjectInstall(result.installJobId);
+				installLog = install.output;
+				if (install.status === 'FAILED') {
+					throw new Error('npm install falhou — veja o log no painel');
+				}
+			}
+			const summary = `Projeto criado em ${result.projectPath}`;
+			this.recordTurn('assistant', summary);
+			this.view?.webview.postMessage({
+				type: 'projectCreated',
+				projectPath: result.projectPath,
+				templateId: result.templateId,
+				buildTarget: result.buildTarget,
+				slug: result.slug,
+				installLog
+			});
+			this.view?.webview.postMessage({ type: 'append', role: 'assistant', text: summary });
+			void setPrincyAiStatus({ kind: 'ready', label: labelForPrincyAiStatus('ready') });
+			this.view?.webview.postMessage({ type: 'status', text: 'Projeto criado' });
+		} catch (error) {
+			const errText = error instanceof Error ? error.message : String(error);
+			this.view?.webview.postMessage({ type: 'append', role: 'assistant', text: errText });
+			this.view?.webview.postMessage({ type: 'status', text: errText });
+			void setPrincyAiStatus({ kind: 'error', label: labelForPrincyAiStatus('error') });
+		}
+	}
+
+	private async runBuildCenter(
+		note?: string,
+		target?: import('./agentClient').BuildTarget,
+		projectSlug?: string,
+		legacyBuilder = false,
+		projectPath?: string
+	): Promise<void> {
+		const buildTarget = target ?? vscode.workspace.getConfiguration('princyai').get<import('./agentClient').BuildTarget>('builder.defaultTarget', 'web');
+		const label = note?.trim() ? `Build (${buildTarget}): ${note}` : `Build: ${buildTarget}`;
+		this.recordTurn('user', label);
+		this.view?.webview.postMessage({ type: 'append', role: 'user', text: label });
+		if (legacyBuilder) {
+			this.view?.webview.postMessage({ type: 'actionRun', phase: 'building', buildTarget });
+		}
+		void setPrincyAiStatus({ kind: 'building', label: labelForPrincyAiStatus('building'), detail: buildTarget });
+
+		try {
+			const workspaceRoot = projectPath ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+			const started = await this.client.startBuildCenter({
+				type: buildTarget,
+				...(projectSlug ? { projectSlug } : projectPath || workspaceRoot ? { projectPath: projectPath ?? workspaceRoot } : {}),
+				...(note?.trim() ? { note: note.trim() } : {})
+			});
+			const logStreamUrl = await this.client.getBuildLogStreamUrl(started.buildId);
+			this.view?.webview.postMessage({
+				type: 'buildCenterStarted',
+				buildId: started.buildId,
+				status: started.status,
+				logStreamUrl
+			});
+			const final = await this.client.pollBuildCenter(started.buildId, 1_800_000, snapshot => {
+				this.view?.webview.postMessage({
+					type: 'buildCenterStatus',
+					buildId: snapshot.buildId,
+					status: snapshot.status,
+					artifactReady: snapshot.artifactReady
+				});
+			});
+			const summary = final.status === 'success'
+				? `Build ${buildTarget} concluido.${final.artifactName ? ` Artefato: ${final.artifactName}` : ''}`
+				: `Build ${buildTarget}: ${final.status}`;
+			this.recordTurn('assistant', summary);
+			this.view?.webview.postMessage({
+				type: 'buildCenterStatus',
+				buildId: final.buildId,
+				status: final.status,
+				artifactReady: final.artifactReady
+			});
+			if (legacyBuilder) {
+				this.view?.webview.postMessage({ type: 'actionRun', phase: final.status === 'success' ? 'completed' : 'failed', resultSummary: summary });
+			}
+			this.view?.webview.postMessage({ type: 'append', role: 'assistant', text: summary });
+			void setPrincyAiStatus({ kind: final.status === 'success' ? 'ready' : 'error', label: labelForPrincyAiStatus(final.status === 'success' ? 'ready' : 'error') });
+		} catch (error) {
+			const errText = error instanceof Error ? error.message : String(error);
+			this.view?.webview.postMessage({ type: 'append', role: 'assistant', text: errText });
+			this.view?.webview.postMessage({ type: 'buildCenterStatus', status: 'error' });
+			if (legacyBuilder) {
+				this.view?.webview.postMessage({ type: 'actionRun', phase: 'failed', resultSummary: errText });
+			}
+		}
+	}
+
+	private async downloadBuildCenterArtifact(buildId: string): Promise<void> {
+		try {
+			const url = await this.client.getBuildDownloadUrl(buildId);
+			await vscode.env.openExternal(vscode.Uri.parse(url));
+		} catch (error) {
+			const errText = error instanceof Error ? error.message : String(error);
+			void vscode.window.showErrorMessage(errText);
+		}
+	}
+
+	private showActionRunApproval(jobId: string, instruction: string, agent: AgentModel, plan: ComposerPlan): void {
+		this.pendingActionRun = { jobId, instruction, agent, plan };
+		this.view?.webview.postMessage({
+			type: 'actionRun',
+			phase: 'awaiting_approval',
+			jobId,
+			instruction,
+			agent,
+			approvalRequired: true
+		});
+		this.view?.webview.postMessage({ type: 'composerPlan', instruction, agent, plan, jobId, showApproval: true });
+	}
+
+	private async pollAgentJob(
+		jobId: string,
+		instruction: string,
+		agent: AgentModel,
+		chatMode?: ChatMode
+	): Promise<import('./agentClient').ChatResponse> {
 		try {
 			return await new Promise<import('./agentClient').ChatResponse>((resolve, reject) => {
 				void this.client.subscribeJobStream(jobId, {
 					onDelta: text => {
 						this.view?.webview.postMessage({ type: 'streamDelta', text });
+						this.postThinkingForState('GENERATING', Boolean(text?.length));
 					},
 					onState: state => {
 						this.postThinkingForState(state);
@@ -539,27 +809,64 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 							type: 'intelligence_status',
 							text: `[Princy IA] ${state} | Gerando...`
 						});
+						if (state === 'AWAITING_APPROVAL') {
+							void this.tryShowApprovalFromSnapshot(jobId, instruction, agent);
+						}
+					},
+					onPhase: (phase, actionRun) => {
+						this.view?.webview.postMessage({ type: 'actionRun', phase, actionRun });
+						if (actionRun?.tasks?.length) {
+							this.view?.webview.postMessage({ type: 'taskCards', cards: actionRun.tasks });
+						}
+					},
+					onComposerPlan: plan => {
+						if (chatMode === 'agent' || chatMode === 'composer') {
+							this.showActionRunApproval(jobId, instruction, agent, plan);
+						} else {
+							this.view?.webview.postMessage({ type: 'composerPlan', instruction, agent, plan });
+						}
+					},
+					onTasks: tasks => {
+						if (tasks?.length) {
+							this.view?.webview.postMessage({ type: 'taskCards', cards: tasks });
+						}
+					},
+					onAwaitingApproval: () => {
+						void this.tryShowApprovalFromSnapshot(jobId, instruction, agent);
 					},
 					onDone: response => resolve(response),
 					onError: message => reject(new Error(message))
 				}).catch(reject);
 			});
 		} catch {
-			return this.pollAgentJobFallback(jobId);
+			return this.pollAgentJobFallback(jobId, instruction, agent, chatMode);
 		}
 	}
 
-	private postThinkingForState(state: string): void {
-		const steps = [
-			{ label: 'THINKING', state: state === 'THINKING' ? 'active' : 'done' },
-			{ label: 'GENERATING', state: state === 'GENERATING' ? 'active' : state === 'THINKING' ? 'pending' : 'done' },
-			{ label: 'COMPILING', state: state === 'COMPILING' ? 'active' : ['TESTING', 'HEALING', 'SUCCESS', 'FAILED'].includes(state) ? 'done' : 'pending' },
-			{ label: 'TESTING', state: state === 'TESTING' ? 'active' : state === 'HEALING' || state === 'SUCCESS' ? 'done' : 'pending' }
-		];
-		this.view?.webview.postMessage({ type: 'thinking', steps });
+	private async tryShowApprovalFromSnapshot(jobId: string, instruction: string, agent: AgentModel): Promise<void> {
+		if (this.pendingActionRun?.jobId === jobId) {
+			return;
+		}
+		const snapshot = await this.client.getAgentJob(jobId);
+		if (snapshot.composerPlan) {
+			this.showActionRunApproval(jobId, instruction, agent, snapshot.composerPlan);
+		}
 	}
 
-	private async pollAgentJobFallback(jobId: string): Promise<import('./agentClient').ChatResponse> {
+	private postThinkingForState(state: string, hasContent = false): void {
+		const steps = thinkingStepsForAgentState(state);
+		this.view?.webview.postMessage({ type: 'thinking', steps });
+		const status = mapAgentJobStateToStatus(state, hasContent);
+		void setPrincyAiStatus({ kind: status.kind, label: status.label, detail: state });
+		this.view?.webview.postMessage({ type: 'status', text: status.label.replace(/^IA:\s*/, '') });
+	}
+
+	private async pollAgentJobFallback(
+		jobId: string,
+		instruction: string,
+		agent: AgentModel,
+		chatMode?: ChatMode
+	): Promise<import('./agentClient').ChatResponse> {
 		let lastStreamedContent = '';
 		for (let attempt = 0; attempt < 200; attempt++) {
 			const snapshot = await this.client.getAgentJob(jobId);
@@ -573,7 +880,12 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 				lastStreamedContent = snapshot.content;
 			}
 
-			this.postThinkingForState(snapshot.state);
+			this.postThinkingForState(snapshot.state, Boolean(snapshot.content?.length));
+
+			if (snapshot.state === 'AWAITING_APPROVAL' && snapshot.composerPlan && (chatMode === 'agent' || chatMode === 'composer')) {
+				this.showActionRunApproval(jobId, instruction, agent, snapshot.composerPlan);
+				return await this.waitJobAfterApproval(jobId);
+			}
 
 			if (snapshot.response && (snapshot.status === 'COMPLETED' || snapshot.state === 'SUCCESS')) {
 				return snapshot.response;
@@ -584,6 +896,24 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 			await new Promise<void>(resolve => setTimeout(() => resolve(), 450));
 		}
 		throw new Error('Timeout aguardando job do agente');
+	}
+
+	private async waitJobAfterApproval(jobId: string): Promise<import('./agentClient').ChatResponse> {
+		for (let attempt = 0; attempt < 400; attempt++) {
+			const snapshot = await this.client.getAgentJob(jobId);
+			this.postThinkingForState(snapshot.state, Boolean(snapshot.content?.length));
+			if (snapshot.actionRun?.tasks?.length) {
+				this.view?.webview.postMessage({ type: 'taskCards', cards: snapshot.actionRun.tasks });
+			}
+			if (snapshot.response && (snapshot.status === 'COMPLETED' || snapshot.state === 'SUCCESS')) {
+				return snapshot.response;
+			}
+			if (snapshot.status === 'FAILED' || snapshot.state === 'FAILED') {
+				throw new Error(snapshot.error ?? 'Job falhou apos aprovacao');
+			}
+			await new Promise<void>(resolve => setTimeout(() => resolve(), 800));
+		}
+		throw new Error('Timeout aguardando conclusao apos aprovacao');
 	}
 
 	private async pollCompileJob(jobId: string): Promise<void> {
@@ -620,7 +950,34 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 
 	private getHtml(webview: vscode.Webview): string {
 		const nonce = getNonce();
-		return buildChatPanelHtml(webview.cspSource, nonce);
+		const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'chat-panel.css')).toString();
+		return buildChatPanelHtml(webview.cspSource, nonce, styleUri);
+	}
+
+	private async replyFileDiff(message: Extract<WebviewMessage, { type: 'readFileForDiff' }>): Promise<void> {
+		const op = message.operation;
+		let before = '';
+		try {
+			const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+			if (root && message.filePath) {
+				const full = path.isAbsolute(message.filePath) ? message.filePath : path.join(root, message.filePath);
+				before = await fs.readFile(full, 'utf8');
+			}
+		} catch {
+			before = '';
+		}
+		let after = before;
+		if (op.type === 'modify') {
+			if (op.content) {
+				after = op.content;
+			} else if (op.search && op.replace !== undefined) {
+				after = before.includes(op.search) ? before.replace(op.search, op.replace) : before + '\n' + op.replace;
+			}
+		} else if (op.type === 'create') {
+			after = op.content ?? '';
+		}
+		const lines = buildLineDiff(before, after);
+		this.view?.webview.postMessage({ type: 'diffFileContent', operationId: message.operationId, lines });
 	}
 }
 

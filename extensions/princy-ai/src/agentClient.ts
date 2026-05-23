@@ -90,6 +90,28 @@ export interface ContextAttachmentPayload {
 	readonly content: string;
 }
 
+export type BuildTarget = 'web' | 'api' | 'exe' | 'apk';
+
+export type BuildCenterStatus = 'waiting' | 'compiling' | 'error' | 'success';
+
+export interface BuildCenterStatusResponse {
+	readonly ok: boolean;
+	readonly buildId: string;
+	readonly type: BuildTarget;
+	readonly status: BuildCenterStatus;
+	readonly startedAt: number;
+	readonly finishedAt?: number;
+	readonly artifactReady: boolean;
+	readonly artifactName?: string;
+	readonly workspacePath: string;
+	readonly projectSlug?: string;
+}
+
+export interface ProjectListEntry {
+	readonly slug: string;
+	readonly path: string;
+}
+
 export interface ChatRequest {
 	readonly agent: AgentModel;
 	readonly message: string;
@@ -105,6 +127,9 @@ export interface ChatRequest {
 	readonly codeGraph?: CodeGraphContext;
 	readonly contextAttachments?: readonly ContextAttachmentPayload[];
 	readonly rulesText?: string;
+	readonly mode?: 'chat' | 'composer' | 'agent' | 'builder';
+	readonly actionOnlyExplain?: boolean;
+	readonly skipPostApply?: boolean;
 }
 
 export interface ChatMetadata {
@@ -140,6 +165,30 @@ export interface AgentJobStartResponse {
 	readonly thinkingLog: readonly string[];
 }
 
+export interface ActionTask {
+	readonly id: string;
+	readonly label: string;
+	readonly state: 'pending' | 'active' | 'done' | 'failed';
+}
+
+export interface ActionRunSnapshot {
+	readonly runId: string;
+	readonly mode: 'chat' | 'composer' | 'agent' | 'builder';
+	readonly phase: string;
+	readonly planSummary?: string;
+	readonly planSteps?: readonly string[];
+	readonly composerPlan?: ComposerPlan;
+	readonly affectedFiles?: readonly string[];
+	readonly buildTarget?: BuildTarget;
+	readonly compileJobId?: string;
+	readonly buildJobId?: string;
+	readonly testOutput?: string;
+	readonly resultSummary?: string;
+	readonly approvalRequired: boolean;
+	readonly approvalStatus?: 'pending' | 'approved' | 'rejected';
+	readonly tasks?: readonly ActionTask[];
+}
+
 export interface AgentJobSnapshot {
 	readonly ok?: boolean;
 	readonly jobId: string;
@@ -151,6 +200,53 @@ export interface AgentJobSnapshot {
 	readonly error?: string;
 	readonly response?: ChatResponse;
 	readonly intelligence_status?: string;
+	readonly composerPlan?: ComposerPlan;
+	readonly approvalStatus?: 'pending' | 'approved' | 'rejected';
+	readonly actionRun?: ActionRunSnapshot;
+	readonly resultSummary?: string;
+}
+
+export interface BuildJobSnapshot {
+	readonly ok?: boolean;
+	readonly jobId: string;
+	readonly target: BuildTarget;
+	readonly status: string;
+	readonly output: string;
+	readonly artifactHint?: string;
+}
+
+export type ProjectTemplateId =
+	| 'apk' | 'exe' | 'webapp' | 'saas' | 'api'
+	| 'automation' | 'bot' | 'dashboard' | 'landing'
+	| 'auth' | 'payments' | 'database';
+
+export interface ProjectTemplateSummary {
+	readonly id: ProjectTemplateId;
+	readonly name: string;
+	readonly description: string;
+	readonly stack: readonly string[];
+	readonly build: string;
+	readonly buildTarget?: BuildTarget;
+	readonly tags?: readonly string[];
+}
+
+export interface CreateProjectResult {
+	readonly ok: boolean;
+	readonly message?: string;
+	readonly projectPath?: string;
+	readonly templateId?: ProjectTemplateId;
+	readonly slug?: string;
+	readonly installJobId?: string;
+	readonly build?: string;
+	readonly buildTarget?: BuildTarget;
+}
+
+export interface CreateProjectInstallJob {
+	readonly ok?: boolean;
+	readonly jobId: string;
+	readonly status: string;
+	readonly output: string;
+	readonly projectPath: string;
 }
 
 export interface AgentDefinition {
@@ -330,6 +426,150 @@ export class AgentClient {
 
 	public async getCompileStatus(jobId: string): Promise<{ readonly status: string; readonly output?: string }> {
 		return this.get<{ readonly ok: boolean; readonly status: string; readonly output?: string }>(`/api/agent/compile-status/${encodeURIComponent(jobId)}`);
+	}
+
+	public async approveAgentJob(jobId: string): Promise<{ readonly ok: boolean; readonly message?: string }> {
+		return this.post<{ readonly ok: boolean; readonly message?: string }>(`/api/agent/jobs/${encodeURIComponent(jobId)}/approve`, {});
+	}
+
+	public async rejectAgentJob(jobId: string): Promise<{ readonly ok: boolean; readonly message?: string }> {
+		return this.post<{ readonly ok: boolean; readonly message?: string }>(`/api/agent/jobs/${encodeURIComponent(jobId)}/reject`, {});
+	}
+
+	public async continueAgentJob(jobId: string, appliedPaths: readonly string[]): Promise<{ readonly ok: boolean; readonly message?: string }> {
+		return this.post<{ readonly ok: boolean; readonly message?: string }>(`/api/agent/jobs/${encodeURIComponent(jobId)}/continue`, {
+			applied: true,
+			paths: [...appliedPaths]
+		});
+	}
+
+	public async startBuildCenter(input: {
+		readonly type: BuildTarget;
+		readonly projectPath?: string;
+		readonly projectSlug?: string;
+		readonly note?: string;
+	}): Promise<{ readonly buildId: string; readonly status: BuildCenterStatus }> {
+		const result = await this.post<{
+			readonly ok: boolean;
+			readonly buildId?: string;
+			readonly status?: BuildCenterStatus;
+			readonly message?: string;
+		}>('/api/build/start', input);
+		if (!result.ok || !result.buildId) {
+			throw new Error(result.message ?? 'Falha ao iniciar build');
+		}
+		return { buildId: result.buildId, status: result.status ?? 'waiting' };
+	}
+
+	public async getBuildCenterStatus(buildId: string): Promise<BuildCenterStatusResponse> {
+		return this.get<BuildCenterStatusResponse>(`/api/build/${encodeURIComponent(buildId)}/status`);
+	}
+
+	public async getBuildLogStreamUrl(buildId: string): Promise<string> {
+		const endpoint = toAbsoluteAgentEndpoint(await this.resolveEndpoint());
+		return `${endpoint}/api/build/${encodeURIComponent(buildId)}/logs`;
+	}
+
+	public async getBuildDownloadUrl(buildId: string): Promise<string> {
+		const endpoint = toAbsoluteAgentEndpoint(await this.resolveEndpoint());
+		return `${endpoint}/api/build/${encodeURIComponent(buildId)}/download`;
+	}
+
+	public async listProjects(): Promise<{ readonly projectsRoot: string; readonly projects: readonly ProjectListEntry[] }> {
+		const result = await this.get<{ readonly ok: boolean; readonly projectsRoot: string; readonly projects: readonly ProjectListEntry[] }>('/api/projects');
+		return { projectsRoot: result.projectsRoot, projects: result.projects ?? [] };
+	}
+
+	public async pollBuildCenter(
+		buildId: string,
+		timeoutMs = 1_800_000,
+		onStatus?: (status: BuildCenterStatusResponse) => void
+	): Promise<BuildCenterStatusResponse> {
+		const startedAt = Date.now();
+		while (Date.now() - startedAt < timeoutMs) {
+			const snapshot = await this.getBuildCenterStatus(buildId);
+			onStatus?.(snapshot);
+			if (snapshot.status === 'success' || snapshot.status === 'error') {
+				return snapshot;
+			}
+			await new Promise<void>(resolve => setTimeout(() => resolve(), 1500));
+		}
+		throw new Error('Timeout aguardando build');
+	}
+
+	public async startBuild(target: BuildTarget, workspaceRoot?: string): Promise<BuildJobSnapshot> {
+		const projectPath = workspaceRoot?.trim();
+		const started = await this.startBuildCenter({
+			type: target,
+			...(projectPath ? { projectPath } : {})
+		});
+		return this.legacySnapshotFromBuildCenter(started.buildId);
+	}
+
+	public async getBuildJob(jobId: string): Promise<BuildJobSnapshot> {
+		return this.legacySnapshotFromBuildCenter(jobId);
+	}
+
+	private async legacySnapshotFromBuildCenter(buildId: string): Promise<BuildJobSnapshot> {
+		const center = await this.getBuildCenterStatus(buildId);
+		const legacyStatus =
+			center.status === 'success' ? 'READY'
+				: center.status === 'error' ? 'FAILED'
+					: center.status === 'compiling' ? 'BUILDING'
+						: 'QUEUED';
+		let output = '';
+		try {
+			const logs = await this.get<{ readonly ok: boolean; readonly lines: string }>(
+				`/api/build/${encodeURIComponent(buildId)}/logs?offset=0`
+			);
+			output = logs.lines?.slice(-12_000) ?? '';
+		} catch {
+			// ignore log fetch errors for legacy snapshot
+		}
+		return {
+			jobId: buildId,
+			target: center.type,
+			status: legacyStatus,
+			output,
+			artifactHint: center.artifactReady ? center.artifactName : undefined
+		};
+	}
+
+	public async listProjectTemplates(): Promise<readonly ProjectTemplateSummary[]> {
+		const result = await this.get<{ readonly ok: boolean; readonly templates: readonly ProjectTemplateSummary[] }>('/api/projects/templates');
+		return result.templates ?? [];
+	}
+
+	public async createProject(templateId: ProjectTemplateId, projectName: string, runInstall = false): Promise<CreateProjectResult> {
+		return this.post<CreateProjectResult>('/api/projects/create', { templateId, projectName, runInstall });
+	}
+
+	public async getCreateProjectInstallJob(jobId: string): Promise<CreateProjectInstallJob> {
+		return this.get<CreateProjectInstallJob>(`/api/projects/create/${encodeURIComponent(jobId)}`);
+	}
+
+	public async pollCreateProjectInstall(jobId: string, timeoutMs = 600_000): Promise<CreateProjectInstallJob> {
+		const startedAt = Date.now();
+		while (Date.now() - startedAt < timeoutMs) {
+			const snapshot = await this.getCreateProjectInstallJob(jobId);
+			if (snapshot.status === 'READY' || snapshot.status === 'FAILED') {
+				return snapshot;
+			}
+			await new Promise<void>(resolve => setTimeout(() => resolve(), 2000));
+		}
+		throw new Error('Timeout aguardando npm install');
+	}
+
+	public async pollBuildJob(jobId: string, timeoutMs = 1_800_000): Promise<BuildJobSnapshot> {
+		const startedAt = Date.now();
+		while (Date.now() - startedAt < timeoutMs) {
+			const snapshot = await this.getBuildJob(jobId);
+			if (snapshot.status === 'READY' || snapshot.status === 'FAILED' || snapshot.status === 'SKIPPED') {
+				return snapshot;
+			}
+			await new Promise<void>(resolve => setTimeout(() => resolve(), 2000));
+		}
+		throw new Error('Timeout aguardando build');
 	}
 
 	public async indexFile(request: IndexFileRequest): Promise<void> {

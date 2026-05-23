@@ -17,7 +17,8 @@
 | payments | Sistema com pagamento |
 | database | Sistema com banco de dados |
 
-Pasta padrao: `C:\Apps\Projects\<nome-do-projeto>`
+Pasta padrao (Fase 5): `apps/ai-dashboard/workspace-storage/projetos/<nome-do-projeto>`  
+Override: `PRINCY_PROJECTS_ROOT` ou `WORKSPACE_STORAGE_ROOT` no `.env`
 
 ## API
 
@@ -34,8 +35,8 @@ Pasta padrao: `C:\Apps\Projects\<nome-do-projeto>`
 # Na raiz do repositorio
 .\deploy\windows\ensure-princy-projects-folder.ps1
 
-# Env opcional no .env do backend
-# PRINCY_PROJECTS_ROOT=C:\Apps\Projects
+# Fase 5: use ensure-princy-build-storage.ps1 (cria projetos/ + builds/)
+# PRINCY_PROJECTS_ROOT=...  (opcional; default = workspace-storage/projetos)
 ```
 
 ## Deploy

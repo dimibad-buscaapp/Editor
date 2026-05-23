@@ -38,7 +38,8 @@ async function applyMinimalWorkbench(): Promise<void> {
 	await wb.update('secondarySideBar.forceMaximized', false, target);
 	await wb.update('panel.defaultLocation', 'bottom', target);
 	await wb.update('panel.opensMaximized', 'never', target);
-	await wb.update('commandCenter.enabled', true, target);
+	await win.update('commandCenter', true, target);
+	await win.update('title', '${rootName}', target);
 	await wb.update('tree.indent', 12, target);
 	await wb.update('editor.centeredLayoutAutoResize', true, target);
 	await win.update('menuBarVisibility', 'classic', target);

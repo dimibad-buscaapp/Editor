@@ -1,3 +1,4 @@
+import { agentStateToActionPhase, buildActionTasks, type ActionRunSnapshot } from '../actionRun/types.js';
 import type { AgentJobRecord, AgentJobSnapshot } from './types.js';
 
 const jobs = new Map<string, AgentJobRecord>();
@@ -46,7 +47,34 @@ export function toSnapshot(job: AgentJobRecord): AgentJobSnapshot {
 		error: job.error,
 		response: job.response,
 		compileJobId: job.compileJobId,
+		buildJobId: job.buildJobId,
 		testOutput: job.testOutput,
-		indexedFiles: job.indexedFiles
+		indexedFiles: job.indexedFiles,
+		mode: job.mode ?? job.request.mode,
+		actionPhase: job.actionPhase ?? agentStateToActionPhase(job.state, job.approvalStatus),
+		composerPlan: job.composerPlan,
+		approvalStatus: job.approvalStatus,
+		appliedPaths: job.appliedPaths,
+		resultSummary: job.resultSummary
+	};
+}
+
+export function toActionRunSnapshot(job: AgentJobRecord): ActionRunSnapshot {
+	const mode = job.mode ?? job.request.mode ?? 'agent';
+	return {
+		runId: job.id,
+		mode,
+		phase: agentStateToActionPhase(job.state, job.approvalStatus),
+		planSummary: job.composerPlan?.summary ?? job.content.slice(0, 500),
+		planSteps: job.plan,
+		composerPlan: job.composerPlan,
+		affectedFiles: job.composerPlan?.affectedFiles ?? [],
+		compileJobId: job.compileJobId,
+		buildJobId: job.buildJobId,
+		testOutput: job.testOutput,
+		resultSummary: job.resultSummary,
+		approvalRequired: mode === 'agent' || mode === 'composer',
+		approvalStatus: job.approvalStatus,
+		tasks: buildActionTasks(job.state, job.plan)
 	};
 }

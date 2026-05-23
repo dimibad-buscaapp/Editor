@@ -111,16 +111,30 @@ export const config = {
 	ragChunkSize: Number(process.env.RAG_CHUNK_SIZE ?? '1200'),
 	sessionSecret: process.env.SESSION_SECRET ?? 'dev-session-secret-change-me',
 	workspaceStorageRoot: path.resolve(process.env.WORKSPACE_STORAGE_ROOT ?? './workspace-storage'),
-	projectsRoot: path.resolve(process.env.PRINCY_PROJECTS_ROOT ?? 'C:/Apps/Projects'),
+	/** Fase 5: projetos em workspace-storage/projetos (override via PRINCY_PROJECTS_ROOT para migracao). */
+	projectsRoot: (() => {
+		const storageRoot = path.resolve(process.env.WORKSPACE_STORAGE_ROOT ?? './workspace-storage');
+		const defaultProjects = path.join(storageRoot, 'projetos');
+		return path.resolve(process.env.PRINCY_PROJECTS_ROOT ?? defaultProjects);
+	})(),
+	buildsRoot: (() => {
+		const storageRoot = path.resolve(process.env.WORKSPACE_STORAGE_ROOT ?? './workspace-storage');
+		return path.join(storageRoot, 'builds');
+	})(),
+	buildArtifactMaxMb: Number(process.env.PRINCY_BUILD_ARTIFACT_MAX_MB ?? '500'),
 	compileJobWaitTimeoutMs: Number(process.env.PRINCY_COMPILE_WAIT_MS ?? String(30 * 60_000)),
 	allowedWorkspaceRoots: (() => {
 		const editorRoot = path.resolve(process.env.EDITOR_PROJECT_ROOT ?? 'C:/Apps/Editor');
-		const projectsRoot = path.resolve(process.env.PRINCY_PROJECTS_ROOT ?? 'C:/Apps/Projects');
+		const storageRoot = path.resolve(process.env.WORKSPACE_STORAGE_ROOT ?? './workspace-storage');
+		const projectsRoot = path.resolve(
+			process.env.PRINCY_PROJECTS_ROOT ?? path.join(storageRoot, 'projetos')
+		);
+		const buildsRoot = path.join(storageRoot, 'builds');
 		const extra = (process.env.PRINCY_ALLOWED_WORKSPACE_ROOTS ?? '')
 			.split(',')
 			.map(value => value.trim())
 			.filter(Boolean)
 			.map(value => path.resolve(value));
-		return [...new Set([...extra, editorRoot, projectsRoot])];
+		return [...new Set([...extra, editorRoot, projectsRoot, buildsRoot, storageRoot])];
 	})()
 };

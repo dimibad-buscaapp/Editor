@@ -1,10 +1,15 @@
+import type { ActionRunMode, ApprovalStatus } from '../actionRun/types.js';
 import type { AgentChatRequest } from '../agentChatService.js';
 import type { AgentChatResponse } from '../agentMetadata.js';
+import type { ComposerPlan } from '../composerPlanService.js';
 import type { ModelSegment } from '../orchestrator/types.js';
 
 export type AgentJobState =
 	| 'IDLE'
 	| 'THINKING'
+	| 'PLANNING'
+	| 'AWAITING_APPROVAL'
+	| 'APPLYING'
 	| 'GENERATING'
 	| 'COMPILING'
 	| 'TESTING'
@@ -28,8 +33,16 @@ export type AgentJobRecord = {
 	thinkingLog: string[];
 	response?: AgentChatResponse;
 	compileJobId?: string;
+	buildJobId?: string;
 	testOutput?: string;
 	indexedFiles?: number;
+	mode?: ActionRunMode;
+	actionPhase?: string;
+	composerPlan?: ComposerPlan;
+	approvalStatus?: ApprovalStatus;
+	appliedPaths?: string[];
+	resultSummary?: string;
+	skipPostApply?: boolean;
 };
 
 export type AgentJobSnapshot = {
@@ -42,6 +55,13 @@ export type AgentJobSnapshot = {
 	readonly error?: string;
 	readonly response?: AgentChatResponse;
 	readonly compileJobId?: string;
+	readonly buildJobId?: string;
 	readonly testOutput?: string;
 	readonly indexedFiles?: number;
+	readonly mode?: ActionRunMode;
+	readonly actionPhase?: string;
+	readonly composerPlan?: ComposerPlan;
+	readonly approvalStatus?: ApprovalStatus;
+	readonly appliedPaths?: readonly string[];
+	readonly resultSummary?: string;
 };

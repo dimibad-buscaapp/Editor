@@ -9,6 +9,9 @@ import { ZodError } from 'zod';
 import { config } from './config.js';
 import { resolveCorsOrigin } from './corsPolicy.js';
 import { prisma } from './prisma.js';
+import { ensureBuildStorageLayout } from './build/storageLayout.js';
+import { recoverInterruptedBuilds } from './build/buildCenterService.js';
+import { registerBuildRoutes } from './buildRoutes.js';
 import { registerAgentRoutes } from './agentRoutes.js';
 import { registerProjectRoutes } from './projectRoutes.js';
 import { registerLogviewRoutes } from './logviewRoutes.js';
@@ -73,9 +76,13 @@ app.addHook('onRequest', async request => {
 	(request as { _princyStart?: number })._princyStart = Date.now();
 });
 
+ensureBuildStorageLayout();
+recoverInterruptedBuilds();
+
 await registerRoutes(app);
 await registerAgentRoutes(app);
 await registerProjectRoutes(app);
+await registerBuildRoutes(app);
 await registerLogviewRoutes(app);
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));

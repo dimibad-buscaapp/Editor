@@ -5,7 +5,8 @@
 
 import { PRINCY_DESIGN_TOKENS_CSS } from './princyDesignTokens';
 
-export function buildChatPanelHtml(cspSource: string, nonce: string): string {
+export function buildChatPanelHtml(cspSource: string, nonce: string, styleUri?: string): string {
+	const styleLink = styleUri ? `<link rel="stylesheet" href="${styleUri}">` : '';
 	return /* html */`<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -13,6 +14,7 @@ export function buildChatPanelHtml(cspSource: string, nonce: string): string {
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
 	<title>Princy IA</title>
+	${styleLink}
 	<style>
 		:root {
 			${PRINCY_DESIGN_TOKENS_CSS}
@@ -701,6 +703,48 @@ export function buildChatPanelHtml(cspSource: string, nonce: string): string {
 			<button type="button" class="chat-mode-pill active" data-mode="chat" role="tab" aria-selected="true">Chat</button>
 			<button type="button" class="chat-mode-pill" data-mode="composer" role="tab">Composer</button>
 			<button type="button" class="chat-mode-pill" data-mode="agent" role="tab">Agent</button>
+			<button type="button" class="chat-mode-pill" data-mode="buildCenter" role="tab">Build Center</button>
+			<button type="button" class="chat-mode-pill" data-mode="creator" role="tab">Creator</button>
+		</div>
+		<div class="action-run-panel" id="actionRunPanel" style="display:none" aria-live="polite">
+			<div class="action-run-title">Painel de acao</div>
+			<div class="action-run-steps" id="actionRunSteps"></div>
+			<div class="action-run-result" id="actionRunResult"></div>
+		</div>
+		<div class="build-center-panel" id="buildCenterPanel" style="display:none">
+			<div class="build-center-header">
+				<span class="build-center-title">Build Center</span>
+				<span class="build-center-status-badge waiting" id="buildCenterStatusBadge">aguardando</span>
+			</div>
+			<div class="build-center-form">
+				<label class="chat-sr-only" for="bcBuildType">Tipo</label>
+				<select id="bcBuildType" class="chat-model-select" title="Tipo">
+					<option value="web">Web</option>
+					<option value="api">API</option>
+					<option value="exe">EXE</option>
+					<option value="apk">APK</option>
+				</select>
+				<label class="chat-sr-only" for="bcProject">Projeto</label>
+				<select id="bcProject" class="chat-model-select" title="Projeto">
+					<option value="">Workspace aberto</option>
+				</select>
+				<button type="button" class="chat-toolbar-btn" id="bcStartBtn">Iniciar build</button>
+				<button type="button" class="chat-toolbar-btn" id="bcDownloadBtn" disabled>Download</button>
+			</div>
+			<pre class="build-center-log" id="buildCenterLog" aria-live="polite"></pre>
+		</div>
+		<div class="creator-panel" id="creatorPanel" style="display:none">
+			<div class="creator-header">
+				<span class="creator-title">Criador de projetos</span>
+				<span class="creator-root" id="creatorRoot">C:\\Apps\\Projects</span>
+			</div>
+			<div class="creator-form">
+				<label class="chat-sr-only" for="projectName">Nome do projeto</label>
+				<input type="text" id="projectName" class="creator-input" placeholder="nome-do-projeto" maxlength="64" />
+				<label class="creator-check"><input type="checkbox" id="runInstall" checked /> npm install</label>
+			</div>
+			<div class="creator-grid" id="creatorGrid"></div>
+			<div class="creator-result" id="creatorResult" style="display:none"></div>
 		</div>
 		<details class="chat-history" id="historyPanel">
 			<summary>Histórico</summary>
@@ -719,6 +763,7 @@ export function buildChatPanelHtml(cspSource: string, nonce: string): string {
 				</div>
 			</div>
 			<div class="chat-turn-list" id="messages"></div>
+			<div class="task-cards" id="taskCards" style="display:none"></div>
 			<div class="chat-thinking" id="thinking"></div>
 		</div>
 		<div class="chat-composer">
@@ -783,14 +828,43 @@ function getChatPanelScript(): string {
 		const historyList = document.getElementById('historyList');
 		let streamingNode = null;
 		let streamingBody = null;
+		let streamTargetText = '';
+		let streamDisplayed = 0;
+		let streamRaf = 0;
+		const taskCards = document.getElementById('taskCards');
 		let currentMode = 'chat';
 		let activeSessionId = null;
 
 		const MODE_PLACEHOLDERS = {
 			chat: 'Pergunte ao Princy IA…',
 			composer: 'Descreva mudanças multi-arquivo…',
-			agent: 'Tarefa para o agente (jobs, RAG, terminal)…'
+			agent: 'Tarefa completa (plano, diff, apply, compile, test)…',
+			builder: 'Opcional: nota sobre o build…',
+			buildCenter: 'Nota opcional sobre o build…',
+			creator: 'Nome do projeto acima, depois escolha um template'
 		};
+		const creatorPanel = document.getElementById('creatorPanel');
+		const creatorGrid = document.getElementById('creatorGrid');
+		const creatorRoot = document.getElementById('creatorRoot');
+		const projectNameInput = document.getElementById('projectName');
+		const runInstallCheck = document.getElementById('runInstall');
+		const creatorResult = document.getElementById('creatorResult');
+		let projectTemplates = [];
+		let lastCreatedProject = null;
+		const actionRunPanel = document.getElementById('actionRunPanel');
+		const actionRunSteps = document.getElementById('actionRunSteps');
+		const actionRunResult = document.getElementById('actionRunResult');
+		const buildCenterPanel = document.getElementById('buildCenterPanel');
+		const bcBuildType = document.getElementById('bcBuildType');
+		const bcProject = document.getElementById('bcProject');
+		const bcStartBtn = document.getElementById('bcStartBtn');
+		const bcDownloadBtn = document.getElementById('bcDownloadBtn');
+		const buildCenterLog = document.getElementById('buildCenterLog');
+		const buildCenterStatusBadge = document.getElementById('buildCenterStatusBadge');
+		let buildCenterProjects = [];
+		let activeBuildId = null;
+		let buildLogSource = null;
+		const ACTION_STEP_LABELS = ['Entender', 'Plano', 'Arquivos', 'Diff', 'Aprovar', 'Build', 'Test', 'Resultado'];
 
 		if (!input) {
 			const banner = document.createElement('div');
@@ -871,8 +945,177 @@ function getChatPanelScript(): string {
 			const followups = document.querySelector('.chat-followups');
 			if (followups) followups.style.display = mode === 'composer' ? 'none' : '';
 			if (composerBtn) composerBtn.style.display = mode === 'composer' ? 'none' : '';
+			if (buildCenterPanel) buildCenterPanel.style.display = mode === 'buildCenter' ? 'flex' : 'none';
+			if (creatorPanel) creatorPanel.style.display = mode === 'creator' ? 'flex' : 'none';
+			if (input && mode === 'creator') input.placeholder = MODE_PLACEHOLDERS.creator;
+			if (actionRunPanel && (mode === 'chat' || mode === 'creator' || mode === 'buildCenter')) {
+				actionRunPanel.style.display = 'none';
+			}
 			if (!fromHost) {
 				vscode.postMessage({ type: 'setChatMode', mode });
+			}
+		}
+
+		function setBuildCenterStatus(status) {
+			if (!buildCenterStatusBadge) return;
+			const labels = { waiting: 'aguardando', compiling: 'compilando', error: 'erro', success: 'sucesso' };
+			buildCenterStatusBadge.textContent = labels[status] || status;
+			buildCenterStatusBadge.className = 'build-center-status-badge ' + (status || 'waiting');
+		}
+
+		function renderBuildCenterProjects(projects) {
+			if (!bcProject) return;
+			const current = bcProject.value;
+			bcProject.innerHTML = '<option value="">Workspace aberto</option>';
+			for (const p of projects || []) {
+				const opt = document.createElement('option');
+				opt.value = p.slug;
+				opt.textContent = p.slug;
+				bcProject.appendChild(opt);
+			}
+			if (current && Array.from(bcProject.options).some(o => o.value === current)) {
+				bcProject.value = current;
+			}
+		}
+
+		function appendBuildCenterLog(text) {
+			if (!buildCenterLog || !text) return;
+			buildCenterLog.textContent += text;
+			buildCenterLog.scrollTop = buildCenterLog.scrollHeight;
+		}
+
+		function closeBuildLogStream() {
+			if (buildLogSource) {
+				buildLogSource.close();
+				buildLogSource = null;
+			}
+		}
+
+		function openBuildLogStream(url) {
+			closeBuildLogStream();
+			if (!url || typeof EventSource === 'undefined') return;
+			buildLogSource = new EventSource(url);
+			buildLogSource.addEventListener('log', ev => {
+				try {
+					const data = JSON.parse(ev.data);
+					appendBuildCenterLog(data.text || '');
+				} catch { /* ignore */ }
+			});
+			buildLogSource.addEventListener('done', () => closeBuildLogStream());
+			buildLogSource.addEventListener('error', () => closeBuildLogStream());
+		}
+
+		bcStartBtn?.addEventListener('click', () => {
+			const type = bcBuildType?.value || 'web';
+			const slug = bcProject?.value || '';
+			const note = input?.value?.trim() || '';
+			vscode.postMessage({
+				type: 'startBuildCenter',
+				target: type,
+				projectSlug: slug || undefined,
+				note: note || undefined
+			});
+		});
+
+		bcDownloadBtn?.addEventListener('click', () => {
+			if (!activeBuildId) return;
+			vscode.postMessage({ type: 'downloadBuildCenter', buildId: activeBuildId });
+		});
+
+		function renderCreatorGrid() {
+			if (!creatorGrid) return;
+			creatorGrid.innerHTML = '';
+			for (const t of projectTemplates) {
+				const card = document.createElement('div');
+				card.className = 'creator-card';
+				const title = document.createElement('div');
+				title.className = 'creator-card-title';
+				title.textContent = t.name;
+				const desc = document.createElement('div');
+				desc.className = 'creator-card-desc';
+				desc.textContent = t.description || '';
+				const stacks = document.createElement('div');
+				stacks.className = 'creator-card-stacks';
+				for (const s of (t.stack || []).slice(0, 4)) {
+					const chip = document.createElement('span');
+					chip.className = 'creator-chip';
+					chip.textContent = s;
+					stacks.appendChild(chip);
+				}
+				const btn = document.createElement('button');
+				btn.type = 'button';
+				btn.className = 'creator-create-btn';
+				btn.textContent = 'Criar';
+				btn.addEventListener('click', () => {
+					const name = (projectNameInput?.value || '').trim();
+					if (!name) {
+						setStatus('Informe o nome do projeto');
+						projectNameInput?.focus();
+						return;
+					}
+					vscode.postMessage({
+						type: 'createProject',
+						templateId: t.id,
+						projectName: name,
+						runInstall: Boolean(runInstallCheck?.checked)
+					});
+				});
+				card.append(title, desc, stacks, btn);
+				creatorGrid.appendChild(card);
+			}
+		}
+
+		function showProjectCreated(msg) {
+			if (!creatorResult) return;
+			lastCreatedProject = msg;
+			creatorResult.style.display = 'block';
+			creatorResult.innerHTML = '';
+			const p = document.createElement('p');
+			p.textContent = msg.projectPath;
+			const openBtn = document.createElement('button');
+			openBtn.type = 'button';
+			openBtn.className = 'chat-toolbar-btn';
+			openBtn.textContent = 'Abrir pasta';
+			openBtn.addEventListener('click', () => vscode.postMessage({ type: 'openCreatedProject', projectPath: msg.projectPath }));
+			const buildBtn = document.createElement('button');
+			buildBtn.type = 'button';
+			buildBtn.className = 'chat-toolbar-btn';
+			buildBtn.textContent = 'Build Center';
+			buildBtn.addEventListener('click', () => {
+				setChatMode('buildCenter', true);
+				if (msg.slug && bcProject) {
+					renderBuildCenterProjects(buildCenterProjects);
+					bcProject.value = msg.slug;
+				}
+				if (msg.buildTarget && bcBuildType) bcBuildType.value = msg.buildTarget;
+				vscode.postMessage({ type: 'setChatMode', mode: 'buildCenter' });
+			});
+			creatorResult.append(p, openBtn, buildBtn);
+			if (msg.installLog) {
+				const pre = document.createElement('pre');
+				pre.className = 'build-log';
+				pre.textContent = msg.installLog;
+				creatorResult.appendChild(pre);
+			}
+		}
+
+		function renderActionRunPanel(phase, actionRun, resultSummary) {
+			if (!actionRunPanel || !actionRunSteps) return;
+			actionRunPanel.style.display = 'flex';
+			actionRunSteps.innerHTML = '';
+			const tasks = (actionRun && actionRun.tasks) || ACTION_STEP_LABELS.map((label, i) => ({
+				id: 's' + i,
+				label,
+				state: 'pending'
+			}));
+			for (const task of tasks) {
+				const step = document.createElement('div');
+				step.className = 'action-step ' + (task.state || 'pending');
+				step.textContent = task.label;
+				actionRunSteps.appendChild(step);
+			}
+			if (actionRunResult) {
+				actionRunResult.textContent = resultSummary || (phase === 'awaiting_approval' ? 'Revise o diff e aprove para aplicar.' : '');
 			}
 		}
 
@@ -907,34 +1150,31 @@ function getChatPanelScript(): string {
 			historyList.innerHTML = '';
 			activeSessionId = activeId;
 			for (const session of sessions || []) {
-				const row = document.createElement('div');
-				row.className = 'chat-history-row';
-				row.style.display = 'contents';
-				const btn = document.createElement('button');
-				btn.type = 'button';
-				btn.className = 'chat-history-item' + (session.id === activeId ? ' active' : '');
-				const title = document.createElement('span');
-				title.className = 'chat-history-item-title';
+				const wrap = document.createElement('div');
+				wrap.className = 'history-item' + (session.id === activeId ? ' active' : '');
+				const main = document.createElement('button');
+				main.type = 'button';
+				main.className = 'history-main';
+				main.style.cssText = 'flex:1;border:none;background:transparent;color:inherit;text-align:left;cursor:pointer;padding:0';
+				const title = document.createElement('div');
 				title.textContent = session.title || 'Nova conversa';
-				const mode = document.createElement('span');
-				mode.className = 'chat-history-item-mode';
-				mode.textContent = session.mode || 'chat';
-				btn.append(title, mode);
-				btn.addEventListener('click', () => {
-					vscode.postMessage({ type: 'switchSession', sessionId: session.id });
-				});
+				title.style.fontWeight = '500';
+				const meta = document.createElement('div');
+				meta.className = 'history-meta';
+				meta.textContent = (session.mode || 'chat') + (session.updatedAt ? ' · ' + formatTs(session.updatedAt) : '');
+				main.append(title, meta);
+				main.addEventListener('click', () => vscode.postMessage({ type: 'switchSession', sessionId: session.id }));
 				const del = document.createElement('button');
 				del.type = 'button';
 				del.className = 'chat-history-del';
 				del.title = 'Excluir';
 				del.textContent = '×';
+				del.style.cssText = 'border:none;background:transparent;color:var(--princy-muted);cursor:pointer';
 				del.addEventListener('click', event => {
 					event.stopPropagation();
 					vscode.postMessage({ type: 'deleteSession', sessionId: session.id });
 				});
-				const wrap = document.createElement('div');
-				wrap.style.cssText = 'display:flex;align-items:center;gap:2px;width:100%';
-				wrap.append(btn, del);
+				wrap.append(main, del);
 				historyList.appendChild(wrap);
 			}
 		}
@@ -952,6 +1192,57 @@ function getChatPanelScript(): string {
 
 		function setStatus(text) {
 			if (status) status.textContent = text || 'Pronto';
+		}
+
+		function scheduleStreamReveal() {
+			if (!streamingBody) return;
+			if (streamDisplayed >= streamTargetText.length) return;
+			const tick = () => {
+				if (!streamingBody) {
+					streamRaf = 0;
+					return;
+				}
+				if (streamDisplayed < streamTargetText.length) {
+					streamDisplayed = Math.min(streamDisplayed + 14, streamTargetText.length);
+					streamingBody.textContent = streamTargetText.slice(0, streamDisplayed);
+					streamingBody.classList.add('cursor-blink');
+					scrollBottom();
+					streamRaf = requestAnimationFrame(tick);
+				} else {
+					streamRaf = 0;
+				}
+			};
+			if (!streamRaf) streamRaf = requestAnimationFrame(tick);
+		}
+
+		function renderTaskCards(cards) {
+			if (!taskCards) return;
+			taskCards.innerHTML = '';
+			if (!cards || !cards.length) {
+				taskCards.style.display = 'none';
+				return;
+			}
+			taskCards.style.display = 'flex';
+			for (const card of cards) {
+				const el = document.createElement('div');
+				el.className = 'task-card ' + (card.state || 'pending');
+				const title = document.createElement('div');
+				title.className = 'task-card-title';
+				title.textContent = card.title || card.label || 'Task';
+				const meta = document.createElement('div');
+				meta.className = 'task-card-meta';
+				meta.textContent = card.detail || '';
+				el.append(title, meta);
+				taskCards.appendChild(el);
+			}
+		}
+
+		function formatTs(ts) {
+			if (!ts) return '';
+			try {
+				const d = new Date(ts);
+				return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+			} catch { return ''; }
 		}
 
 		function postChatMessage(priority) {
@@ -1019,6 +1310,27 @@ function getChatPanelScript(): string {
 			if (message.type === 'status' || message.type === 'intelligence_status') {
 				setStatus(message.text || 'Pronto');
 			}
+			if (message.type === 'workspaceInfo') {
+				const sub = document.getElementById('chatHeaderSub');
+				if (sub && message.name) {
+					sub.textContent = message.name + ' · Princy IA';
+				}
+			}
+			if (message.type === 'taskCards') {
+				renderTaskCards(message.cards || []);
+			}
+			if (message.type === 'diffFileContent') {
+				const el = document.getElementById('diff-' + message.operationId);
+				if (el && message.lines) {
+					el.innerHTML = '';
+					for (const line of message.lines) {
+						const row = document.createElement('div');
+						row.className = 'diff-line ' + (line.kind || 'ctx');
+						row.textContent = line.text;
+						el.appendChild(row);
+					}
+				}
+			}
 			if (message.type === 'backendStatus' && backendDot) {
 				backendDot.classList.toggle('online', Boolean(message.online));
 				backendDot.title = (message.online ? 'Backend online' : 'Backend offline') + (message.endpoint ? ' — ' + message.endpoint : '');
@@ -1047,30 +1359,86 @@ function getChatPanelScript(): string {
 				else appendAssistant(message.text, message.suggestedCommands);
 				scrollBottom();
 			}
+			if (message.type === 'actionRun') {
+				renderActionRunPanel(message.phase, message.actionRun, message.resultSummary);
+			}
+			if (message.type === 'projectTemplates') {
+				projectTemplates = message.templates || [];
+				if (creatorRoot && message.projectsRoot) creatorRoot.textContent = message.projectsRoot;
+				renderCreatorGrid();
+			}
+			if (message.type === 'buildCenterProjects') {
+				buildCenterProjects = message.projects || [];
+				renderBuildCenterProjects(buildCenterProjects);
+			}
+			if (message.type === 'buildCenterStarted') {
+				activeBuildId = message.buildId;
+				if (buildCenterLog) buildCenterLog.textContent = '';
+				setBuildCenterStatus(message.status || 'waiting');
+				if (bcDownloadBtn) bcDownloadBtn.disabled = true;
+				appendBuildCenterLog('[build] ' + (message.buildId || '') + '\\n');
+				if (message.logStreamUrl) openBuildLogStream(message.logStreamUrl);
+			}
+			if (message.type === 'buildCenterStatus') {
+				setBuildCenterStatus(message.status);
+				if (message.status === 'success' && bcDownloadBtn) bcDownloadBtn.disabled = false;
+				if (message.status === 'error' || message.status === 'success') closeBuildLogStream();
+			}
+			if (message.type === 'buildCenterLog') {
+				appendBuildCenterLog(message.text || '');
+			}
+			if (message.type === 'openBuildCenter') {
+				setChatMode('buildCenter', true);
+				if (message.target && bcBuildType) bcBuildType.value = message.target;
+				if (message.projectSlug && bcProject) bcProject.value = message.projectSlug;
+			}
+			if (message.type === 'projectCreated') {
+				showProjectCreated(message);
+				hideEmpty();
+			}
+			if (message.type === 'buildLog') {
+				hideEmpty();
+				renderActionRunPanel('building', { tasks: [] }, message.text || '');
+				const log = document.createElement('pre');
+				log.className = 'build-log';
+				log.textContent = message.text || '';
+				messages.appendChild(log);
+				scrollBottom();
+			}
 			if (message.type === 'composerPlan') {
 				hideEmpty();
-				renderComposerPlan(message.instruction, message.agent, message.plan);
+				renderComposerPlan(message.instruction, message.agent, message.plan, message.jobId, message.showApproval);
 				scrollBottom();
 			}
 			if (message.type === 'context') renderContext(message);
 			if (message.type === 'mentionSuggestions') renderMentionMenu(message.items || []);
 			if (message.type === 'streamStart') {
 				hideEmpty();
+				streamTargetText = '';
+				streamDisplayed = 0;
+				if (streamRaf) cancelAnimationFrame(streamRaf);
 				streamingNode = createTurn('assistant', 'Princy IA', true);
 				streamingBody = streamingNode.querySelector('.chat-turn-body');
 				if (streamingBody) {
 					streamingBody.innerHTML = '<span class="loading-dots"><span></span><span></span><span></span></span>';
+					streamingBody.classList.add('cursor-blink');
 				}
 				messages.appendChild(streamingNode);
 				scrollBottom();
 			}
 			if (message.type === 'streamDelta' && streamingBody) {
-				streamingBody.textContent = message.text || '';
-				scrollBottom();
+				streamTargetText = message.text || '';
+				scheduleStreamReveal();
 			}
 			if (message.type === 'streamEnd') {
+				if (streamRaf) {
+					cancelAnimationFrame(streamRaf);
+					streamRaf = 0;
+				}
 				if (streamingNode && streamingBody) {
-					const text = message.text || '';
+					const text = message.text || streamTargetText || '';
+					streamTargetText = text;
+					streamDisplayed = text.length;
 					streamingBody.classList.remove('cursor-blink');
 					streamingBody.textContent = '';
 					renderRichText(streamingBody, text);
@@ -1189,7 +1557,17 @@ function getChatPanelScript(): string {
 			if (Array.from(agent.options).some(o => o.value === selected)) agent.value = selected;
 		}
 
-		function renderComposerPlan(instruction, agentName, plan) {
+		function addOpButton(container, label, className, onClick, disabled) {
+			const b = document.createElement('button');
+			b.textContent = label;
+			if (className) b.className = className;
+			b.disabled = Boolean(disabled);
+			b.addEventListener('click', onClick);
+			container.appendChild(b);
+			return b;
+		}
+
+		function renderComposerPlan(instruction, agentName, plan, jobId, showApproval) {
 			const wrapper = document.createElement('div');
 			wrapper.className = 'plan';
 			const title = document.createElement('strong');
@@ -1203,16 +1581,27 @@ function getChatPanelScript(): string {
 			}
 			const topActions = document.createElement('div');
 			topActions.className = 'plan-actions';
-			const applyAll = document.createElement('button');
-			applyAll.className = 'primary';
-			applyAll.textContent = 'Apply All';
-			applyAll.addEventListener('click', () => {
-				vscode.postMessage({ type: 'applyComposerPlan', instruction, agent: agentName, plan, operationIds: (plan.operations || []).map(o => o.id) });
-			});
-			const rejectAll = document.createElement('button');
-			rejectAll.textContent = 'Reject All';
-			rejectAll.addEventListener('click', () => wrapper.remove());
-			topActions.append(applyAll, rejectAll);
+			if (jobId && showApproval) {
+				addOpButton(topActions, 'Aprovar tudo', 'primary', () => {
+					vscode.postMessage({ type: 'approveActionRun', jobId, instruction, agent: agentName, plan });
+					wrapper.classList.add('applied');
+				});
+				addOpButton(topActions, 'Rejeitar', '', () => {
+					vscode.postMessage({ type: 'rejectActionRun', jobId });
+					wrapper.remove();
+				});
+			} else {
+				addOpButton(topActions, 'Apply All', 'primary', () => {
+					vscode.postMessage({ type: 'applyComposerPlan', instruction, agent: agentName, plan, operationIds: (plan.operations || []).map(o => o.id) });
+					wrapper.classList.add('applied');
+				});
+				addOpButton(topActions, 'Reject All', '', () => wrapper.remove());
+			}
+			if (jobId && !showApproval) {
+				addOpButton(topActions, 'Verificar', '', () => {
+					vscode.postMessage({ type: 'verifyComposer', jobId, instruction, agent: agentName, plan });
+				});
+			}
 			wrapper.appendChild(topActions);
 			for (const warning of plan.warnings || []) {
 				const w = document.createElement('div');
@@ -1237,22 +1626,42 @@ function getChatPanelScript(): string {
 				text.textContent = operation.type + ' · ' + (operation.filePath || operation.command);
 				row.appendChild(text);
 				block.append(checkbox, row);
-				const diff = renderOperationPreview(operation);
-				if (diff) block.appendChild(diff);
+				const diffHost = document.createElement('div');
+				diffHost.className = 'diff-rich';
+				diffHost.id = 'diff-' + operation.id;
+				const preview = renderOperationPreview(operation);
+				if (preview) diffHost.appendChild(preview);
+				block.appendChild(diffHost);
+				if (operation.filePath && operation.type === 'modify') {
+					vscode.postMessage({ type: 'readFileForDiff', operationId: operation.id, filePath: operation.filePath, operation });
+				}
+				const opActions = document.createElement('div');
+				opActions.className = 'operation-actions';
+				addOpButton(opActions, 'Preview', '', () => {
+					vscode.postMessage({ type: 'previewComposerOperation', operation });
+				});
+				addOpButton(opActions, 'Apply', 'primary', () => {
+					vscode.postMessage({ type: 'applyComposerPlan', instruction, agent: agentName, plan, operationIds: [operation.id] });
+					block.classList.add('applied');
+				});
+				addOpButton(opActions, 'Reject', '', () => block.remove());
+				if (operation.type === 'runCommand') {
+					const cmd = operation.command || '';
+					addOpButton(opActions, 'Run', '', () => vscode.postMessage({ type: 'runCommand', command: cmd }));
+					if (/build|compile/i.test(cmd)) {
+						addOpButton(opActions, 'Build', '', () => vscode.postMessage({ type: 'runCommand', command: cmd }));
+					}
+				}
+				block.appendChild(opActions);
 				wrapper.appendChild(block);
 			}
 			const actions = document.createElement('div');
 			actions.className = 'plan-actions';
-			const apply = document.createElement('button');
-			apply.className = 'primary';
-			apply.textContent = 'Apply';
-			apply.addEventListener('click', () => {
+			addOpButton(actions, 'Apply', 'primary', () => {
 				vscode.postMessage({ type: 'applyComposerPlan', instruction, agent: agentName, plan, operationIds: Array.from(wrapper.querySelectorAll('input:checked')).map(i => i.value) });
+				wrapper.classList.add('applied');
 			});
-			const reject = document.createElement('button');
-			reject.textContent = 'Reject';
-			reject.addEventListener('click', () => wrapper.remove());
-			actions.append(apply, reject);
+			addOpButton(actions, 'Reject', '', () => wrapper.remove());
 			wrapper.appendChild(actions);
 			messages.appendChild(wrapper);
 		}
@@ -1264,13 +1673,18 @@ function getChatPanelScript(): string {
 				thinking.style.display = 'none';
 				return;
 			}
-			thinking.style.display = 'block';
+			thinking.style.display = 'flex';
 			for (const step of steps) {
 				const item = document.createElement('div');
-				item.className = 'step ' + step.state;
+				item.className = 'step ' + (step.state || 'pending');
 				item.textContent = step.label;
 				thinking.appendChild(item);
 			}
+			renderTaskCards(steps.map(s => ({
+				title: s.label,
+				state: s.state === 'active' ? 'active' : s.state === 'done' ? 'done' : 'pending',
+				detail: s.state === 'active' ? 'Em progresso' : ''
+			})));
 		}
 
 		function renderRichText(container, text) {

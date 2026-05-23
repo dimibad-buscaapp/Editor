@@ -135,3 +135,29 @@ function updateJobOutput(jobId: string, output: string): void {
 		output: output.slice(-8000)
 	});
 }
+
+export async function waitForCompileJob(
+	jobId: string,
+	timeoutMs: number,
+	pollIntervalMs = 2000
+): Promise<CompileValidationResult> {
+	const startedAt = Date.now();
+	while (Date.now() - startedAt < timeoutMs) {
+		const status = getCompileJobStatus(jobId);
+		if (!status) {
+			throw new Error(`Compile job not found: ${jobId}`);
+		}
+		if (status.status === 'READY' || status.status === 'FAILED') {
+			return status;
+		}
+		await new Promise<void>(resolve => setTimeout(resolve, pollIntervalMs));
+	}
+	const last = getCompileJobStatus(jobId);
+	return last ?? {
+		status: 'FAILED',
+		codeWebReachable: false,
+		serverMainReady: false,
+		output: 'Timeout aguardando compilacao',
+		jobId
+	};
+}

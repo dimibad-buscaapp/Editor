@@ -193,8 +193,14 @@
       "princyai.useSameOriginApi": true,
       "princyai.agentEndpoint": "/princy-api",
       "princyai.chat.simpleMode": false,
+      "princyai.actionRun.approvalRequired": true,
+      "princyai.actionRun.autoCompileAfterApply": true,
+      "princyai.composer.autoVerify": false,
+      "princyai.builder.defaultTarget": "web",
+      "princyai.projects.root": "workspace-storage/projetos",
       "princyai.workspaceIndex.onOpen": true,
-      "workbench.commandCenter.enabled": true,
+      "window.commandCenter": true,
+      "window.title": "${rootName}",
       "workbench.panel.defaultLocation": "bottom",
       "workbench.panel.opensMaximized": "never",
       "workbench.tree.indent": 12,
@@ -296,6 +302,32 @@
           "type": "boolean",
           "default": false,
           "description": "Use POST /api/agent/chat (sync) without jobs, RAG, shadow context or VPS compile on each message."
+        },
+        "princyai.actionRun.approvalRequired": {
+          "type": "boolean",
+          "default": true,
+          "description": "Exige aprovacao explicita antes de apply no modo Agent."
+        },
+        "princyai.actionRun.autoCompileAfterApply": {
+          "type": "boolean",
+          "default": true,
+          "description": "Apos apply aprovado no Agent, dispara compile e testes no VPS."
+        },
+        "princyai.composer.autoVerify": {
+          "type": "boolean",
+          "default": false,
+          "description": "No Composer, executa compile/test automaticamente apos apply (senao use Verificar)."
+        },
+        "princyai.builder.defaultTarget": {
+          "type": "string",
+          "enum": ["web", "api", "exe", "apk"],
+          "default": "web",
+          "description": "Alvo padrao do modo Builder."
+        },
+        "princyai.projects.root": {
+          "type": "string",
+          "default": "workspace-storage/projetos",
+          "description": "Pasta de projetos (Fase 5: workspace-storage/projetos; alinhar com backend)."
         },
         "princyai.workspaceIndex.onOpen": {
           "type": "boolean",

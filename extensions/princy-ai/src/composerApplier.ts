@@ -41,6 +41,10 @@ export class ComposerApplier {
 			}
 		}
 
+		if (appliedFiles.length > 0) {
+			void vscode.window.showInformationMessage(`Princy Composer: ${appliedFiles.length} arquivo(s) aplicado(s).`);
+		}
+
 		return {
 			appliedFiles,
 			commandResults

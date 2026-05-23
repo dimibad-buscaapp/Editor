@@ -19,4 +19,8 @@ export const PRINCY_DESIGN_TOKENS_CSS = `
 		--princy-violet: #A78BFA;
 		--princy-transition-fast: 120ms ease;
 		--princy-transition-panel: 180ms ease-out;
+		--princy-chat-width-target: 360px;
+		--princy-radius-sm: 6px;
+		--princy-radius-md: 8px;
+		--princy-radius-lg: 10px;
 `;
