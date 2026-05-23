@@ -62,6 +62,8 @@ if (-not (Test-Path $extJs)) {
 }
 Write-Host "OK: princy-ai browser bundle" -ForegroundColor Green
 
+& powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "sync-princy-ai-out-extensions.ps1") -ProjectRoot $ProjectRoot
+
 Write-Host ""
 Write-Host "[3/3] bundle-server-web-out (esbuild: workbench.js + workbench.css + princy-ai builtin) ..." -ForegroundColor Cyan
 npm run bundle-server-web-out

@@ -507,52 +507,53 @@ export class WebClientServer {
 	}
 
 	/**
-	 * Raiz do repo (C:\Apps\Editor). APP_ROOT costuma ser .../out; join(..) uma vez pode cair em C:\Apps.
-	 */
-	private _resolvePrincyProjectRoot(): string {
-		const envRoot = process.env['PRINCY_EDITOR_ROOT'];
-		const candidates: string[] = [];
-		if (envRoot) {
-			candidates.push(envRoot);
-		}
-		if (this._environmentService.extensionsPath) {
-			candidates.push(dirname(this._environmentService.extensionsPath));
-		}
-		candidates.push(
-			join(APP_ROOT, '..'),
-			join(APP_ROOT, '../..'),
-			process.cwd()
-		);
-		for (const root of candidates) {
-			if (existsSync(join(root, 'extensions', 'princy-ai', 'package.json'))) {
-				return root;
-			}
-		}
-		return join(APP_ROOT, '..');
-	}
-
-	/**
 	 * Carrega princy-ai para o meta WORKBENCH_BUILTIN_EXTENSIONS (tema + chat lateral).
-	 * Requer extensions/princy-ai/dist/browser/extension.js (npm run compile-web).
+	 * Usa builtinExtensionsPath do servidor (ex.: C:\Apps\Editor\extensions), nao APP_ROOT/.. (cai em C:\Apps).
 	 */
 	private async _loadPrincyWebBuiltinExtensions(): Promise<{ extensionPath: string; packageJSON: IExtensionManifest }[]> {
-		const projectRoot = this._resolvePrincyProjectRoot();
-		const packageJSONPath = join(projectRoot, 'extensions', 'princy-ai', 'package.json');
-		const browserMainPath = join(projectRoot, 'extensions', 'princy-ai', 'dist', 'browser', 'extension.js');
-		if (!existsSync(packageJSONPath) || !existsSync(browserMainPath)) {
-			this._logService.warn(
-				`[WebClientServer] princy-ai ausente: compile com "npm run compile-web" (${browserMainPath})`
-			);
-			return [];
+		const tried: string[] = [];
+		const roots: string[] = [];
+		const envRoot = process.env['PRINCY_EDITOR_ROOT'];
+		if (envRoot) {
+			roots.push(envRoot);
 		}
-		try {
-			const packageJSON = JSON.parse((await promises.readFile(packageJSONPath)).toString()) as IExtensionManifest;
-			this._logService.info('[WebClientServer] Builtin web: princy-ai (tema + chat)');
-			return [{ extensionPath: 'princy-ai', packageJSON }];
-		} catch (error) {
-			this._logService.warn(`[WebClientServer] Falha ao ler princy-ai: ${error}`);
-			return [];
+		if (this._environmentService.builtinExtensionsPath) {
+			roots.push(this._environmentService.builtinExtensionsPath);
 		}
+		roots.push(join(process.cwd(), 'extensions'), join(process.cwd(), '..', 'extensions'));
+
+		for (const root of roots) {
+			const packageJSONPath = join(root, 'princy-ai', 'package.json');
+			const browserMainPath = join(root, 'princy-ai', 'dist', 'browser', 'extension.js');
+			tried.push(browserMainPath);
+			if (!existsSync(packageJSONPath) || !existsSync(browserMainPath)) {
+				continue;
+			}
+			try {
+				const packageJSON = JSON.parse((await promises.readFile(packageJSONPath)).toString()) as IExtensionManifest;
+				this._logService.info(`[WebClientServer] Builtin web: princy-ai (${browserMainPath})`);
+				return [{ extensionPath: 'princy-ai', packageJSON }];
+			} catch (error) {
+				this._logService.warn(`[WebClientServer] Falha ao ler princy-ai: ${error}`);
+				return [];
+			}
+		}
+
+		this._logService.warn(
+			`[WebClientServer] princy-ai ausente: npm run compile-web. Tentado: ${tried.join(' | ')}`
+		);
+		return [];
+	}
+
+	private _resolvePrincyProjectRoot(): string {
+		if (this._environmentService.builtinExtensionsPath) {
+			return dirname(this._environmentService.builtinExtensionsPath);
+		}
+		const envRoot = process.env['PRINCY_EDITOR_ROOT'];
+		if (envRoot) {
+			return envRoot;
+		}
+		return process.cwd();
 	}
 
 	/**

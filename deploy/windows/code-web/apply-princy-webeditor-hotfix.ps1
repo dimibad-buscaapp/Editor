@@ -57,6 +57,8 @@ if (-not (Test-Path $extJs)) {
 }
 Write-Host "  OK extension.js" -ForegroundColor Green
 
+& powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "sync-princy-ai-out-extensions.ps1") -ProjectRoot $ProjectRoot
+
 # 3) Patch HTML em out/ (meta builtin)
 Write-Host "`n[3] Patch workbench HTML (meta princy-ai)" -ForegroundColor Cyan
 & powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "patch-workbench-princy-meta.ps1") -ProjectRoot $ProjectRoot

@@ -65,9 +65,23 @@ Copie settings se necessario:
 
 ## Log `princy-ai ausente` com caminho `c:\Apps\extensions\...`?
 
-O servidor procurava a extensao na pasta errada (`APP_ROOT/..` = `C:\Apps` em vez de `C:\Apps\Editor`).
+Causas comuns:
 
-Correcao: `PRINCY_EDITOR_ROOT` no servico NSSM + resolucao robusta em `webClientServer.ts`. Apos pull, confirme no log **sem** esse aviso e HTML com `princy-ai`.
+1. **Servidor antigo** — falta `compile-incremental` (webClientServer novo) + reiniciar servico.
+2. **Falta `extension.js`** — `npm run compile-web` nao correu.
+3. **Falta `out/extensions/princy-ai`** — o browser carrega de `out/extensions`; rode `sync-princy-ai-out-extensions.ps1` (incluido no hotfix).
+
+Apos deploy correto o log deve mostrar:
+
+`[WebClientServer] Builtin web: princy-ai (C:\Apps\Editor\extensions\princy-ai\dist\browser\extension.js)`
+
+Verificacao rapida no VPS:
+
+```powershell
+Test-Path C:\Apps\Editor\extensions\princy-ai\dist\browser\extension.js
+Test-Path C:\Apps\Editor\out\extensions\princy-ai\dist\browser\extension.js
+Select-String -Path C:\Apps\Editor\logs\code-web.err.log -Pattern "Builtin web: princy-ai" | Select-Object -Last 3
+```
 
 ## Edicao bloqueada (read-only)?
 

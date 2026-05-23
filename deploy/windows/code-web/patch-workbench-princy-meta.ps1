@@ -34,6 +34,8 @@ function Update-WorkbenchHtml {
 	Set-Content -Path $Path -Value $html -NoNewline
 }
 
+& powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "sync-princy-ai-out-extensions.ps1") -ProjectRoot $ProjectRoot
+
 Write-Host "Patch meta princy-ai em out/ ..." -ForegroundColor Cyan
 Update-WorkbenchHtml (Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench.html")
 Update-WorkbenchHtml (Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench-dev.html")
