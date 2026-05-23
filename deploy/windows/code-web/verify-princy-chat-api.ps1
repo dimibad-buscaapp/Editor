@@ -71,6 +71,21 @@ else {
 	Write-Host "  princy-ai browser bundle: AUSENTE" -ForegroundColor Red
 }
 
+$scannerJs = Join-Path $ProjectRoot "out\vs\workbench\services\extensionManagement\browser\builtinExtensionsScannerService.js"
+if (Test-Path $scannerJs) {
+	if (Select-String -Path $scannerJs -Pattern '"princy-ai"' -Quiet) {
+		Write-Host "  princy-ai no bundle builtin (scanner): OK" -ForegroundColor Green
+	}
+	else {
+		$issues += "princy-ai ausente em builtinExtensionsScannerService.js - recompile: compile-web ANTES de bundle-server-web-out"
+		Write-Host "  princy-ai no bundle builtin: AUSENTE (visual fica VS Code padrao)" -ForegroundColor Red
+	}
+}
+else {
+	$issues += "Falta out/.../builtinExtensionsScannerService.js - rode npm run bundle-server-web-out"
+	Write-Host "  builtinExtensionsScannerService.js: AUSENTE" -ForegroundColor Red
+}
+
 Write-Host ""
 Write-Host "[Settings producao]" -ForegroundColor Cyan
 $prod = Join-Path $ProjectRoot "deploy\windows\princy-production.settings.json"

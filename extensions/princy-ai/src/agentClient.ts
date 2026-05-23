@@ -245,7 +245,7 @@ export class AgentClient {
 	}
 
 	private async probeEndpoint(base: string): Promise<boolean> {
-		const normalized = base.replace(/\/+$/, '');
+		const normalized = toAbsoluteAgentEndpoint(base.replace(/\/+$/, ''));
 		const paths = ['/api/agent/health', '/api/health', '/'];
 		for (const path of paths) {
 			try {
@@ -365,7 +365,7 @@ export class AgentClient {
 	}
 
 	private async request<T>(path: string, init: { readonly method: string; readonly body?: string }): Promise<T> {
-		const endpoint = await this.resolveEndpoint();
+		const endpoint = toAbsoluteAgentEndpoint(await this.resolveEndpoint());
 		const token = vscode.workspace.getConfiguration('princyai').get<string>('apiToken', '');
 		const headers: Record<string, string> = {
 			'Content-Type': 'application/json'
@@ -395,19 +395,62 @@ export class AgentClient {
 
 }
 
+/** Ex.: /webeditor quando o Code Web usa --server-base-path /webeditor */
+function detectServerBasePath(): string {
+	const pathname = (globalThis as { location?: { pathname?: string } }).location?.pathname ?? '';
+	const webeditor = pathname.match(/^(\/webeditor)(?:\/|$)/i);
+	if (webeditor) {
+		return webeditor[1];
+	}
+	const beforeOut = pathname.indexOf('/out/');
+	if (beforeOut > 0) {
+		return pathname.slice(0, beforeOut);
+	}
+	return '';
+}
+
+function toAbsoluteAgentEndpoint(endpoint: string): string {
+	const trimmed = endpoint.replace(/\/+$/, '');
+	if (!trimmed.startsWith('/')) {
+		return trimmed;
+	}
+	const origin = (globalThis as { location?: { origin?: string } }).location?.origin;
+	if (!origin) {
+		return trimmed;
+	}
+	return `${origin}${trimmed}`;
+}
+
 function buildWebApiCandidates(): readonly string[] {
-	const candidates: string[] = [SAME_ORIGIN_PROXY_PATH];
+	const candidates: string[] = [];
 	const location = (globalThis as { location?: { origin?: string; hostname?: string } }).location;
+	const basePath = detectServerBasePath();
+
 	if (location?.origin) {
+		if (basePath) {
+			candidates.push(`${location.origin}${basePath}${SAME_ORIGIN_PROXY_PATH}`);
+		}
 		candidates.push(`${location.origin}${SAME_ORIGIN_PROXY_PATH}`);
 	}
+
+	candidates.push(SAME_ORIGIN_PROXY_PATH);
+
 	if (location?.hostname) {
-		candidates.push(`http://${location.hostname}:3200${SAME_ORIGIN_PROXY_PATH}`);
-		candidates.push(`https://${location.hostname}${SAME_ORIGIN_PROXY_PATH}`);
+		const host = location.hostname;
+		if (basePath) {
+			candidates.push(`http://${host}:3200${basePath}${SAME_ORIGIN_PROXY_PATH}`);
+			candidates.push(`https://${host}${basePath}${SAME_ORIGIN_PROXY_PATH}`);
+		}
+		candidates.push(`http://${host}:3200${SAME_ORIGIN_PROXY_PATH}`);
+		candidates.push(`https://${host}${SAME_ORIGIN_PROXY_PATH}`);
 	}
 	candidates.push(`http://108.181.169.40:3200${SAME_ORIGIN_PROXY_PATH}`);
 	candidates.push(`http://127.0.0.1:3200${SAME_ORIGIN_PROXY_PATH}`);
-	return candidates;
+	if (basePath) {
+		candidates.push(`http://127.0.0.1:3200${basePath}${SAME_ORIGIN_PROXY_PATH}`);
+	}
+
+	return [...new Set(candidates)];
 }
 
 function formatAgentFetchError(endpoint: string, path: string, error: unknown): string {

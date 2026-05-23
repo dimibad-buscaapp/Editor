@@ -596,7 +596,7 @@ export function buildChatPanelHtml(cspSource: string, nonce: string): string {
 				<span class="chat-header-logo" aria-hidden="true">✦</span>
 				<div>
 					<div class="chat-header-title">Princy IA</div>
-					<div class="chat-header-sub">Agent · Composer</div>
+					<div class="chat-header-sub" id="chatHeaderSub">Agent · Composer · :3210</div>
 				</div>
 			</div>
 			<div class="chat-header-actions">
@@ -828,6 +828,12 @@ function getChatPanelScript(): string {
 			if (message.type === 'backendStatus' && backendDot) {
 				backendDot.classList.toggle('online', Boolean(message.online));
 				backendDot.title = (message.online ? 'Backend online' : 'Backend offline') + (message.endpoint ? ' — ' + message.endpoint : '');
+				const sub = document.getElementById('chatHeaderSub');
+				if (sub) {
+					sub.textContent = message.online
+						? 'Princy IA online · painel direito'
+						: 'Backend offline — porta 3210';
+				}
 			}
 			if (message.type === 'defaultAgent' && message.agent && agent) {
 				if (Array.from(agent.options).some(o => o.value === message.agent)) {

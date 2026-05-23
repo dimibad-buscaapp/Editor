@@ -453,6 +453,33 @@ function scanBuiltinExtensions(extensionsRoot: string): Array<IScannedBuiltinExt
 	return scannedExtensions;
 }
 
+/** Merge web-capable extensions from multiple roots (dedupe by folder name). */
+function scanBuiltinExtensionsMerged(roots: readonly string[]): Array<IScannedBuiltinExtension> {
+	const seen = new Set<string>();
+	const merged: Array<IScannedBuiltinExtension> = [];
+	for (const root of roots) {
+		for (const extension of scanBuiltinExtensions(root)) {
+			if (seen.has(extension.extensionPath)) {
+				continue;
+			}
+			seen.add(extension.extensionPath);
+			merged.push(extension);
+		}
+	}
+	return merged;
+}
+
+function getBuiltinExtensionRootsForTarget(target: BuildTarget): readonly string[] {
+	if (target === 'web') {
+		return ['.build/web/extensions'];
+	}
+	if (target === 'server-web') {
+		// Princy Ai lives under extensions/ (compile-web); .build/extensions may be empty on VPS.
+		return ['.build/extensions', 'extensions'];
+	}
+	return ['.build/extensions'];
+}
+
 /**
  * Get the date from the out directory date file, or return the git commit date.
  */
@@ -677,10 +704,7 @@ function fileContentMapperPlugin(outDir: string, target: BuildTarget): esbuild.P
 				// Inject built-in extensions list
 				if (contents.includes('/*BUILD->INSERT_BUILTIN_EXTENSIONS*/')) {
 					if (builtinExtensionsReplacement === undefined) {
-						// Web target uses .build/web/extensions (from compileWebExtensionsBuildTask)
-						// Other targets use .build/extensions
-						const extensionsRoot = target === 'web' ? '.build/web/extensions' : '.build/extensions';
-						const builtinExtensions = JSON.stringify(scanBuiltinExtensions(extensionsRoot));
+						const builtinExtensions = JSON.stringify(scanBuiltinExtensionsMerged(getBuiltinExtensionRootsForTarget(target)));
 						// Remove the outer brackets since the placeholder is inside an array literal
 						builtinExtensionsReplacement = builtinExtensions.substring(1, builtinExtensions.length - 1);
 					}

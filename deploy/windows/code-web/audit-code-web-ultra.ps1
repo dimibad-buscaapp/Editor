@@ -103,6 +103,29 @@ if (-not $hasProd) {
 	Add-Warn "Correcao: deploy\windows\code-web\compile-princy-code-web-production.ps1 (30-90 min)"
 }
 
+# --- 1b) Extensao Princy IA no bundle ---
+Write-Host ""
+Write-Host "[1b] Extensao princy-ai (tema + chat Cursor-like)" -ForegroundColor Cyan
+$extJs = Join-Path $ProjectRoot "extensions\princy-ai\dist\browser\extension.js"
+$scannerJs = Join-Path $ProjectRoot "out\vs\workbench\services\extensionManagement\browser\builtinExtensionsScannerService.js"
+if (Test-Path $extJs) {
+	Write-Host "  extension.js: OK" -ForegroundColor Green
+} else {
+	Add-Issue "extensions\princy-ai\dist\browser\extension.js AUSENTE - rode npm run compile-web"
+	Write-Host "  extension.js: AUSENTE" -ForegroundColor Red
+}
+if (Test-Path $scannerJs) {
+	if (Select-String -Path $scannerJs -Pattern '"princy-ai"' -Quiet) {
+		Write-Host "  princy-ai no bundle builtin: OK" -ForegroundColor Green
+	} else {
+		Add-Issue "princy-ai NAO esta em builtinExtensionsScannerService.js - visual fica VS Code padrao (recompile: compile-web antes de bundle-server-web-out)"
+		Write-Host "  princy-ai no bundle builtin: AUSENTE" -ForegroundColor Red
+	}
+} elseif ($build.ServerMain) {
+	Add-Issue "builtinExtensionsScannerService.js ausente - rode npm run bundle-server-web-out"
+	Write-Host "  builtinExtensionsScannerService.js: AUSENTE" -ForegroundColor Red
+}
+
 # --- 2) Servico Windows ---
 Write-Host ""
 Write-Host "[2] Servico PrincyAiCodeWeb" -ForegroundColor Cyan

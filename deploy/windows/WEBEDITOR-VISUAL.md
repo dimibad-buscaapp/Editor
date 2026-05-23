@@ -5,7 +5,8 @@ O layout **estilo Cursor** (chat à direita, Princy Black, Composer) depende de 
 | Artefato | Caminho | O que muda |
 |----------|---------|------------|
 | Workbench (editor) | `out/vs/code/browser/workbench/workbench.css` | Shell do Code Web |
-| Extensão Princy IA | `extensions/princy-ai/dist/browser/extension.js` | Tema **Princy Black**, painel de chat, API |
+| Extensão Princy IA | `extensions/princy-ai/dist/browser/extension.js` | Tema **Princy Black**, painel de chat à direita, API → :3210 |
+| Builtin no bundle | `out/.../builtinExtensionsScannerService.js` contém `"princy-ai"` | Sem isso a extensão **não carrega** no web |
 
 Só compilar o `out/` **não** atualiza o visual do chat. É obrigatório `npm run compile-web` (ou o script de produção completo).
 
@@ -22,7 +23,8 @@ powershell -ExecutionPolicy Bypass -File deploy\windows\code-web\verify-princy-c
 Confirme:
 
 - `Test-Path extensions\princy-ai\dist\browser\extension.js` → **True**
-- No painel de chat, o subtítulo do header mostra **`Cursor layout · cursor-v2`**
+- `Select-String -Path out\vs\workbench\services\extensionManagement\browser\builtinExtensionsScannerService.js -Pattern '"princy-ai"' -Quiet` → **True**
+- No painel de chat, o subtítulo do header mostra **`Agent · Composer`**
 - Tema: **Princy Black** (barra de atividades e editor pretos `#000000`)
 
 Reinicie o serviço Code Web e limpe cache do browser:
@@ -43,7 +45,8 @@ Copie `deploy\windows\princy-production.settings.json` para:
 
 ## Ainda parece o VS Code padrão?
 
-1. Extensão ausente → tema "Princy Black" não existe na lista.
-2. Chat não aberto → abra o ícone **✦** na barra lateral secundária (direita).
-3. Cache CDN/browser → Ctrl+F5 ou aba anónima.
-4. URL errada → use `/webeditor/`, não só `princyai.com/`.
+1. **princy-ai não está no bundle builtin** → rode `compile-web` **antes** de `bundle-server-web-out` (script de produção já faz isso).
+2. Extensão ausente → `extension.js` não compilado; tema "Princy Black" não existe.
+3. Chat não aberto → abra o ícone **✦** na barra lateral secundária (direita).
+4. Cache CDN/browser → Ctrl+F5 ou aba anónima.
+5. URL errada → use `/webeditor/`, não só `princyai.com/`.

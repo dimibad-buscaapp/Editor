@@ -50,18 +50,33 @@ if (-not $BundleOnly) {
 }
 
 Write-Host ""
-Write-Host "[2/3] bundle-server-web-out (esbuild: workbench.js + workbench.css) ..." -ForegroundColor Cyan
+Write-Host "[2/3] compile-web (extensao princy-ai browser — antes do bundle) ..." -ForegroundColor Cyan
+npm run compile-web
+if ($LASTEXITCODE -ne 0) {
+	throw "compile-web falhou"
+}
+
+$extJs = Join-Path $ProjectRoot "extensions\princy-ai\dist\browser\extension.js"
+if (-not (Test-Path $extJs)) {
+	throw "Ausente apos compile-web: extensions\princy-ai\dist\browser\extension.js"
+}
+Write-Host "OK: princy-ai browser bundle" -ForegroundColor Green
+
+Write-Host ""
+Write-Host "[3/3] bundle-server-web-out (esbuild: workbench.js + workbench.css + princy-ai builtin) ..." -ForegroundColor Cyan
 npm run bundle-server-web-out
 if ($LASTEXITCODE -ne 0) {
 	throw "bundle-server-web-out falhou"
 }
 
-Write-Host ""
-Write-Host "[3/3] compile-web (extensao princy-ai browser) ..." -ForegroundColor Cyan
-npm run compile-web
-if ($LASTEXITCODE -ne 0) {
-	throw "compile-web falhou"
+$scannerJs = Join-Path $ProjectRoot "out\vs\workbench\services\extensionManagement\browser\builtinExtensionsScannerService.js"
+if (-not (Test-Path $scannerJs)) {
+	throw "Ausente apos bundle: builtinExtensionsScannerService.js"
 }
+if (-not (Select-String -Path $scannerJs -Pattern '"princy-ai"' -Quiet)) {
+	throw "princy-ai NAO foi injetado no bundle builtin — tema/chat Princy nao carregam no webeditor"
+}
+Write-Host "OK: princy-ai registrado em builtinExtensionsScannerService.js" -ForegroundColor Green
 
 . (Join-Path $PSScriptRoot "Princy-CodeWeb-Build.ps1")
 

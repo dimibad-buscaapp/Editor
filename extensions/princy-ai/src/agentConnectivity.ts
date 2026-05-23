@@ -13,6 +13,7 @@ export interface BackendStatus {
 }
 
 export async function checkAgentBackend(client: AgentClient): Promise<BackendStatus> {
+	await client.resolveEndpoint();
 	const endpoint = client.getAgentEndpoint();
 	try {
 		const health = await client.agentHealth();
