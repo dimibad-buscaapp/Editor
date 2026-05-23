@@ -62,7 +62,16 @@ function Stop-PortListener {
 
 $existing = Get-Service $ServiceName -ErrorAction SilentlyContinue
 if ($existing) {
-	if ($existing.Status -eq 'Running') { Stop-Service $ServiceName -Force }
+	if ($existing.Status -eq 'Paused') {
+		Write-Host "Servico $ServiceName PAUSED — a remover instalacao NSSM ..." -ForegroundColor Yellow
+		Resume-Service $ServiceName -ErrorAction SilentlyContinue
+		Start-Sleep -Seconds 1
+	}
+	if ($existing.Status -eq 'Running' -or $existing.Status -eq 'Paused') {
+		Stop-Service $ServiceName -Force -ErrorAction SilentlyContinue
+		Start-Sleep -Seconds 2
+	}
+	& $nssm stop $ServiceName confirm 2>$null
 	& $nssm remove $ServiceName confirm
 }
 for ($i = 0; $i -lt 30; $i++) {
