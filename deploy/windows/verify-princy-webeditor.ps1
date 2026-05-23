@@ -21,7 +21,7 @@ function Test-Http {
 	param([string]$Label, [string]$Url, [switch]$RequireWorkbench)
 	try {
 		$r = Invoke-WebRequest $Url -UseBasicParsing -TimeoutSec 15
-		$hasWorkbench = $r.Content -match 'WORKBENCH_WEB_CONFIGURATION|serverBasePath|workbench\.web\.main'
+		$hasWorkbench = $r.Content -match 'vscode-workbench-web-configuration|WORKBENCH_WEB_CONFIGURATION|serverBasePath|workbench\.web\.main'
 		$ok = $r.StatusCode -eq 200 -and (-not $RequireWorkbench -or $hasWorkbench)
 		$color = if ($ok) { 'Green' } else { 'Yellow' }
 		Write-Host "$Label : HTTP $($r.StatusCode) len=$($r.Content.Length) workbench=$hasWorkbench" -ForegroundColor $color

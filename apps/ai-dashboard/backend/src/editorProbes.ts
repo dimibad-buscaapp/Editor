@@ -19,7 +19,8 @@ async function probeOne(name: string, url: string, expectWorkbench = false): Pro
 		clearTimeout(timer);
 		const text = await response.text();
 		const ms = Date.now() - start;
-		const hasWorkbench = /WORKBENCH_WEB_CONFIGURATION|workbench\.web\.main/.test(text);
+		// Prod replaces {{WORKBENCH_WEB_CONFIGURATION}} with JSON; meta id and serverBasePath remain.
+		const hasWorkbench = /vscode-workbench-web-configuration|WORKBENCH_WEB_CONFIGURATION|workbench\.web\.main|serverBasePath/.test(text);
 		const isJson = text.trimStart().startsWith('{');
 		let hint = '';
 		if (!response.ok) {

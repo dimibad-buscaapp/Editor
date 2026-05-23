@@ -29,7 +29,7 @@ function Test-Phase1Webeditor {
 	$script:total++
 	try {
 		$r = Invoke-WebRequest $Url -UseBasicParsing -TimeoutSec $TimeoutSec
-		$hasWorkbench = $r.Content -match 'WORKBENCH_WEB_CONFIGURATION|serverBasePath|workbench\.web\.main'
+		$hasWorkbench = $r.Content -match 'vscode-workbench-web-configuration|WORKBENCH_WEB_CONFIGURATION|serverBasePath|workbench\.web\.main'
 		$ok = ($r.StatusCode -eq 200) -and $hasWorkbench
 		if ($ok) {
 			$script:passed++
