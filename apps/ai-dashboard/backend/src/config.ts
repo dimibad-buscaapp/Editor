@@ -110,5 +110,17 @@ export const config = {
 	ragMaxChunks: Number(process.env.RAG_MAX_CHUNKS ?? '6'),
 	ragChunkSize: Number(process.env.RAG_CHUNK_SIZE ?? '1200'),
 	sessionSecret: process.env.SESSION_SECRET ?? 'dev-session-secret-change-me',
-	workspaceStorageRoot: path.resolve(process.env.WORKSPACE_STORAGE_ROOT ?? './workspace-storage')
+	workspaceStorageRoot: path.resolve(process.env.WORKSPACE_STORAGE_ROOT ?? './workspace-storage'),
+	projectsRoot: path.resolve(process.env.PRINCY_PROJECTS_ROOT ?? 'C:/Apps/Projects'),
+	compileJobWaitTimeoutMs: Number(process.env.PRINCY_COMPILE_WAIT_MS ?? String(30 * 60_000)),
+	allowedWorkspaceRoots: (() => {
+		const editorRoot = path.resolve(process.env.EDITOR_PROJECT_ROOT ?? 'C:/Apps/Editor');
+		const projectsRoot = path.resolve(process.env.PRINCY_PROJECTS_ROOT ?? 'C:/Apps/Projects');
+		const extra = (process.env.PRINCY_ALLOWED_WORKSPACE_ROOTS ?? '')
+			.split(',')
+			.map(value => value.trim())
+			.filter(Boolean)
+			.map(value => path.resolve(value));
+		return [...new Set([...extra, editorRoot, projectsRoot])];
+	})()
 };

@@ -10,6 +10,7 @@ import { config } from './config.js';
 import { resolveCorsOrigin } from './corsPolicy.js';
 import { prisma } from './prisma.js';
 import { registerAgentRoutes } from './agentRoutes.js';
+import { registerProjectRoutes } from './projectRoutes.js';
 import { registerLogviewRoutes } from './logviewRoutes.js';
 import { recordRequest } from './requestLog.js';
 import { registerRoutes } from './routes.js';
@@ -74,6 +75,7 @@ app.addHook('onRequest', async request => {
 
 await registerRoutes(app);
 await registerAgentRoutes(app);
+await registerProjectRoutes(app);
 await registerLogviewRoutes(app);
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));

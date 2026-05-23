@@ -1,0 +1,13 @@
+{
+  "name": "{{PROJECT_SLUG}}-auth",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/web",
+    "apps/api"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w apps/api",
+    "build": "npm run build -w apps/api && npm run build -w apps/web"
+  }
+}

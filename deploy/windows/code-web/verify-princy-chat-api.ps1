@@ -198,6 +198,53 @@ function Get-HttpErrorBody {
 	return ''
 }
 
+Write-Host ""
+Write-Host "[Fase 3 - Builder smoke]" -ForegroundColor Cyan
+try {
+	$buildBody = @{ target = 'web' } | ConvertTo-Json -Compress
+	$buildStart = Invoke-RestMethod -Uri "http://127.0.0.1:${ApiPort}/api/agent/build" -Method Post -Body $buildBody -ContentType 'application/json' -TimeoutSec 30
+	if ($buildStart.jobId) {
+		Write-Host ("  POST /api/agent/build jobId={0} status={1}" -f $buildStart.jobId, $buildStart.status) -ForegroundColor Green
+		$buildGet = Invoke-RestMethod -Uri "http://127.0.0.1:${ApiPort}/api/agent/build/$([uri]::EscapeDataString($buildStart.jobId))" -Method Get -TimeoutSec 15
+		Write-Host ("  GET build status={0}" -f $buildGet.status) -ForegroundColor DarkGray
+	}
+	else {
+		$issues += 'POST /api/agent/build sem jobId'
+		Write-Host '  POST /api/agent/build: sem jobId' -ForegroundColor Red
+	}
+}
+catch {
+	$issues += "Builder: $($_.Exception.Message)"
+	Write-Host ("  Builder: FALHA - {0}" -f $_.Exception.Message) -ForegroundColor Red
+}
+
+Write-Host ""
+Write-Host "[Fase 3 - Chat mode job]" -ForegroundColor Cyan
+try {
+	$chatJobBody = @{
+		agent             = 'deepseek'
+		message           = 'Explique em uma frase o que e este projeto.'
+		mode              = 'chat'
+		actionOnlyExplain = $true
+	} | ConvertTo-Json -Compress
+	$chatJob = Invoke-RestMethod -Uri "http://127.0.0.1:${ApiPort}/api/agent/jobs" -Method Post -Body $chatJobBody -ContentType 'application/json' -TimeoutSec 30
+	$chatJobId = $chatJob.jobId
+	if ($chatJobId) {
+		Start-Sleep -Seconds 3
+		$chatSnap = Invoke-RestMethod -Uri "http://127.0.0.1:${ApiPort}/api/agent/jobs/$([uri]::EscapeDataString($chatJobId))" -Method Get -TimeoutSec 30
+		if ($chatSnap.state -eq 'SUCCESS' -or $chatSnap.status -eq 'COMPLETED') {
+			Write-Host ("  Chat job SUCCESS state={0}" -f $chatSnap.state) -ForegroundColor Green
+		}
+		else {
+			Write-Host ("  Chat job state={0} (pode ainda estar rodando)" -f $chatSnap.state) -ForegroundColor DarkYellow
+		}
+	}
+}
+catch {
+	$issues += "Chat mode job: $($_.Exception.Message)"
+	Write-Host ("  Chat mode job: FALHA - {0}" -f $_.Exception.Message) -ForegroundColor Red
+}
+
 if (-not $SkipComposer) {
 	Write-Host ""
 	Write-Host "[Composer plan]" -ForegroundColor Cyan
@@ -229,6 +276,53 @@ if (-not $SkipComposer) {
 		Write-Host ("  POST composer-plan: FALHA - {0}" -f $_.Exception.Message) -ForegroundColor Red
 		if ($detail) { Write-Host ("  resposta: {0}" -f $detail.Substring(0, [Math]::Min(400, $detail.Length))) -ForegroundColor DarkYellow }
 	}
+}
+
+Write-Host ""
+Write-Host "[Fase 4 - Project templates]" -ForegroundColor Cyan
+try {
+	$tpl = Invoke-RestMethod -Uri "http://127.0.0.1:${ApiPort}/api/projects/templates" -Method Get -TimeoutSec 20
+	$count = if ($tpl.templates) { @($tpl.templates).Count } else { 0 }
+	if ($count -ge 12) {
+		Write-Host ("  GET /api/projects/templates: OK count={0}" -f $count) -ForegroundColor Green
+	}
+	else {
+		$issues += "templates count=$count (esperado >= 12)"
+		Write-Host ("  GET templates: count={0} (esperado 12)" -f $count) -ForegroundColor Red
+	}
+}
+catch {
+	$issues += "Project templates: $($_.Exception.Message)"
+	Write-Host ("  Project templates: FALHA - {0}" -f $_.Exception.Message) -ForegroundColor Red
+}
+
+$smokeName = "princy-smoke-" + [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+Write-Host ""
+Write-Host "[Fase 4 - Create webapp smoke]" -ForegroundColor Cyan
+try {
+	$createBody = @{
+		templateId   = 'webapp'
+		projectName  = $smokeName
+		runInstall   = $false
+	} | ConvertTo-Json -Compress
+	$created = Invoke-RestMethod -Uri "http://127.0.0.1:${ApiPort}/api/projects/create" -Method Post -Body $createBody -ContentType 'application/json' -TimeoutSec 60
+	if ($created.ok -and $created.projectPath) {
+		Write-Host ("  POST create: OK path={0}" -f $created.projectPath) -ForegroundColor Green
+		if (Test-Path $created.projectPath) {
+			Write-Host "  pasta no disco: OK" -ForegroundColor Green
+		}
+		else {
+			$issues += "create path missing on disk"
+		}
+	}
+	else {
+		$issues += "create project: $($created.message)"
+		Write-Host ("  POST create: FALHA - {0}" -f $created.message) -ForegroundColor Red
+	}
+}
+catch {
+	$issues += "Create project: $($_.Exception.Message)"
+	Write-Host ("  Create project: FALHA - {0}" -f $_.Exception.Message) -ForegroundColor Red
 }
 
 Write-Host ""
