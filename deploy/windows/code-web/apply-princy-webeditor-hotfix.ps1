@@ -45,11 +45,11 @@ else {
 
 $extJs = Join-Path $ProjectRoot "extensions\princy-ai\dist\browser\extension.js"
 if (-not (Test-Path $extJs)) {
-	throw "Falta $extJs — compile-web falhou"
+	throw "Falta $extJs - compile-web falhou"
 }
 Write-Host "  OK extension.js" -ForegroundColor Green
 
-# 3) Patch HTML em out/ (meta builtin) — funciona mesmo com server-main antigo apos proximo bundle
+# 3) Patch HTML em out/ (meta builtin)
 Write-Host "`n[3] Patch workbench HTML (meta princy-ai)" -ForegroundColor Cyan
 & powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "patch-workbench-princy-meta.ps1") -ProjectRoot $ProjectRoot
 
@@ -68,7 +68,7 @@ try {
 	$hasPrincy = $html -match 'princy-ai'
 	Write-Host "  GET $url -> meta=$hasMeta princy=$hasPrincy" -ForegroundColor $(if ($hasMeta -and $hasPrincy) { 'Green' } else { 'Red' })
 	if (-not ($hasMeta -and $hasPrincy)) {
-		Write-Host "  AVISO: HTML servido sem princy-ai — server-main.js antigo. Rode compile SEM -SkipBundle." -ForegroundColor Yellow
+		Write-Host "  AVISO: HTML servido sem princy-ai - server-main.js antigo. Rode compile SEM -SkipBundle." -ForegroundColor Yellow
 	}
 }
 catch {

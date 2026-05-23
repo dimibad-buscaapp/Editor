@@ -50,7 +50,7 @@ if (-not $BundleOnly) {
 }
 
 Write-Host ""
-Write-Host "[2/3] compile-web (extensao princy-ai browser — antes do bundle) ..." -ForegroundColor Cyan
+Write-Host "[2/3] compile-web (extensao princy-ai browser - antes do bundle) ..." -ForegroundColor Cyan
 npm run compile-web
 if ($LASTEXITCODE -ne 0) {
 	throw "compile-web falhou"
@@ -69,7 +69,7 @@ if ($LASTEXITCODE -ne 0) {
 	throw "bundle-server-web-out falhou"
 }
 
-# HTML com meta builtin (apos bundle — cleanDir pode ter apagado copia anterior)
+# HTML com meta builtin (apos bundle)
 $wbHtmlSrc = Join-Path $ProjectRoot "src\vs\code\browser\workbench\workbench.html"
 $wbHtmlOut = Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench.html"
 $wbDevOut = Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench-dev.html"
@@ -88,7 +88,7 @@ $serverMain = Join-Path $ProjectRoot "out\server-main.js"
 $hasPrincyInWorkbench = (Test-Path $wbJs) -and (Select-String -Path $wbJs -Pattern "princy-ai" -Quiet)
 $hasPrincyInServer = (Test-Path $serverMain) -and (Select-String -Path $serverMain -Pattern "princy-ai" -Quiet)
 if (-not $hasPrincyInWorkbench -and -not $hasPrincyInServer) {
-	throw "princy-ai NAO aparece em workbench.js nem server-main.js — rebundle falhou"
+	throw "princy-ai NAO aparece em workbench.js nem server-main.js - rebundle falhou"
 }
 Write-Host "OK: princy-ai no bundle (workbench=$hasPrincyInWorkbench server=$hasPrincyInServer)" -ForegroundColor Green
 

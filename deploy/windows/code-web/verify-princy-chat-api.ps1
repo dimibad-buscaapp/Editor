@@ -89,7 +89,7 @@ try {
 		Write-Host "  HTML /webeditor/ contem princy-ai: OK" -ForegroundColor Green
 	}
 	else {
-		$issues += "HTML do webeditor sem princy-ai — reinicie servico apos bundle"
+		$issues += "HTML do webeditor sem princy-ai - reinicie servico apos bundle"
 		Write-Host "  HTML /webeditor/ sem princy-ai" -ForegroundColor Red
 	}
 }
