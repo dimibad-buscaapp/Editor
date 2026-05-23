@@ -1,30 +1,60 @@
-{
-	"princyai.useSameOriginApi": true,
-	"princyai.agentEndpoint": "/princy-api",
-	"princyai.apiToken": "",
-	"princyai.chat.simpleMode": true,
-	"princyai.workspaceIndex.onOpen": false,
-	"princyai.defaultAgent": "deepseek",
-	"princyai.ui.forceBlackTheme": true,
-	"princyai.ui.minimalWorkbench": true,
-	"princyai.ui.defaultChat": true,
-	"princyai.ui.openChatOnStartup": true,
-	"workbench.colorTheme": "Princy Black",
-	"workbench.preferredDarkColorTheme": "Princy Black",
-	"workbench.activityBar.location": "top",
-	"workbench.secondarySideBar.defaultVisibility": "maximized",
-	"workbench.secondarySideBar.forceMaximized": true,
-	"workbench.layoutControl.enabled": false,
-	"workbench.startupEditor": "none",
-	"workbench.welcomePage.experimentalOnboarding": false,
-	"workbench.commandCenter.enabled": true,
-	"workbench.panel.defaultLocation": "bottom",
-	"workbench.panel.opensMaximized": "never",
-	"editor.minimap.enabled": false,
-	"editor.fontFamily": "'JetBrains Mono', 'Cascadia Code', Consolas, monospace",
-	"window.menuBarVisibility": "compact",
-	"chat.disableAIFeatures": true,
-	"chat.agent.enabled": false,
-	"chat.agentHost.enabled": false,
-	"github.gitAuthentication": false
-}
+{
+
+	"princyai.useSameOriginApi": true,
+
+	"princyai.agentEndpoint": "/princy-api",
+
+	"princyai.apiToken": "",
+
+	"princyai.chat.simpleMode": true,
+
+	"princyai.workspaceIndex.onOpen": false,
+
+	"princyai.defaultAgent": "deepseek",
+
+	"princyai.ui.forceBlackTheme": true,
+
+	"princyai.ui.minimalWorkbench": true,
+
+	"princyai.ui.defaultChat": true,
+
+	"princyai.ui.openChatOnStartup": true,
+
+	"workbench.colorTheme": "Princy Black",
+
+	"workbench.preferredDarkColorTheme": "Princy Black",
+
+	"workbench.activityBar.location": "top",
+
+	"workbench.secondarySideBar.defaultVisibility": "maximized",
+
+	"workbench.secondarySideBar.forceMaximized": true,
+
+	"workbench.layoutControl.enabled": false,
+
+	"workbench.startupEditor": "none",
+
+	"workbench.welcomePage.experimentalOnboarding": false,
+
+	"workbench.commandCenter.enabled": true,
+
+	"workbench.panel.defaultLocation": "bottom",
+
+	"workbench.panel.opensMaximized": "never",
+
+	"editor.minimap.enabled": false,
+
+	"editor.fontFamily": "'JetBrains Mono', 'Cascadia Code', Consolas, monospace",
+
+	"window.menuBarVisibility": "compact",
+
+	"chat.disableAIFeatures": true,
+
+	"chat.agent.enabled": false,
+
+	"chat.agentHost.enabled": false,
+
+	"github.gitAuthentication": false
+
+}
+
