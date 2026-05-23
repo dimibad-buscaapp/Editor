@@ -19,6 +19,7 @@ import { registerWorkspaceIndexing } from './workspaceIndexService';
 import { registerPrincyWorkbenchUi } from './workbenchUi';
 import { registerPrincyChatIsolation } from './princyChatIsolation';
 import { registerPrincyDefaultChat } from './princyWorkbenchChat';
+import { ChatSessionManager } from './chatSessions';
 import { checkAgentBackend } from './agentConnectivity';
 import { TerminalRunner } from './terminalRunner';
 
@@ -33,9 +34,11 @@ export function activate(context: vscode.ExtensionContext): void {
 	const shadowContext = new ShadowContextManager();
 	const terminalRunner = new TerminalRunner();
 	const composerApplier = new ComposerApplier(terminalRunner);
+	const chatSessions = new ChatSessionManager(context.globalState);
 	const provider = new PrincyChatViewProvider(
 		context.extensionUri,
 		client,
+		chatSessions,
 		() => indexActiveFile(client),
 		command => runSuggestedCommand(terminalRunner, shadowContext, command),
 		() => collectNativeContext(shadowContext.getSnapshot()),

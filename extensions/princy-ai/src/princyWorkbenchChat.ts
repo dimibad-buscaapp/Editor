@@ -41,8 +41,9 @@ async function applyPrincyDefaultChat(): Promise<void> {
 	await chat.update('agentHost.enabled', false, target);
 
 	const workbench = vscode.workspace.getConfiguration('workbench');
-	await workbench.update('secondarySideBar.defaultVisibility', 'maximized', target);
-	await workbench.update('secondarySideBar.forceMaximized', true, target);
+	await workbench.update('secondarySideBar.defaultVisibility', 'visible', target);
+	await workbench.update('secondarySideBar.forceMaximized', false, target);
+	await workbench.update('layoutControl.enabled', true, target);
 	await workbench.update('startupEditor', 'none', target);
 
 	const princy = vscode.workspace.getConfiguration('princyai');
@@ -109,10 +110,18 @@ async function tryCommand(command: string): Promise<boolean> {
 	}
 }
 
-/** Garante barra lateral direita visível (layout Cursor). */
+/** Garante barra lateral direita visível sem maximizar (layout Cursor). */
 export async function ensurePrincyChatShellVisible(): Promise<void> {
+	await tryCommand('workbench.action.restoreAuxiliaryBar');
 	await tryCommand('workbench.action.focusAuxiliaryBar');
-	await tryCommand('workbench.action.maximizeAuxiliaryBar');
+}
+
+/** Explorer à esquerda + chat dockado à direita (não maximizado). */
+export async function ensureCursorLayoutOnStartup(): Promise<void> {
+	await tryCommand('workbench.action.restoreAuxiliaryBar');
+	await tryCommand('workbench.view.explorer');
+	await tryCommand('workbench.action.focusSideBar');
+	await ensurePrincyChatShellVisible();
 }
 
 /** Abre o container Princy Ai — não chama princyai.chat.focus (evita loop com provider.focus). */
@@ -141,7 +150,10 @@ export function scheduleOpenPrincyChatOnStartup(): void {
 			if (!vscode.workspace.getConfiguration('princyai').get<boolean>('ui.openChatOnStartup', true)) {
 				return;
 			}
-			void focusPrincyChatPanel();
+			void (async () => {
+				await ensureCursorLayoutOnStartup();
+				await focusPrincyChatPanel();
+			})();
 		}, ms);
 	}
 }

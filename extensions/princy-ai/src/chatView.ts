@@ -12,11 +12,12 @@ import { getMentionSuggestions, resolveContextMentions } from './contextMentions
 import type { NativeContextBundle } from './nativeContext';
 import { loadPrincyRules } from './princyRules';
 import { EMPTY_SHADOW_CONTEXT } from './shadowContext';
+import { ChatMode, ChatSessionManager } from './chatSessions';
 
 type ModelSegment = 'LOGIC' | 'FRONTEND' | 'BACKEND' | 'DEBUG';
 
 type WebviewMessage =
-	| { readonly type: 'sendMessage'; readonly text: string; readonly agent: AgentModel | 'auto'; readonly segmentMode?: ModelSegment; readonly priority?: 'normal' | 'high' }
+	| { readonly type: 'sendMessage'; readonly text: string; readonly agent: AgentModel | 'auto'; readonly segmentMode?: ModelSegment; readonly priority?: 'normal' | 'high'; readonly chatMode?: ChatMode }
 	| { readonly type: 'requestComposer'; readonly text: string; readonly agent: AgentModel }
 	| { readonly type: 'applyComposerPlan'; readonly instruction: string; readonly agent: AgentModel; readonly plan: ComposerPlan; readonly operationIds: readonly string[] }
 	| { readonly type: 'insertCode'; readonly code: string }
@@ -28,7 +29,12 @@ type WebviewMessage =
 	| { readonly type: 'indexWorkspace' }
 	| { readonly type: 'quickFix' }
 	| { readonly type: 'quickExplain' }
-	| { readonly type: 'bootError' };
+	| { readonly type: 'bootError' }
+	| { readonly type: 'newSession' }
+	| { readonly type: 'switchSession'; readonly sessionId: string }
+	| { readonly type: 'deleteSession'; readonly sessionId: string }
+	| { readonly type: 'setChatMode'; readonly mode: ChatMode }
+	| { readonly type: 'openSettings' };
 
 type ApplyComposerPlan = (
 	plan: ComposerPlan,
@@ -48,6 +54,7 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 	public constructor(
 		private readonly extensionUri: vscode.Uri,
 		private readonly client: AgentClient,
+		private readonly chatSessions: ChatSessionManager,
 		private readonly indexActiveFile: () => Promise<void>,
 		private readonly runSuggestedCommand: (command?: string) => Promise<void>,
 		private readonly collectNativeContext: () => Promise<NativeContextBundle>,
@@ -104,7 +111,11 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 	private async handleMessage(message: WebviewMessage): Promise<void> {
 		switch (message.type) {
 			case 'sendMessage':
-				await this.sendChatMessage(message.text, message.agent, message.segmentMode, message.priority);
+				if (message.chatMode === 'composer') {
+					await this.requestComposerPlan(message.text, this.resolveAgentChoice(message.agent));
+					break;
+				}
+				await this.sendChatMessage(message.text, message.agent, message.segmentMode, message.priority, message.chatMode);
 				break;
 			case 'requestComposer':
 				await this.requestComposerPlan(message.text, message.agent);
@@ -146,7 +157,58 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 					void this.initializeChatPanel();
 				}
 				break;
+			case 'newSession': {
+				const mode = this.chatSessions.getActive()?.mode ?? 'chat';
+				this.chatSessions.create(mode);
+				this.pushSessionState();
+				break;
+			}
+			case 'switchSession':
+				if (this.chatSessions.switchTo(message.sessionId)) {
+					this.pushSessionState();
+				}
+				break;
+			case 'deleteSession':
+				this.chatSessions.delete(message.sessionId);
+				this.pushSessionState();
+				break;
+			case 'setChatMode': {
+				const active = this.chatSessions.getActive();
+				if (active) {
+					this.chatSessions.setMode(active.id, message.mode);
+					this.view?.webview.postMessage({ type: 'chatMode', mode: message.mode });
+				}
+				break;
+			}
+			case 'openSettings':
+				await vscode.commands.executeCommand('workbench.action.openSettings');
+				break;
 		}
+	}
+
+	private pushSessionState(): void {
+		const sessions = this.chatSessions.list().map(s => ({
+			id: s.id,
+			title: s.title,
+			mode: s.mode,
+			updatedAt: s.updatedAt
+		}));
+		const active = this.chatSessions.getActive();
+		this.view?.webview.postMessage({
+			type: 'sessionsState',
+			sessions,
+			activeId: this.chatSessions.getActiveId(),
+			messages: active?.messages ?? [],
+			activeMode: active?.mode ?? 'chat'
+		});
+	}
+
+	private recordTurn(role: 'user' | 'assistant', text: string): void {
+		const active = this.chatSessions.getActive();
+		if (!active || !text.trim()) {
+			return;
+		}
+		this.chatSessions.appendMessage(active.id, { role, text });
 	}
 
 	private reloadWebviewHtml(webview: vscode.Webview): void {
@@ -197,6 +259,7 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 	}
 
 	private async initializeChatPanel(): Promise<void> {
+		this.pushSessionState();
 		const defaultAgent = vscode.workspace.getConfiguration('princyai').get<AgentModel>('defaultAgent', 'deepseek');
 		this.view?.webview.postMessage({ type: 'defaultAgent', agent: defaultAgent });
 		this.view?.webview.postMessage({ type: 'status', text: 'Pronto' });
@@ -241,7 +304,17 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 	}
 
 	private isSimpleChatMode(): boolean {
-		return vscode.workspace.getConfiguration('princyai').get<boolean>('chat.simpleMode', true);
+		return vscode.workspace.getConfiguration('princyai').get<boolean>('chat.simpleMode', false);
+	}
+
+	private shouldUseAgentJob(chatMode?: ChatMode): boolean {
+		if (chatMode === 'agent') {
+			return true;
+		}
+		if (chatMode === 'composer') {
+			return false;
+		}
+		return !this.isSimpleChatMode();
 	}
 
 	private async requestComposerPlan(text: string, agent: AgentModel): Promise<void> {
@@ -249,6 +322,7 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 			return;
 		}
 
+		this.recordTurn('user', `Composer: ${text}`);
 		this.view?.webview.postMessage({ type: 'append', role: 'user', text: `Composer: ${text}` });
 		this.view?.webview.postMessage({ type: 'status', text: 'Gerando plano…' });
 		this.view?.webview.postMessage({ type: 'thinking', steps: [] });
@@ -314,7 +388,7 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 		}
 	}
 
-	private async sendChatMessage(text: string, agent: AgentModel | 'auto', forceSegment?: ModelSegment, priority: 'normal' | 'high' = 'normal'): Promise<void> {
+	private async sendChatMessage(text: string, agent: AgentModel | 'auto', forceSegment?: ModelSegment, priority: 'normal' | 'high' = 'normal', chatMode?: ChatMode): Promise<void> {
 		if (!text.trim()) {
 			return;
 		}
@@ -323,8 +397,9 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 		const editor = vscode.window.activeTextEditor;
 		const selectedText = editor && !editor.selection.isEmpty ? editor.document.getText(editor.selection) : undefined;
 		const workspaceContext = vscode.workspace.workspaceFolders?.[0]?.name;
-		const simple = this.isSimpleChatMode();
+		const simple = !this.shouldUseAgentJob(chatMode);
 
+		this.recordTurn('user', text);
 		this.view?.webview.postMessage({ type: 'append', role: 'user', text });
 		this.pushEditorContext();
 		this.view?.webview.postMessage({ type: 'streamStart' });
@@ -387,9 +462,11 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 					shadowContext,
 					codeGraph
 				});
+				const reply = response.content ?? response.message ?? '';
+				this.recordTurn('assistant', reply);
 				this.view?.webview.postMessage({
 					type: 'streamEnd',
-					text: response.content ?? response.message ?? '',
+					text: reply,
 					suggestedCommands: response.suggestedCommands ?? []
 				});
 				this.view?.webview.postMessage({ type: 'status', text: 'Pronto' });
@@ -419,9 +496,11 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 			const planBlock = response.plan?.length
 				? `Plano:\n${response.plan.map((step, index) => `${index + 1}. ${step}`).join('\n')}\n\n`
 				: '';
+			const reply = planBlock + (response.content ?? response.message ?? '');
+			this.recordTurn('assistant', reply);
 			this.view?.webview.postMessage({
 				type: 'streamEnd',
-				text: planBlock + (response.content ?? response.message),
+				text: reply,
 				suggestedCommands: response.suggestedCommands ?? []
 			});
 			this.view?.webview.postMessage({ type: 'status', text: 'Pronto' });
@@ -429,11 +508,13 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 				this.pollCompileJob(response.metadata.compile_job_id);
 			}
 		} catch (error) {
+			const errText = `Erro: ${error instanceof Error ? error.message : 'Erro desconhecido'}`;
+			this.recordTurn('assistant', errText);
 			this.view?.webview.postMessage({ type: 'streamEnd', text: '', suggestedCommands: [] });
 			this.view?.webview.postMessage({
 				type: 'append',
 				role: 'assistant',
-				text: `Erro: ${error instanceof Error ? error.message : 'Erro desconhecido'}`
+				text: errText
 			});
 			const errText = error instanceof Error ? error.message : 'Erro desconhecido';
 			this.view?.webview.postMessage({

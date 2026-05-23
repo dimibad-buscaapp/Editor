@@ -98,6 +98,32 @@ catch {
 }
 
 Write-Host ""
+Write-Host "[Agent jobs]" -ForegroundColor Cyan
+$jobBody = @{
+	agent   = 'deepseek'
+	message = 'ping'
+	context = 'verify-script'
+} | ConvertTo-Json -Compress
+try {
+	$jobResp = Invoke-RestMethod -Uri "http://127.0.0.1:${ApiPort}/api/agent/jobs" -Method Post -Body $jobBody -ContentType 'application/json' -TimeoutSec 30
+	$jobId = $jobResp.jobId
+	if (-not $jobId) { $jobId = $jobResp.id }
+	if ($jobId) {
+		Write-Host "  POST /api/agent/jobs jobId=$jobId : OK" -ForegroundColor Green
+		$snap = Invoke-RestMethod -Uri "http://127.0.0.1:${ApiPort}/api/agent/jobs/$([uri]::EscapeDataString($jobId))" -Method Get -TimeoutSec 30
+		Write-Host ("  GET job state={0}" -f $snap.state) -ForegroundColor DarkGray
+	}
+	else {
+		$issues += 'POST /api/agent/jobs sem jobId'
+		Write-Host '  POST /api/agent/jobs: sem jobId' -ForegroundColor Red
+	}
+}
+catch {
+	$issues += "Agent jobs: $($_.Exception.Message)"
+	Write-Host ("  Agent jobs: FALHA - {0}" -f $_.Exception.Message) -ForegroundColor Red
+}
+
+Write-Host ""
 Write-Host "[Settings producao]" -ForegroundColor Cyan
 $prod = Join-Path $ProjectRoot "deploy\windows\princy-production.settings.json"
 $userData = Join-Path $ProjectRoot ".princy-user-data\User\settings.json"
@@ -105,6 +131,8 @@ if (Test-Path $prod) {
 	$p = Get-Content $prod -Raw | ConvertFrom-Json
 	Write-Host ("  princy-production agentEndpoint: {0}" -f $p.'princyai.agentEndpoint') -ForegroundColor DarkGray
 	Write-Host ("  useSameOriginApi: {0}" -f $p.'princyai.useSameOriginApi') -ForegroundColor DarkGray
+	Write-Host ("  chat.simpleMode: {0}" -f $p.'princyai.chat.simpleMode') -ForegroundColor DarkGray
+	Write-Host ("  secondarySideBar.forceMaximized: {0}" -f $p.'workbench.secondarySideBar.forceMaximized') -ForegroundColor DarkGray
 }
 if (Test-Path $userData) {
 	Write-Host "  .princy-user-data/User/settings.json: OK" -ForegroundColor Green

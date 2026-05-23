@@ -1,52 +1,79 @@
-# Visual do webeditor não mudou
+# Visual do webeditor (layout Cursor)
 
-O layout **estilo Cursor** (chat à direita, Princy Black, Composer) depende de **dois** artefatos:
+O layout **estilo Cursor** depende de artefatos compilados e settings de producao.
 
 | Artefato | Caminho | O que muda |
 |----------|---------|------------|
 | Workbench (editor) | `out/vs/code/browser/workbench/workbench.css` | Shell do Code Web |
-| Extensão Princy IA | `extensions/princy-ai/dist/browser/extension.js` | Tema **Princy Black**, painel de chat à direita, API → :3210 |
-| Builtin no bundle | `out/.../builtinExtensionsScannerService.js` contém `"princy-ai"` | Sem isso a extensão **não carrega** no web |
+| Extensão Princy IA | `extensions/princy-ai/dist/browser/extension.js` | Tema **Princy Black**, chat dockado à direita, abas Chat/Composer/Agent |
+| Builtin no bundle | `workbench.js` ou `server-main.js` contém `princy-ai` | Sem isso a extensão **não carrega** no web |
 
-Só compilar o `out/` **não** atualiza o visual do chat. É obrigatório `npm run compile-web` (ou o script de produção completo).
+Só compilar o `out/` **não** atualiza o painel de chat. É obrigatório `npm run compile-web` na extensão (ou script de produção completo).
 
-## Checklist rápido (VPS: `C:\Apps\Editor`)
+## Layout esperado (apos deploy)
+
+```
++------------------------------------------------------------------+
+| Menu / Command Center / Activity bar (topo)                      |
++----------+-------------------------------+-------------------------+
+| Explorer | Editor (tabs + codigo)      | Chat Princy (~300-400px)|
+| (esq.)   |                               | Chat | Composer | Agent|
++----------+-------------------------------+-------------------------+
+| Terminal / painel inferior (opcional)                              |
++------------------------------------------------------------------+
+```
+
+Checklist visual no browser (`https://princyai.com/webeditor/` + **Ctrl+F5**):
+
+1. **Explorer** visível à esquerda (ficheiros do workspace).
+2. **Editor** ao centro (não escondido pelo chat).
+3. **Chat** à direita, **não maximizado** (barra estreita, redimensionável).
+4. Barra superior com **command center** e **controles de layout**.
+5. Painel chat: abas **Chat / Composer / Agent**, **Histórico** colapsável, botão **⚙** (settings).
+6. Tema **Princy Black** (`#000000`).
+
+Settings criticos (`deploy/windows/princy-production.settings.json`):
+
+- `workbench.secondarySideBar.defaultVisibility`: `visible`
+- `workbench.secondarySideBar.forceMaximized`: `false`
+- `workbench.layoutControl.enabled`: `true`
+- `window.menuBarVisibility`: `classic`
+- `princyai.chat.simpleMode`: `false` (jobs + streaming no Agent)
+- `princyai.workspaceIndex.onOpen`: `true`
+
+## Deploy no VPS (`C:\Apps\Editor`)
 
 ```powershell
 cd C:\Apps\Editor
-git pull
-npm install   # se node_modules/gulp não existir
-powershell -ExecutionPolicy Bypass -File deploy\windows\code-web\compile-princy-code-web-production.ps1
+git pull --no-rebase origin main
+powershell -ExecutionPolicy Bypass -File deploy\windows\code-web\apply-princy-webeditor-hotfix.ps1
 powershell -ExecutionPolicy Bypass -File deploy\windows\code-web\verify-princy-chat-api.ps1
+Restart-Service PrincyAiCodeWeb
 ```
 
 Confirme:
 
 - `Test-Path extensions\princy-ai\dist\browser\extension.js` → **True**
-- `Select-String -Path out\vs\workbench\services\extensionManagement\browser\builtinExtensionsScannerService.js -Pattern '"princy-ai"' -Quiet` → **True**
-- No painel de chat, o subtítulo do header mostra **`Agent · Composer`**
-- Tema: **Princy Black** (barra de atividades e editor pretos `#000000`)
+- `verify-princy-chat-api.ps1` → health + **POST /api/agent/jobs** com jobId
+- Settings em `.princy-user-data\User/settings.json` com `forceMaximized: false`
 
-Reinicie o serviço Code Web e limpe cache do browser:
+Copie settings se necessario:
 
-```powershell
-Restart-Service PrincyAiCodeWeb
-```
+`deploy\windows\princy-production.settings.json` → `.princy-user-data\User\settings.json`
 
-No browser: `https://princyai.com/webeditor/` → **Ctrl+F5**.
+(ou `fix-princy-code-web-service.ps1`.)
 
-## Settings
+## Chat maximizado / sem explorer?
 
-Copie `deploy\windows\princy-production.settings.json` para:
+Causa habitual: perfil antigo com auxiliary bar maximizada.
 
-`C:\Apps\Editor\.princy-user-data\User\settings.json`
+1. Atualize codigo e settings (acima).
+2. No arranque a extensao chama `restoreAuxiliaryBar` automaticamente.
+3. **Ctrl+F5** no browser; se persistir: Command Palette → **Restore Secondary Side Bar**.
 
-(ou rode `fix-princy-code-web-service.ps1`, que copia automaticamente.)
+## Ainda parece VS Code padrao?
 
-## Ainda parece o VS Code padrão?
-
-1. **princy-ai não está no bundle builtin** → rode `compile-web` **antes** de `bundle-server-web-out` (script de produção já faz isso).
-2. Extensão ausente → `extension.js` não compilado; tema "Princy Black" não existe.
-3. Chat não aberto → abra o ícone **✦** na barra lateral secundária (direita).
-4. Cache CDN/browser → Ctrl+F5 ou aba anónima.
-5. URL errada → use `/webeditor/`, não só `princyai.com/`.
+1. **princy-ai ausente do bundle** → hotfix / `compile-web` antes de `bundle-server-web-out`.
+2. `extension.js` nao compilado → tema Princy Black inexistente.
+3. Cache → Ctrl+F5 ou aba anonima.
+4. URL → `/webeditor/`, nao apenas o dominio raiz.

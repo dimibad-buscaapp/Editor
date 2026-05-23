@@ -87,6 +87,99 @@ export function buildChatPanelHtml(cspSource: string, nonce: string): string {
 		.chat-header-btn:hover {
 			background: var(--vscode-list-hoverBackground, var(--princy-elevated));
 		}
+		.chat-mode-bar {
+			flex-shrink: 0;
+			display: flex;
+			gap: 4px;
+			padding: 6px 14px 4px;
+			border-bottom: 1px solid var(--vscode-sideBar-border, var(--princy-border));
+		}
+		.chat-mode-pill {
+			flex: 1;
+			height: 28px;
+			border: 1px solid var(--vscode-widget-border, var(--princy-border));
+			border-radius: 6px;
+			background: transparent;
+			color: var(--vscode-descriptionForeground, var(--princy-muted));
+			font-size: 11px;
+			font-weight: 500;
+			cursor: pointer;
+		}
+		.chat-mode-pill:hover {
+			background: var(--vscode-list-hoverBackground, var(--princy-elevated));
+			color: var(--vscode-foreground, var(--princy-text));
+		}
+		.chat-mode-pill.active {
+			background: var(--princy-elevated);
+			color: var(--vscode-sideBarTitle-foreground, var(--princy-text-strong));
+			border-color: var(--vscode-focusBorder, var(--princy-border));
+		}
+		.chat-history {
+			flex-shrink: 0;
+			border-bottom: 1px solid var(--vscode-sideBar-border, var(--princy-border));
+		}
+		.chat-history summary {
+			padding: 6px 14px;
+			font-size: 11px;
+			font-weight: 600;
+			color: var(--vscode-descriptionForeground, var(--princy-muted));
+			cursor: pointer;
+			list-style: none;
+			user-select: none;
+		}
+		.chat-history summary::-webkit-details-marker { display: none; }
+		.chat-history-list {
+			max-height: 140px;
+			overflow-y: auto;
+			padding: 0 8px 8px;
+		}
+		.chat-history-item {
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			width: 100%;
+			padding: 6px 8px;
+			border: none;
+			border-radius: 6px;
+			background: transparent;
+			color: var(--vscode-foreground, var(--princy-text));
+			font-size: 11px;
+			text-align: left;
+			cursor: pointer;
+		}
+		.chat-history-item:hover {
+			background: var(--vscode-list-hoverBackground, var(--princy-elevated));
+		}
+		.chat-history-item.active {
+			background: var(--vscode-list-activeSelectionBackground, var(--princy-elevated));
+		}
+		.chat-history-item-title {
+			flex: 1;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+		.chat-history-item-mode {
+			font-size: 9px;
+			text-transform: uppercase;
+			color: var(--vscode-descriptionForeground, var(--princy-muted));
+		}
+		.chat-history-del {
+			flex-shrink: 0;
+			width: 20px;
+			height: 20px;
+			border: none;
+			border-radius: 4px;
+			background: transparent;
+			color: var(--princy-muted);
+			cursor: pointer;
+			font-size: 14px;
+			line-height: 1;
+		}
+		.chat-history-del:hover {
+			background: var(--vscode-inputValidation-errorBackground, #3f1d1d);
+			color: var(--vscode-errorForeground, #f87171);
+		}
 		.chat-scroll {
 			flex: 1;
 			overflow-y: auto;
@@ -600,9 +693,19 @@ export function buildChatPanelHtml(cspSource: string, nonce: string): string {
 				</div>
 			</div>
 			<div class="chat-header-actions">
+				<button type="button" class="chat-header-btn" id="openSettings" title="Configurações">⚙</button>
 				<button type="button" class="chat-header-btn" id="newChat" title="Nova conversa">+ Novo</button>
 			</div>
 		</header>
+		<div class="chat-mode-bar" role="tablist" aria-label="Modo do chat">
+			<button type="button" class="chat-mode-pill active" data-mode="chat" role="tab" aria-selected="true">Chat</button>
+			<button type="button" class="chat-mode-pill" data-mode="composer" role="tab">Composer</button>
+			<button type="button" class="chat-mode-pill" data-mode="agent" role="tab">Agent</button>
+		</div>
+		<details class="chat-history" id="historyPanel">
+			<summary>Histórico</summary>
+			<div class="chat-history-list" id="historyList"></div>
+		</details>
 		<div class="chat-scroll" id="scroll">
 			<div class="chat-welcome" id="empty">
 				<div class="chat-welcome-icon">✦</div>
@@ -677,8 +780,17 @@ function getChatPanelScript(): string {
 		const contextBar = document.getElementById('contextBar');
 		const mentionMenu = document.getElementById('mentionMenu');
 		const sendBtn = document.getElementById('send');
+		const historyList = document.getElementById('historyList');
 		let streamingNode = null;
 		let streamingBody = null;
+		let currentMode = 'chat';
+		let activeSessionId = null;
+
+		const MODE_PLACEHOLDERS = {
+			chat: 'Pergunte ao Princy IA…',
+			composer: 'Descreva mudanças multi-arquivo…',
+			agent: 'Tarefa para o agente (jobs, RAG, terminal)…'
+		};
 
 		if (!input) {
 			const banner = document.createElement('div');
@@ -747,12 +859,85 @@ function getChatPanelScript(): string {
 			scrollBottom();
 		}
 
-		document.getElementById('newChat')?.addEventListener('click', () => {
-			resetConversation();
-			input.value = '';
-			autoResizeInput();
-			input.focus();
+		function setChatMode(mode, fromHost) {
+			currentMode = mode;
+			for (const pill of document.querySelectorAll('.chat-mode-pill')) {
+				const on = pill.getAttribute('data-mode') === mode;
+				pill.classList.toggle('active', on);
+				pill.setAttribute('aria-selected', on ? 'true' : 'false');
+			}
+			input.placeholder = MODE_PLACEHOLDERS[mode] || MODE_PLACEHOLDERS.chat;
+			const composerBtn = document.getElementById('composer');
+			const followups = document.querySelector('.chat-followups');
+			if (followups) followups.style.display = mode === 'composer' ? 'none' : '';
+			if (composerBtn) composerBtn.style.display = mode === 'composer' ? 'none' : '';
+			if (!fromHost) {
+				vscode.postMessage({ type: 'setChatMode', mode });
+			}
+		}
+
+		for (const pill of document.querySelectorAll('.chat-mode-pill')) {
+			pill.addEventListener('click', () => {
+				const mode = pill.getAttribute('data-mode');
+				if (mode) setChatMode(mode, false);
+			});
+		}
+
+		document.getElementById('openSettings')?.addEventListener('click', () => {
+			vscode.postMessage({ type: 'openSettings' });
 		});
+
+		document.getElementById('newChat')?.addEventListener('click', () => {
+			vscode.postMessage({ type: 'newSession' });
+		});
+
+		function restoreMessages(turns) {
+			resetConversation();
+			if (!turns || !turns.length) return;
+			hideEmpty();
+			for (const turn of turns) {
+				if (turn.role === 'user') appendUser(turn.text);
+				else appendAssistant(turn.text);
+			}
+			scrollBottom();
+		}
+
+		function renderHistoryList(sessions, activeId) {
+			if (!historyList) return;
+			historyList.innerHTML = '';
+			activeSessionId = activeId;
+			for (const session of sessions || []) {
+				const row = document.createElement('div');
+				row.className = 'chat-history-row';
+				row.style.display = 'contents';
+				const btn = document.createElement('button');
+				btn.type = 'button';
+				btn.className = 'chat-history-item' + (session.id === activeId ? ' active' : '');
+				const title = document.createElement('span');
+				title.className = 'chat-history-item-title';
+				title.textContent = session.title || 'Nova conversa';
+				const mode = document.createElement('span');
+				mode.className = 'chat-history-item-mode';
+				mode.textContent = session.mode || 'chat';
+				btn.append(title, mode);
+				btn.addEventListener('click', () => {
+					vscode.postMessage({ type: 'switchSession', sessionId: session.id });
+				});
+				const del = document.createElement('button');
+				del.type = 'button';
+				del.className = 'chat-history-del';
+				del.title = 'Excluir';
+				del.textContent = '×';
+				del.addEventListener('click', event => {
+					event.stopPropagation();
+					vscode.postMessage({ type: 'deleteSession', sessionId: session.id });
+				});
+				const wrap = document.createElement('div');
+				wrap.style.cssText = 'display:flex;align-items:center;gap:2px;width:100%';
+				wrap.append(btn, del);
+				historyList.appendChild(wrap);
+			}
+		}
 
 		for (const pill of document.querySelectorAll('.chat-suggest')) {
 			pill.addEventListener('click', () => {
@@ -772,13 +957,20 @@ function getChatPanelScript(): string {
 		function postChatMessage(priority) {
 			const text = input.value.trim();
 			if (!text) return;
-			vscode.postMessage({
-				type: 'sendMessage',
-				text,
-				agent: agent?.value || 'auto',
-				segmentMode: segment?.value || undefined,
-				priority: priority || 'normal'
-			});
+			hideEmpty();
+			if (currentMode === 'composer') {
+				const picked = !agent || agent.value === 'auto' ? 'deepseek' : agent.value;
+				vscode.postMessage({ type: 'requestComposer', text, agent: picked });
+			} else {
+				vscode.postMessage({
+					type: 'sendMessage',
+					text,
+					agent: agent?.value || 'auto',
+					segmentMode: segment?.value || undefined,
+					priority: priority || 'normal',
+					chatMode: currentMode
+				});
+			}
 			input.value = '';
 			autoResizeInput();
 		}
@@ -790,16 +982,10 @@ function getChatPanelScript(): string {
 
 		sendBtn?.addEventListener('click', () => postChatMessage('normal'));
 		document.getElementById('composer')?.addEventListener('click', () => {
+			setChatMode('composer', false);
 			const text = input.value.trim();
-			if (!text) {
-				input.placeholder = 'Descreva mudança multi-arquivo…';
-				input.focus();
-				return;
-			}
-			const picked = !agent || agent.value === 'auto' ? 'deepseek' : agent.value;
-			vscode.postMessage({ type: 'requestComposer', text, agent: picked });
-			input.value = '';
-			autoResizeInput();
+			if (text) postChatMessage('normal');
+			else input.focus();
 		});
 		document.getElementById('index')?.addEventListener('click', () => vscode.postMessage({ type: 'indexWorkspace' }));
 		input.addEventListener('keydown', event => {
@@ -813,8 +999,16 @@ function getChatPanelScript(): string {
 			const message = event.data;
 			if (message.type === 'focusInput') input.focus();
 			if (message.type === 'focusComposer') {
-				input.placeholder = 'Descreva mudança multi-arquivo…';
+				setChatMode('composer', true);
 				input.focus();
+			}
+			if (message.type === 'chatMode' && message.mode) {
+				setChatMode(message.mode, true);
+			}
+			if (message.type === 'sessionsState') {
+				renderHistoryList(message.sessions, message.activeId);
+				if (message.activeMode) setChatMode(message.activeMode, true);
+				restoreMessages(message.messages);
 			}
 			if (message.type === 'prefillComposer') {
 				input.value = message.text || '';

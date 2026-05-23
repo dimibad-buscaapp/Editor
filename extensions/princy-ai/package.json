@@ -186,14 +186,14 @@
       "chat.unifiedAgentsBar.enabled": false,
       "chat.restoreLastPanelSession": false,
       "chat.titleBar.signIn.enabled": false,
-      "workbench.secondarySideBar.defaultVisibility": "maximized",
-      "workbench.secondarySideBar.forceMaximized": true,
+      "workbench.secondarySideBar.defaultVisibility": "visible",
+      "workbench.secondarySideBar.forceMaximized": false,
       "princyai.ui.openChatOnStartup": true,
       "princyai.ui.defaultChat": true,
       "princyai.useSameOriginApi": true,
       "princyai.agentEndpoint": "/princy-api",
-      "princyai.chat.simpleMode": true,
-      "princyai.workspaceIndex.onOpen": false,
+      "princyai.chat.simpleMode": false,
+      "princyai.workspaceIndex.onOpen": true,
       "workbench.commandCenter.enabled": true,
       "workbench.panel.defaultLocation": "bottom",
       "workbench.panel.opensMaximized": "never",
@@ -207,10 +207,10 @@
       "editor.glyphMargin": false,
       "editor.scrollBeyondLastLine": false,
       "editor.smoothScrolling": true,
-      "workbench.layoutControl.enabled": false,
+      "workbench.layoutControl.enabled": true,
       "workbench.startupEditor": "none",
       "workbench.welcomePage.experimentalOnboarding": false,
-      "window.menuBarVisibility": "compact",
+      "window.menuBarVisibility": "classic",
       "breadcrumbs.enabled": true,
       "princyai.defaultAgent": "deepseek",
       "princyai.ghostText.agent": "deepseek"
@@ -291,12 +291,12 @@
         },
         "princyai.chat.simpleMode": {
           "type": "boolean",
-          "default": true,
+          "default": false,
           "description": "Use POST /api/agent/chat (sync) without jobs, RAG, shadow context or VPS compile on each message."
         },
         "princyai.workspaceIndex.onOpen": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "description": "Index workspace files for RAG shortly after opening a folder."
         }
       }
