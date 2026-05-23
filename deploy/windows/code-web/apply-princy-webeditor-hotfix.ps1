@@ -19,6 +19,14 @@ Write-Host "=== Hotfix Webeditor (Princy IA) ===" -ForegroundColor Cyan
 Write-Host "Pasta: $ProjectRoot"
 Set-Location $ProjectRoot
 
+$userDataDir = Join-Path $ProjectRoot ".princy-user-data"
+$productionSettings = Join-Path $ProjectRoot "deploy\windows\princy-production.settings.json"
+if (Test-Path $productionSettings) {
+	New-Item -ItemType Directory -Force (Join-Path $userDataDir "User") | Out-Null
+	Copy-Item $productionSettings (Join-Path $userDataDir "User\settings.json") -Force
+	Write-Host "Settings producao copiados para .princy-user-data\User\settings.json" -ForegroundColor Green
+}
+
 # 1) Backend :3210
 Write-Host "`n[1] Agent API :3210" -ForegroundColor Cyan
 try {

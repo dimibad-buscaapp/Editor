@@ -45,6 +45,11 @@ async function applyPrincyDefaultChat(): Promise<void> {
 	await workbench.update('secondarySideBar.forceMaximized', false, target);
 	await workbench.update('layoutControl.enabled', true, target);
 	await workbench.update('startupEditor', 'none', target);
+	await workbench.update('activityBar.visible', true, target);
+
+	const files = vscode.workspace.getConfiguration('files');
+	await files.update('readonlyInclude', {}, target);
+	await files.update('readonlyFromPermissions', false, target);
 
 	const princy = vscode.workspace.getConfiguration('princyai');
 	await princy.update('defaultAgent', 'deepseek', target);

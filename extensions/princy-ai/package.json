@@ -212,6 +212,9 @@
       "workbench.welcomePage.experimentalOnboarding": false,
       "window.menuBarVisibility": "classic",
       "breadcrumbs.enabled": true,
+      "files.readonlyInclude": {},
+      "files.readonlyFromPermissions": false,
+      "workbench.activityBar.visible": true,
       "princyai.defaultAgent": "deepseek",
       "princyai.ghostText.agent": "deepseek"
     },

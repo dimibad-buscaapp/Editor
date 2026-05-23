@@ -507,11 +507,36 @@ export class WebClientServer {
 	}
 
 	/**
+	 * Raiz do repo (C:\Apps\Editor). APP_ROOT costuma ser .../out; join(..) uma vez pode cair em C:\Apps.
+	 */
+	private _resolvePrincyProjectRoot(): string {
+		const envRoot = process.env['PRINCY_EDITOR_ROOT'];
+		const candidates: string[] = [];
+		if (envRoot) {
+			candidates.push(envRoot);
+		}
+		if (this._environmentService.extensionsPath) {
+			candidates.push(dirname(this._environmentService.extensionsPath));
+		}
+		candidates.push(
+			join(APP_ROOT, '..'),
+			join(APP_ROOT, '../..'),
+			process.cwd()
+		);
+		for (const root of candidates) {
+			if (existsSync(join(root, 'extensions', 'princy-ai', 'package.json'))) {
+				return root;
+			}
+		}
+		return join(APP_ROOT, '..');
+	}
+
+	/**
 	 * Carrega princy-ai para o meta WORKBENCH_BUILTIN_EXTENSIONS (tema + chat lateral).
 	 * Requer extensions/princy-ai/dist/browser/extension.js (npm run compile-web).
 	 */
 	private async _loadPrincyWebBuiltinExtensions(): Promise<{ extensionPath: string; packageJSON: IExtensionManifest }[]> {
-		const projectRoot = join(APP_ROOT, '..');
+		const projectRoot = this._resolvePrincyProjectRoot();
 		const packageJSONPath = join(projectRoot, 'extensions', 'princy-ai', 'package.json');
 		const browserMainPath = join(projectRoot, 'extensions', 'princy-ai', 'dist', 'browser', 'extension.js');
 		if (!existsSync(packageJSONPath) || !existsSync(browserMainPath)) {
@@ -534,7 +559,7 @@ export class WebClientServer {
 	 * Diagnostico de boot do web editor (/webeditor/log)
 	 */
 	private async _handleBootLog(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
-		const projectRoot = join(APP_ROOT, '..');
+		const projectRoot = this._resolvePrincyProjectRoot();
 		const htmlPath = join(projectRoot, 'deploy', 'windows', 'code-web', 'webeditor-log', 'index.html');
 		const headers: Record<string, string> = Object.create(null);
 		return serveFile(htmlPath, CacheControl.NO_CACHING, this._logService, req, res, headers);

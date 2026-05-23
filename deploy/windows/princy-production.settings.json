@@ -26,5 +26,10 @@
 	"chat.disableAIFeatures": true,
 	"chat.agent.enabled": false,
 	"chat.agentHost.enabled": false,
-	"github.gitAuthentication": false
+	"github.gitAuthentication": false,
+	"files.readonlyInclude": {},
+	"files.readonlyExclude": {},
+	"files.readonlyFromPermissions": false,
+	"workbench.activityBar.visible": true,
+	"workbench.editor.enablePreview": true
 }

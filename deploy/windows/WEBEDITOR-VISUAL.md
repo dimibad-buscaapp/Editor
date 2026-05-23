@@ -63,6 +63,16 @@ Copie settings se necessario:
 
 (ou `fix-princy-code-web-service.ps1`.)
 
+## Log `princy-ai ausente` com caminho `c:\Apps\extensions\...`?
+
+O servidor procurava a extensao na pasta errada (`APP_ROOT/..` = `C:\Apps` em vez de `C:\Apps\Editor`).
+
+Correcao: `PRINCY_EDITOR_ROOT` no servico NSSM + resolucao robusta em `webClientServer.ts`. Apos pull, confirme no log **sem** esse aviso e HTML com `princy-ai`.
+
+## Edicao bloqueada (read-only)?
+
+Settings de producao desactivam `files.readonlyInclude` e `files.readonlyFromPermissions`. A extensao reaplica no arranque. Se abrir a pasta `C:\Apps\Editor` inteira no browser, o `.vscode/settings.json` do repo ainda marca `out/**` como read-only — use o workspace `workspaces\default`.
+
 ## Chat maximizado / sem explorer?
 
 Causa habitual: perfil antigo com auxiliary bar maximizada.

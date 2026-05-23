@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { scheduleOpenPrincyChatOnStartup } from './princyWorkbenchChat';
+import { ensureCursorLayoutOnStartup, scheduleOpenPrincyChatOnStartup } from './princyWorkbenchChat';
 
 export function registerPrincyWorkbenchUi(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(
@@ -50,7 +50,20 @@ async function applyMinimalWorkbench(): Promise<void> {
 	await ed.update('smoothScrolling', true, target);
 	await bc.update('enabled', true, target);
 
+	const files = vscode.workspace.getConfiguration('files');
+	await files.update('readonlyInclude', {}, target);
+	await files.update('readonlyExclude', {}, target);
+	await files.update('readonlyFromPermissions', false, target);
+
+	await wb.update('activityBar.visible', true, target);
+
 	if (princy.get<boolean>('ui.openChatOnStartup', true)) {
 		scheduleOpenPrincyChatOnStartup();
 	}
+	void ensureCursorLayoutOnStartup();
+}
+
+/** Reaplica layout Cursor e desbloqueia edicao (chamar apos pull/settings antigos). */
+export async function enforcePrincyEditorUnlocked(): Promise<void> {
+	await applyMinimalWorkbench();
 }

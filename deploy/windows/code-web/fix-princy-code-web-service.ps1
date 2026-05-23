@@ -165,7 +165,8 @@ Write-Host "AppDirectory: $ProjectRoot"
 # Producao: NAO definir VSCODE_DEV nem NODE_ENV=development
 $envExtra = @(
 	"VSCODE_SKIP_PRELAUNCH=1",
-	"NODE_OPTIONS=--max-old-space-size=8192"
+	"NODE_OPTIONS=--max-old-space-size=8192",
+	"PRINCY_EDITOR_ROOT=$ProjectRoot"
 )
 if (-not $hasProd) {
 	Write-Host "Modo DEV forcado (sem bundle prod) - adicionando VSCODE_DEV=1" -ForegroundColor Yellow
