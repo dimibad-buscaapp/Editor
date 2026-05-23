@@ -107,23 +107,21 @@ if (-not $hasProd) {
 Write-Host ""
 Write-Host "[1b] Extensao princy-ai (tema + chat Cursor-like)" -ForegroundColor Cyan
 $extJs = Join-Path $ProjectRoot "extensions\princy-ai\dist\browser\extension.js"
-$scannerJs = Join-Path $ProjectRoot "out\vs\workbench\services\extensionManagement\browser\builtinExtensionsScannerService.js"
+$wbJs = Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench.js"
+$serverMain = Join-Path $ProjectRoot "out\server-main.js"
 if (Test-Path $extJs) {
 	Write-Host "  extension.js: OK" -ForegroundColor Green
 } else {
 	Add-Issue "extensions\princy-ai\dist\browser\extension.js AUSENTE - rode npm run compile-web"
 	Write-Host "  extension.js: AUSENTE" -ForegroundColor Red
 }
-if (Test-Path $scannerJs) {
-	if (Select-String -Path $scannerJs -Pattern '"princy-ai"' -Quiet) {
-		Write-Host "  princy-ai no bundle builtin: OK" -ForegroundColor Green
-	} else {
-		Add-Issue "princy-ai NAO esta em builtinExtensionsScannerService.js - visual fica VS Code padrao (recompile: compile-web antes de bundle-server-web-out)"
-		Write-Host "  princy-ai no bundle builtin: AUSENTE" -ForegroundColor Red
-	}
+$inWb = (Test-Path $wbJs) -and (Select-String -Path $wbJs -Pattern "princy-ai" -Quiet)
+$inSrv = (Test-Path $serverMain) -and (Select-String -Path $serverMain -Pattern "princy-ai" -Quiet)
+if ($inWb -or $inSrv) {
+	Write-Host "  princy-ai no bundle (workbench=$inWb server=$inSrv): OK" -ForegroundColor Green
 } elseif ($build.ServerMain) {
-	Add-Issue "builtinExtensionsScannerService.js ausente - rode npm run bundle-server-web-out"
-	Write-Host "  builtinExtensionsScannerService.js: AUSENTE" -ForegroundColor Red
+	Add-Issue "princy-ai ausente em workbench.js/server-main.js - rode apply-princy-webeditor-hotfix.ps1"
+	Write-Host "  princy-ai no bundle: AUSENTE" -ForegroundColor Red
 }
 $wbHtmlOut = Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench.html"
 if (Test-Path $wbHtmlOut) {
