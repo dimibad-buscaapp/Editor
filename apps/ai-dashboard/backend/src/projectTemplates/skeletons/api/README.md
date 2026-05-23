@@ -1,22 +1,19 @@
-# {{PROJECT_NAME}}
+# {{PROJECT_NAME}} — Fastify API
 
-API REST Fastify + Prisma.
+API REST com Fastify, Prisma, PostgreSQL e Swagger.
 
-## Requisitos
+## Comandos
 
-- Node.js 20+
-
-## Configuracao
-
-1. Copie `.env.example` para `.env`
-2. Configure DATABASE_URL
-3. `npm install && npx prisma migrate dev`
+1. Copie `.env.example` para `.env` e ajuste `DATABASE_URL`
+2. `npm install`
+3. `npm run prisma:migrate`
 4. `npm run dev`
 
-## Scripts
+- Swagger UI: http://localhost:4000/docs
+- OpenAPI JSON: http://localhost:4000/docs/json
 
-- `npm run dev` — desenvolvimento
-- `npm run build` — build de producao
-- `npm start` — producao (quando aplicavel)
+## Testes
 
-Gerado por Princy IA Creator — {{YEAR}}.
+```bash
+npm run test:api
+```

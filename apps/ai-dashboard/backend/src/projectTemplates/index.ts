@@ -13,20 +13,40 @@ export const templates: Record<ProjectTemplateId, ProjectTemplateDefinition> = {
 	},
 	api: {
 		id: 'api',
-		name: 'API REST',
-		description: 'API HTTP com Fastify, Prisma e PostgreSQL.',
-		stack: ['Node', 'Fastify', 'Prisma'],
+		name: 'Fastify API',
+		description: 'API REST Fastify, Prisma, PostgreSQL e Swagger.',
+		stack: ['Node', 'Fastify', 'Prisma', 'Swagger'],
 		build: 'npm run build',
 		buildTarget: 'api',
 		skeletonDir: 'api',
-		tags: ['backend', 'rest']
+		tags: ['backend', 'rest', 'fastify']
+	},
+	'express-api': {
+		id: 'express-api',
+		name: 'Express API',
+		description: 'API REST Express, Prisma e documentacao Swagger.',
+		stack: ['Node', 'Express', 'Prisma', 'Swagger'],
+		build: 'npm run build',
+		buildTarget: 'api',
+		skeletonDir: 'express-api',
+		tags: ['backend', 'rest', 'express']
+	},
+	webhook: {
+		id: 'webhook',
+		name: 'Webhook',
+		description: 'Receber webhooks com validacao de assinatura e Swagger.',
+		stack: ['Node', 'Fastify', 'Webhooks'],
+		build: 'npm run build',
+		buildTarget: 'api',
+		skeletonDir: 'webhook',
+		tags: ['backend', 'webhook']
 	},
 	apk: {
 		id: 'apk',
 		name: 'Aplicativo Android APK',
-		description: 'App mobile com React, Vite e Capacitor para Android.',
-		stack: ['Capacitor', 'React', 'Vite'],
-		build: 'npm run build && npx cap sync android',
+		description: 'React/Vite + Capacitor + Gradle → app-debug.apk',
+		stack: ['React', 'Vite', 'Capacitor', 'Gradle'],
+		build: 'npm run build → cap sync → gradlew assembleDebug',
 		buildTarget: 'apk',
 		skeletonDir: 'apk',
 		tags: ['mobile', 'android']
@@ -34,9 +54,9 @@ export const templates: Record<ProjectTemplateId, ProjectTemplateDefinition> = {
 	exe: {
 		id: 'exe',
 		name: 'Aplicativo Windows EXE',
-		description: 'Desktop Windows com Electron e React.',
-		stack: ['Electron', 'React', 'Vite'],
-		build: 'npm run dist',
+		description: 'React/Vite + Electron + electron-builder → dist/*.exe',
+		stack: ['React', 'Vite', 'Electron', 'electron-builder'],
+		build: 'npm run build → npm run dist',
 		buildTarget: 'exe',
 		skeletonDir: 'exe',
 		tags: ['desktop', 'windows']
@@ -71,7 +91,7 @@ export const templates: Record<ProjectTemplateId, ProjectTemplateDefinition> = {
 	},
 	dashboard: {
 		id: 'dashboard',
-		name: 'Dashboard',
+		name: 'Painel Admin',
 		description: 'Painel administrativo com graficos e metricas.',
 		stack: ['React', 'Vite', 'Recharts'],
 		build: 'npm run build',
@@ -91,7 +111,7 @@ export const templates: Record<ProjectTemplateId, ProjectTemplateDefinition> = {
 	},
 	auth: {
 		id: 'auth',
-		name: 'Sistema com login',
+		name: 'Auth JWT',
 		description: 'Login/registro com JWT, sessoes e frontend React.',
 		stack: ['React', 'Fastify', 'JWT'],
 		build: 'npm run build',
@@ -111,7 +131,7 @@ export const templates: Record<ProjectTemplateId, ProjectTemplateDefinition> = {
 	},
 	database: {
 		id: 'database',
-		name: 'Sistema com banco de dados',
+		name: 'Prisma + PostgreSQL',
 		description: 'API com Prisma, migrations e CRUD de exemplo.',
 		stack: ['Fastify', 'Prisma', 'PostgreSQL'],
 		build: 'npm run build',

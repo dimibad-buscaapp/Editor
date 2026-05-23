@@ -8,5 +8,8 @@ app.post('/api/items', async req => {
   const body = req.body as { title?: string };
   return prisma.item.create({ data: { title: body.title ?? 'Novo item' } });
 });
+
+// PRINCY_API_STUDIO_INSERT
+
 const port = Number(process.env.PORT ?? 4000);
 app.listen({ port, host: '0.0.0.0' });

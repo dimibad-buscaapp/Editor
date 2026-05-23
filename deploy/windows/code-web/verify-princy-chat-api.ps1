@@ -153,6 +153,33 @@ foreach ($pair in @(
 }
 
 Write-Host ""
+Write-Host "[Fase 9 /api/studio]" -ForegroundColor Cyan
+try {
+	$r = Invoke-RestMethod "http://127.0.0.1:${ApiPort}/api/studio" -TimeoutSec 20
+	if ($r.ok -eq $true -and $r.features) {
+		Write-Host "  API direta /api/studio: OK (features=$($r.features.Count))" -ForegroundColor Green
+	} else {
+		$issues += "/api/studio - ok nao true ou sem features"
+		Write-Host "  API direta /api/studio: resposta inesperada" -ForegroundColor Red
+	}
+} catch {
+	$issues += "/api/studio - $($_.Exception.Message)"
+	Write-Host "  API direta /api/studio: FALHA" -ForegroundColor Red
+}
+try {
+	$r = Invoke-RestMethod "https://${PublicHost}/princy-api/api/studio" -TimeoutSec 25
+	if ($r.ok -eq $true) {
+		Write-Host "  HTTPS /princy-api/api/studio: OK" -ForegroundColor Green
+	} else {
+		$issues += "HTTPS /api/studio - ok nao true"
+		Write-Host "  HTTPS /princy-api/api/studio: resposta inesperada" -ForegroundColor Red
+	}
+} catch {
+	$issues += "HTTPS /api/studio - $($_.Exception.Message)"
+	Write-Host "  HTTPS /princy-api/api/studio: FALHA" -ForegroundColor Red
+}
+
+Write-Host ""
 Write-Host "[Extensao web]" -ForegroundColor Cyan
 $extJs = Join-Path $ProjectRoot "extensions\princy-ai\dist\browser\extension.js"
 if (Test-Path $extJs) {

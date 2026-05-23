@@ -7,6 +7,8 @@ export type ProjectTemplateId =
 	| 'webapp'
 	| 'saas'
 	| 'api'
+	| 'express-api'
+	| 'webhook'
 	| 'automation'
 	| 'bot'
 	| 'dashboard'

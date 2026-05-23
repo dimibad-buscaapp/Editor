@@ -15,6 +15,7 @@ import { registerBuildRoutes } from './buildRoutes.js';
 import { registerAgentRoutes } from './agentRoutes.js';
 import { registerProjectRoutes } from './projectRoutes.js';
 import { registerLogviewRoutes } from './logviewRoutes.js';
+import { registerApiStudioRoutes } from './apiStudio/apiStudioRoutes.js';
 import { registerSiteRoutes, registerSiteStatic } from './sites/siteRoutes.js';
 import { recordRequest } from './requestLog.js';
 import { registerRoutes } from './routes.js';
@@ -87,6 +88,7 @@ await registerAgentRoutes(app);
 await registerProjectRoutes(app);
 await registerBuildRoutes(app);
 await registerSiteRoutes(app);
+await registerApiStudioRoutes(app);
 await registerLogviewRoutes(app);
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));

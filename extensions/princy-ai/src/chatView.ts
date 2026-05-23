@@ -50,6 +50,12 @@ type WebviewMessage =
 	| { readonly type: 'syncSitePreview'; readonly slug: string; readonly projectSlug?: string }
 	| { readonly type: 'publishSite'; readonly slug: string; readonly projectSlug?: string; readonly buildId?: string }
 	| { readonly type: 'openSitePreview'; readonly url: string }
+	| { readonly type: 'openExternalUrl'; readonly url: string }
+	| { readonly type: 'loadApiStudioInfo'; readonly slug: string }
+	| { readonly type: 'apiStudioScaffoldRoute'; readonly slug: string; readonly method: string; readonly path: string }
+	| { readonly type: 'apiStudioMigrate'; readonly slug: string }
+	| { readonly type: 'apiStudioTest'; readonly slug: string }
+	| { readonly type: 'apiStudioOpenDocs'; readonly slug: string }
 	| { readonly type: 'createProject'; readonly templateId: ProjectTemplateId; readonly projectName: string; readonly runInstall?: boolean }
 	| { readonly type: 'openCreatedProject'; readonly projectPath: string }
 	| { readonly type: 'buildCreatedProject'; readonly projectPath: string; readonly target: import('./agentClient').BuildTarget };
@@ -185,6 +191,24 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 				break;
 			case 'openSitePreview':
 				await vscode.env.openExternal(vscode.Uri.parse(message.url));
+				break;
+			case 'openExternalUrl':
+				await vscode.env.openExternal(vscode.Uri.parse(message.url));
+				break;
+			case 'loadApiStudioInfo':
+				await this.loadApiStudioInfo(message.slug);
+				break;
+			case 'apiStudioScaffoldRoute':
+				await this.apiStudioScaffoldRoute(message.slug, message.method, message.path);
+				break;
+			case 'apiStudioMigrate':
+				await this.apiStudioMigrate(message.slug);
+				break;
+			case 'apiStudioTest':
+				await this.apiStudioTest(message.slug);
+				break;
+			case 'apiStudioOpenDocs':
+				await this.apiStudioOpenDocs(message.slug);
 				break;
 			case 'createProject':
 				await this.runCreateProject(message.templateId, message.projectName, message.runInstall ?? true);
@@ -400,7 +424,7 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 		if (chatMode === 'agent' || chatMode === 'chat') {
 			return true;
 		}
-		if (chatMode === 'composer' || chatMode === 'builder' || chatMode === 'buildCenter' || chatMode === 'creator') {
+		if (chatMode === 'composer' || chatMode === 'builder' || chatMode === 'buildCenter' || chatMode === 'apiStudio' || chatMode === 'creator') {
 			return false;
 		}
 		return !this.isSimpleChatMode();
@@ -827,6 +851,75 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 			this.recordTurn('assistant', `Site publicado: ${result.publishedUrl}`);
 			this.view?.webview.postMessage({ type: 'sitePublished', site: result.site, publishedUrl: result.publishedUrl });
 			this.view?.webview.postMessage({ type: 'append', role: 'assistant', text: `Site publicado em ${result.publishedUrl}` });
+		} catch (error) {
+			const errText = error instanceof Error ? error.message : String(error);
+			void vscode.window.showErrorMessage(errText);
+		}
+	}
+
+	private async loadApiStudioInfo(slug: string): Promise<void> {
+		try {
+			const info = await this.client.getApiStudioInfo(slug);
+			this.view?.webview.postMessage({ type: 'apiStudioInfo', info });
+		} catch {
+			this.view?.webview.postMessage({ type: 'apiStudioInfo', info: null });
+		}
+	}
+
+	private async apiStudioScaffoldRoute(slug: string, method: string, routePath: string): Promise<void> {
+		this.view?.webview.postMessage({ type: 'apiStudioStatus', status: 'compiling' });
+		if (this.view?.webview) {
+			this.view.webview.postMessage({ type: 'apiStudioLog', text: `[rota] ${method} ${routePath}\n` });
+		}
+		try {
+			const result = await this.client.scaffoldApiRoute(slug, {
+				method: method as 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
+				path: routePath
+			});
+			this.view?.webview.postMessage({ type: 'apiStudioLog', text: `[ok] ${result.filePath}\n` });
+			this.view?.webview.postMessage({ type: 'apiStudioStatus', status: 'success' });
+		} catch (error) {
+			const errText = error instanceof Error ? error.message : String(error);
+			this.view?.webview.postMessage({ type: 'apiStudioLog', text: `[erro] ${errText}\n` });
+			this.view?.webview.postMessage({ type: 'apiStudioStatus', status: 'error' });
+		}
+	}
+
+	private async apiStudioMigrate(slug: string): Promise<void> {
+		this.view?.webview.postMessage({ type: 'apiStudioStatus', status: 'compiling' });
+		this.view?.webview.postMessage({ type: 'apiStudioLog', text: '[migrate] prisma migrate dev...\n' });
+		try {
+			const output = await this.client.migrateApiProject(slug);
+			this.view?.webview.postMessage({ type: 'apiStudioLog', text: output.slice(-4000) + '\n' });
+			this.view?.webview.postMessage({ type: 'apiStudioStatus', status: 'success' });
+		} catch (error) {
+			const errText = error instanceof Error ? error.message : String(error);
+			this.view?.webview.postMessage({ type: 'apiStudioLog', text: `[erro] ${errText}\n` });
+			this.view?.webview.postMessage({ type: 'apiStudioStatus', status: 'error' });
+		}
+	}
+
+	private async apiStudioTest(slug: string): Promise<void> {
+		this.view?.webview.postMessage({ type: 'apiStudioStatus', status: 'compiling' });
+		this.view?.webview.postMessage({ type: 'apiStudioLog', text: '[test] endpoints...\n' });
+		try {
+			const result = await this.client.testApiEndpoints(slug, { startDev: true });
+			this.view?.webview.postMessage({
+				type: 'apiStudioLog',
+				text: `[test] ${result.baseUrl} passed=${result.passed} failed=${result.failed}\n`
+			});
+			this.view?.webview.postMessage({ type: 'apiStudioStatus', status: result.failed ? 'error' : 'success' });
+		} catch (error) {
+			const errText = error instanceof Error ? error.message : String(error);
+			this.view?.webview.postMessage({ type: 'apiStudioLog', text: `[erro] ${errText}\n` });
+			this.view?.webview.postMessage({ type: 'apiStudioStatus', status: 'error' });
+		}
+	}
+
+	private async apiStudioOpenDocs(slug: string): Promise<void> {
+		try {
+			const info = await this.client.getApiStudioInfo(slug);
+			await vscode.env.openExternal(vscode.Uri.parse(info.docsUrl));
 		} catch (error) {
 			const errText = error instanceof Error ? error.message : String(error);
 			void vscode.window.showErrorMessage(errText);

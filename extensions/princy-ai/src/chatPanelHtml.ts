@@ -704,6 +704,7 @@ export function buildChatPanelHtml(cspSource: string, nonce: string, styleUri?: 
 			<button type="button" class="chat-mode-pill" data-mode="composer" role="tab">Composer</button>
 			<button type="button" class="chat-mode-pill" data-mode="agent" role="tab">Agent</button>
 			<button type="button" class="chat-mode-pill" data-mode="buildCenter" role="tab">Build Center</button>
+			<button type="button" class="chat-mode-pill" data-mode="apiStudio" role="tab">API Studio</button>
 			<button type="button" class="chat-mode-pill" data-mode="creator" role="tab">Creator</button>
 		</div>
 		<div class="action-run-panel" id="actionRunPanel" style="display:none" aria-live="polite">
@@ -747,6 +748,39 @@ export function buildChatPanelHtml(cspSource: string, nonce: string, styleUri?: 
 				</div>
 			</div>
 			<pre class="build-center-log" id="buildCenterLog" aria-live="polite"></pre>
+		</div>
+		<div class="build-center-panel api-studio-panel" id="apiStudioPanel" style="display:none">
+			<div class="build-center-header">
+				<span class="build-center-title">API Studio</span>
+				<span class="build-center-status-badge waiting" id="apiStudioStatusBadge">pronto</span>
+			</div>
+			<div class="web-publisher-stepper" aria-label="Fluxo API">
+				<span class="web-step" data-step="create">1 Criar</span>
+				<span class="web-step" data-step="schema">2 Rotas/DB</span>
+				<span class="web-step" data-step="migrate">3 Migrate</span>
+				<span class="web-step" data-step="test">4 Testar</span>
+				<span class="web-step" data-step="docs">5 Swagger</span>
+			</div>
+			<div class="build-center-form">
+				<label class="chat-sr-only" for="asProject">Projeto API</label>
+				<select id="asProject" class="chat-model-select" title="Projeto">
+					<option value="">Selecione o projeto</option>
+				</select>
+				<select id="asMethod" class="chat-model-select" title="Metodo">
+					<option value="GET">GET</option>
+					<option value="POST">POST</option>
+					<option value="PUT">PUT</option>
+					<option value="PATCH">PATCH</option>
+					<option value="DELETE">DELETE</option>
+				</select>
+				<input type="text" id="asRoutePath" class="creator-input" placeholder="/api/recurso" style="min-width:120px" />
+				<button type="button" class="chat-toolbar-btn" id="asRouteBtn">Nova rota</button>
+				<button type="button" class="chat-toolbar-btn" id="asMigrateBtn">Migrate</button>
+				<button type="button" class="chat-toolbar-btn" id="asTestBtn">Testar</button>
+				<button type="button" class="chat-toolbar-btn" id="asDocsBtn">Swagger</button>
+			</div>
+			<div class="web-publisher-urls" id="apiStudioUrls"></div>
+			<pre class="build-center-log" id="apiStudioLog" aria-live="polite"></pre>
 		</div>
 		<div class="creator-panel" id="creatorPanel" style="display:none">
 			<div class="creator-header">
@@ -856,6 +890,7 @@ function getChatPanelScript(): string {
 			agent: 'Tarefa completa (plano, diff, apply, compile, test)…',
 			builder: 'Opcional: nota sobre o build…',
 			buildCenter: 'Nota opcional sobre o build…',
+			apiStudio: 'Projeto API selecionado — use os botoes do painel',
 			creator: 'Nome do projeto acima, depois escolha um template'
 		};
 		const creatorPanel = document.getElementById('creatorPanel');
@@ -870,6 +905,18 @@ function getChatPanelScript(): string {
 		const actionRunSteps = document.getElementById('actionRunSteps');
 		const actionRunResult = document.getElementById('actionRunResult');
 		const buildCenterPanel = document.getElementById('buildCenterPanel');
+		const apiStudioPanel = document.getElementById('apiStudioPanel');
+		const asProject = document.getElementById('asProject');
+		const asMethod = document.getElementById('asMethod');
+		const asRoutePath = document.getElementById('asRoutePath');
+		const asRouteBtn = document.getElementById('asRouteBtn');
+		const asMigrateBtn = document.getElementById('asMigrateBtn');
+		const asTestBtn = document.getElementById('asTestBtn');
+		const asDocsBtn = document.getElementById('asDocsBtn');
+		const apiStudioLog = document.getElementById('apiStudioLog');
+		const apiStudioUrls = document.getElementById('apiStudioUrls');
+		const apiStudioStatusBadge = document.getElementById('apiStudioStatusBadge');
+		let apiStudioProjects = [];
 		const bcBuildType = document.getElementById('bcBuildType');
 		const bcProject = document.getElementById('bcProject');
 		const bcStartBtn = document.getElementById('bcStartBtn');
@@ -968,7 +1015,11 @@ function getChatPanelScript(): string {
 			if (followups) followups.style.display = mode === 'composer' ? 'none' : '';
 			if (composerBtn) composerBtn.style.display = mode === 'composer' ? 'none' : '';
 			if (buildCenterPanel) buildCenterPanel.style.display = mode === 'buildCenter' ? 'flex' : 'none';
+			if (apiStudioPanel) apiStudioPanel.style.display = mode === 'apiStudio' ? 'flex' : 'none';
 			if (mode === 'buildCenter') updateWebPublisherVisibility();
+			if (mode === 'apiStudio') {
+				renderApiStudioProjects(apiStudioProjects.length ? apiStudioProjects : buildCenterProjects);
+			}
 			if (creatorPanel) creatorPanel.style.display = mode === 'creator' ? 'flex' : 'none';
 			if (input && mode === 'creator') input.placeholder = MODE_PLACEHOLDERS.creator;
 			if (actionRunPanel && (mode === 'chat' || mode === 'creator' || mode === 'buildCenter')) {
@@ -1003,7 +1054,92 @@ function getChatPanelScript(): string {
 			if (slug && bcBuildType?.value === 'web') {
 				vscode.postMessage({ type: 'loadSiteInfo', slug });
 			}
+			apiStudioProjects = projects || [];
+			if (currentMode === 'apiStudio') renderApiStudioProjects(apiStudioProjects);
 		}
+
+		function renderApiStudioProjects(projects) {
+			if (!asProject) return;
+			const current = asProject.value;
+			asProject.innerHTML = '<option value="">Selecione o projeto</option>';
+			for (const p of projects || []) {
+				const opt = document.createElement('option');
+				opt.value = p.slug;
+				opt.textContent = p.slug;
+				asProject.appendChild(opt);
+			}
+			if (current && Array.from(asProject.options).some(o => o.value === current)) {
+				asProject.value = current;
+			}
+			if (asProject.value) {
+				vscode.postMessage({ type: 'loadApiStudioInfo', slug: asProject.value });
+			}
+		}
+
+		function appendApiStudioLog(text) {
+			if (!apiStudioLog || !text) return;
+			apiStudioLog.textContent += text;
+			apiStudioLog.scrollTop = apiStudioLog.scrollHeight;
+		}
+
+		function setApiStudioStatus(status) {
+			if (!apiStudioStatusBadge) return;
+			apiStudioStatusBadge.textContent = status;
+			apiStudioStatusBadge.className = 'build-center-status-badge ' + (status || 'waiting');
+		}
+
+		function renderApiStudioInfo(info) {
+			if (!apiStudioUrls || !info) return;
+			apiStudioUrls.innerHTML = '';
+			const p = document.createElement('p');
+			p.textContent = (info.stack || 'api') + ' :' + (info.port || 4000) + (info.hasPrisma ? ' + Prisma' : '');
+			apiStudioUrls.appendChild(p);
+			if (info.docsUrl) {
+				const a = document.createElement('a');
+				a.href = '#';
+				a.textContent = info.docsUrl;
+				a.addEventListener('click', e => {
+					e.preventDefault();
+					vscode.postMessage({ type: 'openExternalUrl', url: info.docsUrl });
+				});
+				apiStudioUrls.appendChild(a);
+			}
+		}
+
+		asProject?.addEventListener('change', () => {
+			if (asProject.value) vscode.postMessage({ type: 'loadApiStudioInfo', slug: asProject.value });
+		});
+
+		asRouteBtn?.addEventListener('click', () => {
+			const slug = asProject?.value;
+			if (!slug) { setStatus('Selecione um projeto'); return; }
+			const path = (asRoutePath?.value || '').trim();
+			if (!path) { setStatus('Informe o path da rota'); return; }
+			vscode.postMessage({
+				type: 'apiStudioScaffoldRoute',
+				slug,
+				method: asMethod?.value || 'GET',
+				path
+			});
+		});
+
+		asMigrateBtn?.addEventListener('click', () => {
+			const slug = asProject?.value;
+			if (!slug) { setStatus('Selecione um projeto'); return; }
+			vscode.postMessage({ type: 'apiStudioMigrate', slug });
+		});
+
+		asTestBtn?.addEventListener('click', () => {
+			const slug = asProject?.value;
+			if (!slug) { setStatus('Selecione um projeto'); return; }
+			vscode.postMessage({ type: 'apiStudioTest', slug });
+		});
+
+		asDocsBtn?.addEventListener('click', () => {
+			const slug = asProject?.value;
+			if (!slug) { setStatus('Selecione um projeto'); return; }
+			vscode.postMessage({ type: 'apiStudioOpenDocs', slug });
+		});
 
 		function updateWebPublisherVisibility() {
 			const isWeb = bcBuildType?.value === 'web';
@@ -1496,6 +1632,15 @@ function getChatPanelScript(): string {
 			if (message.type === 'buildCenterProjects') {
 				buildCenterProjects = message.projects || [];
 				renderBuildCenterProjects(buildCenterProjects);
+			}
+			if (message.type === 'apiStudioInfo') {
+				renderApiStudioInfo(message.info || null);
+			}
+			if (message.type === 'apiStudioLog') {
+				appendApiStudioLog(message.text || '');
+			}
+			if (message.type === 'apiStudioStatus') {
+				setApiStudioStatus(message.status || 'pronto');
 			}
 			if (message.type === 'buildCenterStarted') {
 				activeBuildId = message.buildId;

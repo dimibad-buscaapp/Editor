@@ -227,9 +227,20 @@ export interface BuildJobSnapshot {
 }
 
 export type ProjectTemplateId =
-	| 'apk' | 'exe' | 'webapp' | 'saas' | 'api'
+	| 'apk' | 'exe' | 'webapp' | 'saas' | 'api' | 'express-api' | 'webhook'
 	| 'automation' | 'bot' | 'dashboard' | 'landing'
 	| 'auth' | 'payments' | 'database';
+
+export interface ApiStudioProjectInfo {
+	readonly slug: string;
+	readonly projectPath: string;
+	readonly stack: 'fastify' | 'express' | 'unknown';
+	readonly hasPrisma: boolean;
+	readonly port: number;
+	readonly docsUrl: string;
+	readonly openapiUrl: string;
+	readonly healthUrl: string;
+}
 
 export interface ProjectTemplateSummary {
 	readonly id: ProjectTemplateId;
@@ -532,6 +543,67 @@ export class AgentClient {
 			throw new Error(result.message ?? 'Falha ao publicar site');
 		}
 		return { publishedUrl: result.publishedUrl, site: result.site! };
+	}
+
+	public async getApiStudioInfo(slug: string, projectPath?: string): Promise<ApiStudioProjectInfo> {
+		const q = projectPath ? `?projectPath=${encodeURIComponent(projectPath)}` : '';
+		const result = await this.get<{ readonly ok: boolean; readonly project: ApiStudioProjectInfo }>(
+			`/api/studio/${encodeURIComponent(slug)}${q}`
+		);
+		if (!result.project) {
+			throw new Error('Projeto API nao encontrado');
+		}
+		return result.project;
+	}
+
+	public async scaffoldApiRoute(
+		slug: string,
+		input: { readonly method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'; readonly path: string; readonly projectSlug?: string }
+	): Promise<{ readonly filePath: string }> {
+		const result = await this.post<{ readonly ok: boolean; readonly filePath?: string; readonly message?: string }>(
+			`/api/studio/${encodeURIComponent(slug)}/routes`,
+			{ method: input.method, path: input.path, projectSlug: input.projectSlug ?? slug }
+		);
+		if (!result.ok || !result.filePath) {
+			throw new Error(result.message ?? 'Falha ao criar rota');
+		}
+		return { filePath: result.filePath };
+	}
+
+	public async migrateApiProject(slug: string, name?: string, projectSlug?: string): Promise<string> {
+		const result = await this.post<{ readonly ok: boolean; readonly output?: string; readonly message?: string }>(
+			`/api/studio/${encodeURIComponent(slug)}/prisma/migrate`,
+			{ name, projectSlug: projectSlug ?? slug }
+		);
+		if (!result.ok) {
+			throw new Error(result.message ?? 'Falha na migration');
+		}
+		return result.output ?? '';
+	}
+
+	public async testApiEndpoints(
+		slug: string,
+		options?: { readonly startDev?: boolean; readonly projectSlug?: string }
+	): Promise<{ readonly passed: number; readonly failed: number; readonly baseUrl: string }> {
+		const result = await this.post<{
+			readonly ok: boolean;
+			readonly passed?: number;
+			readonly failed?: number;
+			readonly baseUrl?: string;
+			readonly message?: string;
+		}>(`/api/studio/${encodeURIComponent(slug)}/test`, {
+			useDefaults: true,
+			startDev: options?.startDev ?? true,
+			projectSlug: options?.projectSlug ?? slug
+		});
+		if (!result.ok) {
+			throw new Error(result.message ?? 'Falha nos testes');
+		}
+		return {
+			passed: result.passed ?? 0,
+			failed: result.failed ?? 0,
+			baseUrl: result.baseUrl ?? ''
+		};
 	}
 
 	public async pollBuildCenter(

@@ -11,8 +11,11 @@ app.post('/api/auth/register', async req => {
 app.post('/api/auth/login', async req => {
   const { email, password } = req.body as { email: string; password: string };
   const hash = users.get(email);
-  if (!hash || !(await bcrypt.compare(password, hash))) return { error: 'unauthorized' };
+  if (!hash || !(await bcrypt.compare(password, hash))) return app.httpErrors.unauthorized();
   const token = jwt.sign({ email }, process.env.JWT_SECRET ?? 'dev');
   return { token };
 });
+
+// PRINCY_API_STUDIO_INSERT
+
 app.listen({ port: Number(process.env.PORT ?? 4002), host: '0.0.0.0' });
