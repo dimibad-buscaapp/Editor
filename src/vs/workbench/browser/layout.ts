@@ -3021,7 +3021,7 @@ class LayoutStateModel extends Disposable {
 			if (startupEditor === 'agentSessionsWelcomePage') {
 				this.applyAuxiliaryBarHiddenOverride(true);
 			} else if (
-				this.configurationService.getValue(WorkbenchLayoutSettings.AUXILIARYBAR_FORCE_MAXIMIZED) !== false &&
+				this.configurationService.getValue(WorkbenchLayoutSettings.AUXILIARYBAR_FORCE_MAXIMIZED) === true &&
 				(
 					defaultAuxiliaryBarVisibility === 'maximized' ||
 					(defaultAuxiliaryBarVisibility === 'maximizedInWorkspace' && this.contextService.getWorkbenchState() !== WorkbenchState.EMPTY)

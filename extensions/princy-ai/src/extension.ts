@@ -21,6 +21,7 @@ import { registerPrincyStatusBar } from './princyStatusBar';
 import { registerPrincyChatIsolation } from './princyChatIsolation';
 import { registerPrincyDefaultChat } from './princyWorkbenchChat';
 import { registerPrincyCreateSidebar } from './princyCreateSidebar';
+import { registerPrincyVisualUnlock } from './princyVisualUnlock';
 import { ChatSessionManager } from './chatSessions';
 import { checkAgentBackend } from './agentConnectivity';
 import { TerminalRunner } from './terminalRunner';
@@ -123,13 +124,8 @@ export function activate(context: vscode.ExtensionContext): void {
 	registerPrincyDefaultChat(context);
 	registerPrincyCreateSidebar(context, client);
 	registerPrincyChatIsolation(context);
+	registerPrincyVisualUnlock(context, provider);
 	void ensurePrincyRulesTemplate();
-
-	void enforcePrincyEditorUnlocked();
-	const forceVisualReloadDelays = [500, 2000, 6000];
-	for (const ms of forceVisualReloadDelays) {
-		setTimeout(() => provider.forceReloadPanel(), ms);
-	}
 
 	output.appendLine('Princy Ai view provider registered.');
 }

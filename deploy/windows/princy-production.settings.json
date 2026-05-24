@@ -13,6 +13,7 @@
 	"princyai.ghostText.agent": "princy",
 	"princyai.ui.forceBlackTheme": true,
 	"princyai.ui.minimalWorkbench": false,
+	"princyai.ui.forceVisualUnlock": true,
 	"princyai.ui.defaultChat": true,
 	"princyai.ui.openChatOnStartup": true,
 	"princyai.chat.dockedRight": true,

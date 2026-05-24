@@ -78,7 +78,7 @@ if (-not (Test-Path $extJs)) {
 
 # Marcadores presentes no bundle JS (ids do package.json como princy-create nao entram no esbuild)
 $requiredMarkers = @(
-	'cursor-editor-2026.05.23',
+	'cursor-editor-2026.05.24-unlock',
 	'princyCreate.actions',
 	'offlineBanner',
 	'reconnectBackend',
@@ -97,7 +97,7 @@ if ($missing.Count -gt 0) {
 	Write-Host "  FALTAM: $($missing -join ', ')" -ForegroundColor Red
 	throw "extension.js ANTIGO - rode apos git pull com commit a7064242+ (git log -1)."
 }
-Write-Host "  Rev UI: cursor-editor-2026.05.23" -ForegroundColor Green
+Write-Host "  Rev UI: cursor-editor-2026.05.24-unlock" -ForegroundColor Green
 
 Write-Host ""
 Write-Host "[3] Health API (agent + proxy Code Web) ..." -ForegroundColor Cyan

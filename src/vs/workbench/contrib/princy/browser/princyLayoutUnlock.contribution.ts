@@ -11,24 +11,26 @@ import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser
 const AUXILIARYBAR_FORCE_MAXIMIZED = 'workbench.secondarySideBar.forceMaximized';
 
 /**
- * Desbloqueia layout Princy: nunca manter auxiliary bar maximizada nem editor escondido
- * quando forceMaximized=false (settings de producao do webeditor).
+ * Desbloqueio global de layout Princy: editor + sidebars visiveis, chat nunca maximizado
+ * quando forceMaximized nao e explicitamente true (producao Princy usa false).
  */
 class PrincyLayoutUnlockContribution implements IWorkbenchContribution {
 
 	static readonly ID = 'workbench.contrib.princyLayoutUnlock';
 
+	private readonly unlockDelaysMs = [0, 400, 1200, 2500, 5000, 10000, 20000, 45000];
+
 	constructor(
 		@IWorkbenchLayoutService private readonly layoutService: IWorkbenchLayoutService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 	) {
-		// Apos restore de state.vscdb (workspace antigo)
-		setTimeout(() => this.applyUnlock(), 0);
-		setTimeout(() => this.applyUnlock(), 1500);
+		for (const ms of this.unlockDelaysMs) {
+			setTimeout(() => this.applyUnlock(), ms);
+		}
 	}
 
 	private applyUnlock(): void {
-		if (this.configurationService.getValue(AUXILIARYBAR_FORCE_MAXIMIZED) !== false) {
+		if (this.configurationService.getValue(AUXILIARYBAR_FORCE_MAXIMIZED) === true) {
 			return;
 		}
 
@@ -45,7 +47,13 @@ class PrincyLayoutUnlockContribution implements IWorkbenchContribution {
 		if (!this.layoutService.isVisible(Parts.AUXILIARYBAR_PART)) {
 			this.layoutService.setPartHidden(false, Parts.AUXILIARYBAR_PART);
 		}
+		if (!this.layoutService.isVisible(Parts.PANEL_PART)) {
+			this.layoutService.setPartHidden(false, Parts.PANEL_PART);
+		}
+		if (!this.layoutService.isVisible(Parts.STATUSBAR_PART)) {
+			this.layoutService.setPartHidden(false, Parts.STATUSBAR_PART);
+		}
 	}
 }
 
-registerWorkbenchContribution2(PrincyLayoutUnlockContribution.ID, PrincyLayoutUnlockContribution, WorkbenchPhase.AfterRestored);
+registerWorkbenchContribution2(PrincyLayoutUnlockContribution.ID, PrincyLayoutUnlockContribution, WorkbenchPhase.BlockRestore);

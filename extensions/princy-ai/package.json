@@ -50,6 +50,12 @@
         "category": "Princy Ai"
       },
       {
+        "command": "princyai.ui.forceVisualReload",
+        "title": "Force Visual Reload (chat + layout)",
+        "category": "Princy Ai",
+        "icon": "$(refresh)"
+      },
+      {
         "command": "princyai.chat.focus",
         "title": "Focus Chat",
         "category": "Princy Ai",
@@ -259,6 +265,7 @@
       "editor.fontFamily": "'JetBrains Mono', 'Cascadia Code', Consolas, monospace",
       "workbench.activityBar.location": "default",
       "princyai.ui.minimalWorkbench": false,
+      "princyai.ui.forceVisualUnlock": true,
       "princyai.chat.dockedRight": true,
       "editor.minimap.enabled": false,
       "editor.glyphMargin": false,
@@ -333,6 +340,11 @@
           "type": "boolean",
           "default": false,
           "description": "Simplify workbench UI (Cursor-like: no minimap, compact menu)."
+        },
+        "princyai.ui.forceVisualUnlock": {
+          "type": "boolean",
+          "default": true,
+          "description": "Reaplica layout desbloqueado e recarrega o painel chat periodicamente (evita visual antigo em cache)."
         },
         "princyai.chat.dockedRight": {
           "type": "boolean",
