@@ -3021,11 +3021,22 @@ class LayoutStateModel extends Disposable {
 			if (startupEditor === 'agentSessionsWelcomePage') {
 				this.applyAuxiliaryBarHiddenOverride(true);
 			} else if (
-				defaultAuxiliaryBarVisibility === 'maximized' ||
-				(defaultAuxiliaryBarVisibility === 'maximizedInWorkspace' && this.contextService.getWorkbenchState() !== WorkbenchState.EMPTY)
+				this.configurationService.getValue(WorkbenchLayoutSettings.AUXILIARYBAR_FORCE_MAXIMIZED) !== false &&
+				(
+					defaultAuxiliaryBarVisibility === 'maximized' ||
+					(defaultAuxiliaryBarVisibility === 'maximizedInWorkspace' && this.contextService.getWorkbenchState() !== WorkbenchState.EMPTY)
+				)
 			) {
 				this.applyAuxiliaryBarMaximizedOverride();
 			}
+		}
+
+		// Princy webeditor: settings de producao proibem chat fullscreen persistido
+		if (
+			this.configurationService.getValue(WorkbenchLayoutSettings.AUXILIARYBAR_FORCE_MAXIMIZED) === false &&
+			this.isAuxiliaryBarMaximized()
+		) {
+			this.setAuxiliaryBarMaximized(false);
 		}
 
 		// Both editor and panel should not be hidden on startup unless auxiliary bar is maximized

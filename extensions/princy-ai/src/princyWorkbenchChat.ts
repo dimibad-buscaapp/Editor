@@ -45,6 +45,8 @@ async function applyPrincyDefaultChat(): Promise<void> {
 	await workbench.update('secondarySideBar.forceMaximized', false, target);
 	await workbench.update('layoutControl.enabled', true, target);
 	await workbench.update('startupEditor', 'none', target);
+	await workbench.update('welcomePage.experimentalOnboarding', false, target);
+	await workbench.update('editor.centeredLayoutAutoResize', false, target);
 	await workbench.update('activityBar.visible', true, target);
 
 	const files = vscode.workspace.getConfiguration('files');

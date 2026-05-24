@@ -4,3 +4,4 @@
  *--------------------------------------------------------------------------------------------*/
 
 import './princyTitleBarStatus.js';
+import './princyLayoutUnlock.contribution.js';

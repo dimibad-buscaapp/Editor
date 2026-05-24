@@ -19,6 +19,7 @@
 	"workbench.preferredDarkColorTheme": "Princy Black",
 	"workbench.secondarySideBar.defaultVisibility": "visible",
 	"workbench.secondarySideBar.forceMaximized": false,
+	"editor.centeredLayoutAutoResize": false,
 	"workbench.panel.defaultLocation": "bottom",
 	"workbench.panel.opensMaximized": "never",
 	"workbench.activityBar.location": "default",

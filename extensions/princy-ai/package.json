@@ -223,6 +223,7 @@
       "workbench.layoutControl.enabled": true,
       "workbench.startupEditor": "none",
       "workbench.welcomePage.experimentalOnboarding": false,
+      "editor.centeredLayoutAutoResize": false,
       "window.menuBarVisibility": "classic",
       "breadcrumbs.enabled": true,
       "files.readonlyInclude": {},
