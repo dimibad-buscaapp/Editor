@@ -32,14 +32,14 @@ Write-Host "Rev UI alvo: $RevMarker`n" -ForegroundColor DarkGray
 
 # --- [0] Git pull ---
 if (-not $SkipGitPull) {
-	Write-Host "[0/6] git pull ..." -ForegroundColor Cyan
+	Write-Host "[0/7] git pull ..." -ForegroundColor Cyan
 	git pull --no-rebase origin main
 	if ($LASTEXITCODE -ne 0) { throw "git pull falhou" }
 	Write-Host "  HEAD: $(git log -1 --oneline)" -ForegroundColor Green
 }
 
 # --- [1] Parar servicos e =portas ---
-Write-Host "`n[1/6] Parar servicos e liberar portas ..." -ForegroundColor Cyan
+Write-Host "`n[1/7] Parar servicos e liberar portas ..." -ForegroundColor Cyan
 foreach ($name in @('PrincyAiCodeWeb', 'PrincyAiAgentBackend', 'PrincyAiIndex', 'PrincyCaddy')) {
 	$svc = Get-Service $name -ErrorAction SilentlyContinue
 	if ($svc -and $svc.Status -eq 'Running') {
@@ -61,7 +61,7 @@ foreach ($port in @(3200, 3210, 3220)) {
 
 # --- [2] Limpar cache (layout + webview + extensao) ---
 if (-not $KeepUserCache) {
-	Write-Host "`n[2/6] Limpar cache .princy-user-data ..." -ForegroundColor Cyan
+	Write-Host "`n[2/7] Limpar cache .princy-user-data ..." -ForegroundColor Cyan
 	$userDataDir = Join-Path $ProjectRoot ".princy-user-data"
 	$removed = 0
 	foreach ($sub in @('workspaceStorage', 'globalStorage', 'Cache', 'CachedData', 'Code Cache', 'GPUCache')) {
@@ -90,7 +90,7 @@ if (-not $KeepUserCache) {
 
 # --- [3] Compile web completo ---
 if (-not $SkipCompile) {
-	Write-Host "`n[3/6] Compile web COMPLETO (15-45 min) ..." -ForegroundColor Cyan
+	Write-Host "`n[3/7] Compile web COMPLETO (15-45 min) ..." -ForegroundColor Cyan
 	$compileFull = Join-Path $codeWebDir "compile-full-princy-webeditor.ps1"
 	$exitCode = Invoke-PrincyDeployScript -ScriptPath $compileFull -ScriptArgs @{
 		ProjectRoot = $ProjectRoot
@@ -121,7 +121,7 @@ if (-not (Select-String -Path $extJs -Pattern $RevMarker -Quiet)) {
 Write-Host "  OK: chat bundle $RevMarker" -ForegroundColor Green
 
 # --- [4] Repair agent backend :3210 ---
-Write-Host "`n[4/6] Repair agent backend :3210 ..." -ForegroundColor Cyan
+Write-Host "`n[4/7] Repair agent backend :3210 ..." -ForegroundColor Cyan
 $repair = Join-Path $agentDir "repair-princy-agent-3210.ps1"
 if (Test-Path $repair) {
 	Invoke-PrincyDeployScript -ScriptPath $repair -ScriptArgs @{
@@ -133,7 +133,7 @@ if (Test-Path $repair) {
 }
 
 # --- [5] Reiniciar TODOS os servicos ---
-Write-Host "`n[5/6] Reiniciar todos os servicos ..." -ForegroundColor Cyan
+Write-Host "`n[5/7] Reiniciar todos os servicos ..." -ForegroundColor Cyan
 $restart = Join-Path $ProjectRoot "deploy\windows\restart-princy-services.ps1"
 if (Test-Path $restart) {
 	& pwsh -NoProfile -ExecutionPolicy Bypass -File $restart
@@ -149,7 +149,7 @@ if (-not $codeWeb -or $codeWeb.Status -ne 'Running') {
 }
 
 # --- [6] Verificacao final ---
-Write-Host "`n[6/6] Verificacao ..." -ForegroundColor Cyan
+Write-Host "`n[6/7] Verificacao ..." -ForegroundColor Cyan
 $checks = @(
 	@{ Label = "Agent :3210"; Url = "http://127.0.0.1:3210/api/agent/health" },
 	@{ Label = "Proxy /princy-api"; Url = "http://127.0.0.1:3200/princy-api/api/agent/health" },
@@ -192,5 +192,15 @@ Write-Host "  4. F1 -> Unlock Princy Editor Layout" -ForegroundColor Cyan
 Write-Host "  5. F12 Console NO PAINEL CHAT: document.body.dataset.princyUiRev" -ForegroundColor Cyan
 Write-Host "     = $RevMarker" -ForegroundColor DarkGray
 Write-Host "  6. Enviar mensagem teste no chat Agent" -ForegroundColor Cyan
+
+# --- [7] Corrigir 502 (Caddy sem Code Web :3200) ---
+Write-Host "`n[7/7] Fix 502 / HTTPS ..." -ForegroundColor Cyan
+$fix502 = Join-Path $codeWebDir "fix-webeditor-502.ps1"
+if (Test-Path $fix502) {
+	$exit502 = Invoke-PrincyDeployScript -ScriptPath $fix502 -ScriptArgs @{ ProjectRoot = $ProjectRoot }
+	if ([int]$exit502 -eq 0) {
+		$allOk = $true
+	}
+}
 
 if (-not $allOk) { exit 1 }

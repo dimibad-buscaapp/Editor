@@ -1,5 +1,5 @@
 # Corrige 502 em https://princyai.com/webeditor/ (Caddy OK, Code Web :3200 OFF).
-# Admin: powershell -ExecutionPolicy Bypass -File deploy\windows\code-web\fix-webeditor-502.ps1
+# Admin: pwsh -ExecutionPolicy Bypass -File deploy\windows\code-web\fix-webeditor-502.ps1
 
 param(
 	[string]$ProjectRoot = "C:\Apps\Editor",
@@ -8,8 +8,11 @@ param(
 )
 
 $ErrorActionPreference = "Continue"
+Set-Location $ProjectRoot
 $basePath = $EditorBasePath.Trim()
 if (-not $basePath.StartsWith('/')) { $basePath = "/$basePath" }
+
+. (Join-Path $PSScriptRoot "Princy-CodeWeb-Build.ps1")
 
 function Test-PortListening {
 	param([int]$Port)
@@ -18,7 +21,7 @@ function Test-PortListening {
 }
 
 function Wait-Port {
-	param([int]$Port, [int]$Seconds = 90)
+	param([int]$Port, [int]$Seconds = 120)
 	for ($i = 0; $i -lt $Seconds; $i++) {
 		if (Test-PortListening -Port $Port) { return $true }
 		Start-Sleep -Seconds 1
@@ -27,6 +30,7 @@ function Wait-Port {
 }
 
 Write-Host "=== Fix webeditor 502 ===" -ForegroundColor Cyan
+Write-Host "Shell: $(Get-PrincyPwshExe) (PS $($PSVersionTable.PSVersion))" -ForegroundColor DarkGray
 Write-Host ""
 
 $svc = Get-Service PrincyAiCodeWeb -ErrorAction SilentlyContinue
@@ -41,16 +45,22 @@ if ($svc) {
 
 $stopScript = Join-Path $ProjectRoot "deploy\windows\code-web\Stop-CodeWebPort.ps1"
 if (Test-Path $stopScript) {
-	& powershell -ExecutionPolicy Bypass -File $stopScript -Port $CodeWebPort
+	Invoke-PrincyDeployScript -ScriptPath $stopScript -ScriptArgs @{ Port = $CodeWebPort } | Out-Null
+}
+
+$serverMain = Join-Path $ProjectRoot "out\server-main.js"
+if (-not (Test-Path $serverMain)) {
+	Write-Host "ERRO: falta out\server-main.js - rode compile-full-princy-webeditor.ps1 primeiro" -ForegroundColor Red
+	exit 1
 }
 
 $fixScript = Join-Path $ProjectRoot "deploy\windows\code-web\fix-princy-code-web-service.ps1"
 if (Test-Path $fixScript) {
 	Write-Host "Reinstalando/iniciando PrincyAiCodeWeb ..." -ForegroundColor Cyan
-	& powershell -ExecutionPolicy Bypass -File $fixScript -ProjectRoot $ProjectRoot -Port $CodeWebPort
+	Invoke-PrincyDeployScript -ScriptPath $fixScript -ScriptArgs @{ ProjectRoot = $ProjectRoot; Port = $CodeWebPort } | Out-Null
 }
 
-if (-not (Wait-Port -Port $CodeWebPort -Seconds 90)) {
+if (-not (Wait-Port -Port $CodeWebPort -Seconds 120)) {
 	Write-Host "ERRO: porta $CodeWebPort nao escuta." -ForegroundColor Red
 	$errLog = Join-Path $ProjectRoot "logs\code-web.err.log"
 	if (Test-Path $errLog) { Get-Content $errLog -Tail 20 }
