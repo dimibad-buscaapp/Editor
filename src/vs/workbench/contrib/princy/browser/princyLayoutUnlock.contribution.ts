@@ -37,7 +37,7 @@ export function applyPrincyLayoutUnlock(
 	if (!layoutService.isVisible(Parts.PANEL_PART)) {
 		layoutService.setPartHidden(false, Parts.PANEL_PART);
 	}
-	if (!layoutService.isVisible(Parts.STATUSBAR_PART)) {
+	if (!layoutService.isVisible(Parts.STATUSBAR_PART, mainWindow)) {
 		layoutService.setPartHidden(false, Parts.STATUSBAR_PART);
 	}
 }
