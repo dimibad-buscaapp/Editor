@@ -4,31 +4,33 @@
  *--------------------------------------------------------------------------------------------*/
 
 /** Incrementar ao mudar HTML/CSS do chat (invalida cache do webview). */
-export const PRINCY_CHAT_UI_REVISION = '2026.05.24';
+export const PRINCY_CHAT_UI_REVISION = 'cursor-editor-2026.05';
 
-/** Tokens partilhados Princy Black (webview chat + dashboard chat-panel). */
+/** Tokens estilo Cursor Editor window (painel lateral direito). */
 export const PRINCY_DESIGN_TOKENS_CSS = `
-		--princy-bg: #0f1117;
-		--princy-panel: #141821;
-		--princy-panel-soft: #1a1f2b;
-		--princy-surface: #141821;
-		--princy-elevated: #1a1f2b;
+		--princy-bg: #181818;
+		--princy-panel: #1f1f1f;
+		--princy-panel-soft: #252526;
+		--princy-surface: #252526;
+		--princy-elevated: #2d2d2d;
 		--princy-border: rgba(255, 255, 255, 0.08);
-		--princy-muted: #8f98aa;
-		--princy-text: #e6e8ef;
-		--princy-text-strong: #f4f5f9;
-		--princy-accent: #7c5cff;
-		--princy-accent-2: #28d8ff;
-		--princy-accent-fg: #ffffff;
-		--princy-glow: #28d8ff;
-		--princy-glow-soft: rgba(124, 92, 255, 0.14);
-		--princy-violet: #7c5cff;
-		--princy-danger: #ff5c7a;
-		--princy-success: #2ee59d;
-		--princy-transition-fast: 160ms ease;
-		--princy-transition-panel: 180ms ease-out;
-		--princy-chat-width-target: 360px;
-		--princy-radius-sm: 8px;
-		--princy-radius-md: 10px;
-		--princy-radius-lg: 14px;
+		--princy-border-strong: rgba(255, 255, 255, 0.12);
+		--princy-muted: #969696;
+		--princy-text: #cccccc;
+		--princy-text-strong: #e4e4e4;
+		--princy-accent: #e4e4e4;
+		--princy-accent-2: #cccccc;
+		--princy-accent-fg: #1e1e1e;
+		--princy-glow: #cccccc;
+		--princy-glow-soft: rgba(255, 255, 255, 0.06);
+		--princy-violet: #cccccc;
+		--princy-danger: #f48771;
+		--princy-success: #89d185;
+		--princy-transition-fast: 120ms ease;
+		--princy-transition-panel: 160ms ease-out;
+		--princy-chat-width-target: 400px;
+		--princy-radius-sm: 6px;
+		--princy-radius-md: 8px;
+		--princy-radius-lg: 10px;
+		--princy-composer-radius: 10px;
 `;

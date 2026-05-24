@@ -1,0 +1,141 @@
+/* Cursor Editor window — overrides do painel Princy Chat */
+
+.chat-panel {
+	background: var(--princy-bg, #181818) !important;
+}
+
+.chat-header.cursor-header {
+	height: 35px;
+	padding: 0 10px;
+	background: var(--princy-bg, #181818);
+	border-bottom: 1px solid var(--princy-border);
+	backdrop-filter: none;
+}
+
+.cursor-header-title {
+	font-size: 11px;
+	font-weight: 600;
+	color: var(--princy-muted);
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
+.cursor-icon-btn {
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	border: none;
+	border-radius: 6px;
+	background: transparent;
+	color: var(--princy-muted);
+	font-size: 16px;
+	line-height: 1;
+	cursor: pointer;
+}
+
+.cursor-icon-btn:hover {
+	background: var(--princy-elevated);
+	color: var(--princy-text-strong);
+}
+
+.chat-mode-bar.cursor-hidden-modes {
+	display: none !important;
+}
+
+.cursor-composer-modes {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	flex-wrap: wrap;
+	min-width: 0;
+}
+
+.cursor-mode-pill {
+	height: 22px;
+	padding: 0 8px;
+	border: none;
+	border-radius: 4px;
+	background: transparent;
+	color: var(--princy-muted);
+	font-size: 11px;
+	font-weight: 500;
+	cursor: pointer;
+}
+
+.cursor-mode-pill:hover {
+	color: var(--princy-text);
+	background: rgba(255, 255, 255, 0.04);
+}
+
+.cursor-mode-pill.active {
+	color: var(--princy-text-strong);
+	background: rgba(255, 255, 255, 0.08);
+}
+
+.cursor-tools-select {
+	height: 22px;
+	max-width: 110px;
+	padding: 0 6px;
+	margin-left: 2px;
+	border-radius: 4px;
+	border: none;
+	background: transparent;
+	color: var(--princy-muted);
+	font-size: 11px;
+	cursor: pointer;
+}
+
+.cursor-tools-select:hover,
+.cursor-tools-select:focus {
+	background: rgba(255, 255, 255, 0.06);
+	color: var(--princy-text);
+	outline: none;
+}
+
+.chat-followups.cursor-collapsed {
+	display: none;
+}
+
+.chat-followups.cursor-show {
+	display: flex;
+}
+
+.chat-input-container {
+	border-radius: var(--princy-composer-radius, 10px) !important;
+	background: var(--princy-surface, #252526) !important;
+	border-color: var(--princy-border-strong) !important;
+	box-shadow: none !important;
+}
+
+.chat-input-container:focus-within {
+	border-color: #6e6e6e !important;
+	box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06) !important;
+}
+
+.chat-send-btn {
+	border-radius: 8px !important;
+	background: var(--princy-text-strong, #e4e4e4) !important;
+	color: #1e1e1e !important;
+	box-shadow: none !important;
+}
+
+.chat-send-btn:hover {
+	filter: none !important;
+	transform: none !important;
+	background: #ffffff !important;
+}
+
+.chat-turn.user .chat-turn-body {
+	background: var(--princy-elevated, #2d2d2d) !important;
+	border-color: var(--princy-border) !important;
+	border-radius: 8px !important;
+}
+
+.chat-welcome h2 {
+	font-size: 15px !important;
+	font-weight: 500 !important;
+}
+
+.princy-orb {
+	display: none;
+}

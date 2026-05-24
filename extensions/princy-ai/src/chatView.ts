@@ -1262,9 +1262,13 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 
 	private getHtml(webview: vscode.Webview): string {
 		const nonce = getNonce();
-		const styleBase = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'chat-panel.css')).toString();
-		const styleUri = `${styleBase}${styleBase.includes('?') ? '&' : '?'}princyUi=${encodeURIComponent(PRINCY_CHAT_UI_REVISION)}`;
-		return buildChatPanelHtml(webview.cspSource, nonce, styleUri);
+		const media = vscode.Uri.joinPath(this.extensionUri, 'media');
+		const rev = encodeURIComponent(PRINCY_CHAT_UI_REVISION);
+		const styleBase = webview.asWebviewUri(vscode.Uri.joinPath(media, 'chat-panel.css')).toString();
+		const cursorBase = webview.asWebviewUri(vscode.Uri.joinPath(media, 'chat-panel-cursor.css')).toString();
+		const styleUri = `${styleBase}${styleBase.includes('?') ? '&' : '?'}princyUi=${rev}`;
+		const cursorStyleUri = `${cursorBase}${cursorBase.includes('?') ? '&' : '?'}princyUi=${rev}`;
+		return buildChatPanelHtml(webview.cspSource, nonce, styleUri, cursorStyleUri);
 	}
 
 	private async replyFileDiff(message: Extract<WebviewMessage, { type: 'readFileForDiff' }>): Promise<void> {

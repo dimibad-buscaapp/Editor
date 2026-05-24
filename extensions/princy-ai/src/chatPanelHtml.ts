@@ -10,8 +10,9 @@ export function getPrincyChatHtml(cspSource: string, nonce: string, styleUri?: s
 	return buildChatPanelHtml(cspSource, nonce, styleUri);
 }
 
-export function buildChatPanelHtml(cspSource: string, nonce: string, styleUri?: string): string {
+export function buildChatPanelHtml(cspSource: string, nonce: string, styleUri?: string, cursorStyleUri?: string): string {
 	const styleLink = styleUri ? `<link rel="stylesheet" href="${styleUri}">` : '';
+	const cursorStyleLink = cursorStyleUri ? `<link rel="stylesheet" href="${cursorStyleUri}">` : '';
 	return /* html */`<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -20,6 +21,7 @@ export function buildChatPanelHtml(cspSource: string, nonce: string, styleUri?: 
 	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
 	<title>Princy IA</title>
 	${styleLink}
+	${cursorStyleLink}
 	<style>
 		:root {
 			${PRINCY_DESIGN_TOKENS_CSS}
@@ -38,9 +40,7 @@ export function buildChatPanelHtml(cspSource: string, nonce: string, styleUri?: 
 			height: 100vh;
 			display: flex;
 			flex-direction: column;
-			background:
-				radial-gradient(circle at top right, rgba(124, 92, 255, 0.12), transparent 32%),
-				var(--vscode-sideBar-background, var(--princy-bg));
+			background: var(--vscode-sideBar-background, var(--princy-bg));
 		}
 		.chat-header {
 			flex-shrink: 0;
@@ -712,27 +712,22 @@ export function buildChatPanelHtml(cspSource: string, nonce: string, styleUri?: 
 </head>
 <body data-princy-ui-rev="${PRINCY_CHAT_UI_REVISION}">
 	<div class="chat-panel">
-		<header class="chat-header">
-			<div class="chat-header-brand">
-				<span class="princy-orb" aria-hidden="true"></span>
-				<div>
-					<div class="chat-header-title">Princy IA</div>
-					<div class="chat-header-sub" id="chatHeaderSub">Agent · Composer · :3210</div>
-				</div>
-			</div>
+		<header class="chat-header cursor-header">
+			<span class="cursor-header-title">Editor</span>
 			<div class="chat-header-actions">
-				<button type="button" class="chat-header-btn" id="openSettings" title="Configurações">⚙</button>
-				<button type="button" class="chat-header-btn" id="newChat" title="Nova conversa">+ Novo</button>
+				<button type="button" class="cursor-icon-btn" id="toggleHistory" title="Histórico">⏱</button>
+				<button type="button" class="cursor-icon-btn" id="newChat" title="Nova conversa">+</button>
+				<button type="button" class="cursor-icon-btn" id="openSettings" title="Configurações">⋯</button>
 			</div>
 		</header>
-		<div class="chat-mode-bar" role="tablist" aria-label="Modo do chat">
-			<button type="button" class="chat-mode-pill active" data-mode="chat" role="tab" aria-selected="true">Chat</button>
-			<button type="button" class="chat-mode-pill" data-mode="composer" role="tab">Composer</button>
-			<button type="button" class="chat-mode-pill" data-mode="agent" role="tab">Agent</button>
-			<button type="button" class="chat-mode-pill" data-mode="buildCenter" role="tab">Build Center</button>
-			<button type="button" class="chat-mode-pill" data-mode="apiStudio" role="tab">API Studio</button>
-			<button type="button" class="chat-mode-pill" data-mode="automationStudio" role="tab">Automations</button>
-			<button type="button" class="chat-mode-pill" data-mode="creator" role="tab">Creator</button>
+		<div class="chat-mode-bar cursor-hidden-modes" aria-hidden="true">
+			<button type="button" class="chat-mode-pill" data-mode="chat">Chat</button>
+			<button type="button" class="chat-mode-pill" data-mode="composer">Composer</button>
+			<button type="button" class="chat-mode-pill" data-mode="agent">Agent</button>
+			<button type="button" class="chat-mode-pill" data-mode="buildCenter">Build Center</button>
+			<button type="button" class="chat-mode-pill" data-mode="apiStudio">API Studio</button>
+			<button type="button" class="chat-mode-pill" data-mode="automationStudio">Automations</button>
+			<button type="button" class="chat-mode-pill" data-mode="creator">Creator</button>
 		</div>
 		<div class="action-run-panel" id="actionRunPanel" style="display:none" aria-live="polite">
 			<div class="action-run-title">Painel de acao</div>
@@ -857,9 +852,9 @@ export function buildChatPanelHtml(cspSource: string, nonce: string, styleUri?: 
 		</details>
 		<div class="chat-scroll" id="scroll">
 			<div class="chat-welcome" id="empty">
-				<div class="chat-welcome-icon">✦</div>
-				<h2>Como posso ajudar?</h2>
-				<p>Layout estilo Cursor — tema Princy Black, chat à direita, @contexto e Composer multi-arquivo.</p>
+				<div class="chat-welcome-icon">◇</div>
+				<h2>Ask anything</h2>
+				<p>Agent, Chat e Composer no estilo Cursor. Use @ para contexto ou /composer para multi-arquivo.</p>
 				<div class="chat-suggestions">
 					<button type="button" class="chat-suggest" data-prompt="Explique o arquivo aberto e sugira melhorias.">Explicar código</button>
 					<button type="button" class="chat-suggest" data-prompt="Corrija erros e bugs no projeto atual.">Corrigir bugs</button>
@@ -873,7 +868,7 @@ export function buildChatPanelHtml(cspSource: string, nonce: string, styleUri?: 
 		</div>
 		<div class="chat-composer">
 			<div class="chat-context-chips" id="contextBar"></div>
-			<div class="chat-followups">
+			<div class="chat-followups cursor-collapsed" id="contextShortcuts">
 				<button type="button" id="qaWorkspace">@workspace</button>
 				<button type="button" id="qaFix">/fix</button>
 				<button type="button" id="qaExplain">/explain</button>
@@ -884,9 +879,21 @@ export function buildChatPanelHtml(cspSource: string, nonce: string, styleUri?: 
 			<div id="mentionMenu"></div>
 			<div class="chat-input-container">
 				<label class="chat-sr-only" for="princy-chat-input">Mensagem</label>
-				<textarea id="princy-chat-input" rows="1" placeholder="Pergunte ao Princy IA…"></textarea>
+				<textarea id="princy-chat-input" rows="1" placeholder="Plan, @ for context, / for commands"></textarea>
 				<div class="chat-input-toolbar">
 					<div class="chat-toolbar-left">
+						<div class="cursor-composer-modes" role="tablist" aria-label="Modo">
+							<button type="button" class="cursor-mode-pill active" data-mode="agent" role="tab" aria-selected="true">Agent</button>
+							<button type="button" class="cursor-mode-pill" data-mode="chat" role="tab">Chat</button>
+							<button type="button" class="cursor-mode-pill" data-mode="composer" role="tab">Composer</button>
+							<select id="toolsModeSelect" class="cursor-tools-select" title="Ferramentas">
+								<option value="">Tools</option>
+								<option value="buildCenter">Build</option>
+								<option value="apiStudio">API</option>
+								<option value="automationStudio">Auto</option>
+								<option value="creator">Creator</option>
+							</select>
+						</div>
 						<span class="chat-backend-dot" id="backendDot" title="Agent backend"></span>
 						<label class="chat-sr-only" for="princy-agent-select">Modelo</label>
 						<select id="princy-agent-select" class="chat-model-select" title="Modelo">
@@ -900,8 +907,9 @@ export function buildChatPanelHtml(cspSource: string, nonce: string, styleUri?: 
 						<span class="chat-status" id="status">Pronto</span>
 					</div>
 					<div class="chat-toolbar-right">
-						<button type="button" class="chat-toolbar-btn" id="index" title="Indexar workspace">Index</button>
-						<button type="button" class="chat-send-btn" id="send" title="Enviar">↑</button>
+						<button type="button" class="chat-toolbar-btn" id="toggleContext" title="Atalhos @ e /">@</button>
+						<button type="button" class="chat-toolbar-btn" id="index" title="Indexar workspace">↻</button>
+						<button type="button" class="chat-send-btn" id="send" title="Enviar (Enter)">↑</button>
 					</div>
 				</div>
 			</div>
@@ -937,19 +945,20 @@ function getChatPanelScript(): string {
 		let streamDisplayed = 0;
 		let streamRaf = 0;
 		const taskCards = document.getElementById('taskCards');
-		let currentMode = 'chat';
+		let currentMode = 'agent';
 		let activeSessionId = null;
 
 		const MODE_PLACEHOLDERS = {
-			chat: 'Pergunte ao Princy IA…',
-			composer: 'Descreva mudanças multi-arquivo…',
-			agent: 'Tarefa completa (plano, diff, apply, compile, test)…',
-			builder: 'Opcional: nota sobre o build…',
-			buildCenter: 'Nota opcional sobre o build…',
-			apiStudio: 'Projeto API selecionado — use os botoes do painel',
-			automationStudio: 'Projeto de automacao — use os botoes do painel Automations',
-			creator: 'Nome do projeto acima, depois escolha um template'
+			chat: 'Ask a question…',
+			composer: 'Describe multi-file edits…',
+			agent: 'Plan, search, build anything…',
+			builder: 'Optional build note…',
+			buildCenter: 'Optional build note…',
+			apiStudio: 'API project — use panel actions',
+			automationStudio: 'Automation project — use panel actions',
+			creator: 'Project name above, pick a template'
 		};
+		const TOOL_MODES = ['buildCenter', 'apiStudio', 'automationStudio', 'creator'];
 		const creatorPanel = document.getElementById('creatorPanel');
 		const creatorGrid = document.getElementById('creatorGrid');
 		const creatorRoot = document.getElementById('creatorRoot');
@@ -1018,6 +1027,7 @@ function getChatPanelScript(): string {
 		input.removeAttribute('readonly');
 		input.removeAttribute('disabled');
 		setTimeout(() => input.focus(), 50);
+		setChatMode('agent', true);
 
 		function insertAtInput(text) {
 			input.value = (input.value + (input.value.endsWith(' ') || !input.value ? '' : ' ') + text).trimStart();
@@ -1075,12 +1085,16 @@ function getChatPanelScript(): string {
 
 		function setChatMode(mode, fromHost) {
 			currentMode = mode;
-			for (const pill of document.querySelectorAll('.chat-mode-pill')) {
+			for (const pill of document.querySelectorAll('.cursor-mode-pill, .chat-mode-pill')) {
 				const on = pill.getAttribute('data-mode') === mode;
 				pill.classList.toggle('active', on);
 				pill.setAttribute('aria-selected', on ? 'true' : 'false');
 			}
-			input.placeholder = MODE_PLACEHOLDERS[mode] || MODE_PLACEHOLDERS.chat;
+			const toolsSelect = document.getElementById('toolsModeSelect');
+			if (toolsSelect) {
+				toolsSelect.value = TOOL_MODES.includes(mode) ? mode : '';
+			}
+			input.placeholder = MODE_PLACEHOLDERS[mode] || MODE_PLACEHOLDERS.agent;
 			const composerBtn = document.getElementById('composer');
 			const followups = document.querySelector('.chat-followups');
 			if (followups) followups.style.display = mode === 'composer' ? 'none' : '';
@@ -1549,12 +1563,33 @@ function getChatPanelScript(): string {
 			}
 		}
 
-		for (const pill of document.querySelectorAll('.chat-mode-pill')) {
+		for (const pill of document.querySelectorAll('.chat-mode-pill, .cursor-mode-pill')) {
 			pill.addEventListener('click', () => {
 				const mode = pill.getAttribute('data-mode');
 				if (mode) setChatMode(mode, false);
 			});
 		}
+
+		document.getElementById('toolsModeSelect')?.addEventListener('change', (e) => {
+			const v = e.target && e.target.value;
+			if (v) setChatMode(v, false);
+		});
+
+		document.getElementById('toggleHistory')?.addEventListener('click', () => {
+			const hp = document.getElementById('historyPanel');
+			if (hp) {
+				if (typeof hp.open === 'boolean') hp.open = !hp.open;
+				else hp.toggleAttribute('open');
+			}
+		});
+
+		document.getElementById('toggleContext')?.addEventListener('click', () => {
+			const el = document.getElementById('contextShortcuts');
+			if (el) {
+				el.classList.toggle('cursor-collapsed');
+				el.classList.toggle('cursor-show');
+			}
+		});
 
 		document.getElementById('openSettings')?.addEventListener('click', () => {
 			vscode.postMessage({ type: 'openSettings' });
