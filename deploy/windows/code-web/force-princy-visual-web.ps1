@@ -65,7 +65,7 @@ if (-not (Test-Path $extJs)) {
 	throw "Falta $extJs - compile-web nao gerou bundle browser"
 }
 
-$markers = @('princy-orb', 'PRINCY_CHAT_UI_REVISION', '2026.05.24', 'data-princy-ui-rev')
+$markers = @('cursor-editor-2026.05.23', 'princy-create', 'offlineBanner', 'reconnectBackend', 'princyai.create.project')
 $found = @()
 foreach ($m in $markers) {
 	if (Select-String -Path $extJs -Pattern $m -Quiet) { $found += $m }
@@ -91,4 +91,4 @@ if (-not $SkipRestart) {
 Write-Host "`n=== Concluido ===" -ForegroundColor Green
 Write-Host "  1. Abra o webeditor com Ctrl+F5 (hard refresh)" -ForegroundColor Cyan
 Write-Host "  2. F1 -> Reset Princy Layout se o chat ainda estiver maximizado" -ForegroundColor Cyan
-Write-Host "  3. DevTools painel chat: document.body.dataset.princyUiRev = 2026.05.24" -ForegroundColor DarkGray
+Write-Host "  3. DevTools painel chat: document.body.dataset.princyUiRev = cursor-editor-2026.05.23" -ForegroundColor DarkGray

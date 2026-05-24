@@ -334,9 +334,19 @@ export class AgentClient {
 		const configured = (configuration.get<string>('agentEndpoint', '') ?? '').trim();
 		const useSameOrigin = configuration.get<boolean>('useSameOriginApi', true);
 
-		// Endpoint relativo (/princy-api) — same-origin no browser (recomendado em producao).
+		// Endpoint relativo (/princy-api) — valida com probe; se falhar tenta outros candidatos (Caddy vs :3200).
 		if (configured.startsWith('/') && useSameOrigin) {
-			cachedAgentEndpoint = configured.replace(/\/+$/, '') || SAME_ORIGIN_PROXY_PATH;
+			const relative = configured.replace(/\/+$/, '') || SAME_ORIGIN_PROXY_PATH;
+			if (vscode.env.uiKind === vscode.UIKind.Web) {
+				const candidates = [relative, ...buildWebApiCandidates().filter(c => c.replace(/\/+$/, '') !== relative)];
+				for (const base of candidates) {
+					if (await this.probeEndpoint(base)) {
+						cachedAgentEndpoint = base.replace(/\/+$/, '');
+						return cachedAgentEndpoint;
+					}
+				}
+			}
+			cachedAgentEndpoint = relative;
 			return cachedAgentEndpoint;
 		}
 
@@ -878,10 +888,11 @@ function buildWebApiCandidates(): readonly string[] {
 	const basePath = detectServerBasePath();
 
 	if (location?.origin) {
+		// Caddy expõe /princy-api na raiz do domínio; /webeditor/princy-api só existe no proxy :3200.
+		candidates.push(`${location.origin}${SAME_ORIGIN_PROXY_PATH}`);
 		if (basePath) {
 			candidates.push(`${location.origin}${basePath}${SAME_ORIGIN_PROXY_PATH}`);
 		}
-		candidates.push(`${location.origin}${SAME_ORIGIN_PROXY_PATH}`);
 	}
 
 	candidates.push(SAME_ORIGIN_PROXY_PATH);
