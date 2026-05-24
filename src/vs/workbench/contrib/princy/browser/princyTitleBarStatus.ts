@@ -7,6 +7,7 @@ import './media/princyTitleBarStatus.css';
 import { $, append } from '../../../../base/browser/dom.js';
 import { Action } from '../../../../base/common/actions.js';
 import { Codicon } from '../../../../base/common/codicons.js';
+import { ThemeIcon } from '../../../../base/common/themables.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { localize, localize2 } from '../../../../nls.js';
 import { Action2, MenuId, MenuRegistry, registerAction2, SubmenuItemAction } from '../../../../platform/actions/common/actions.js';
@@ -23,7 +24,7 @@ const PrincyAiTitleBarStatusMenu = MenuId.for('princyAi.titleBarStatusMenu');
 
 class PrincyAiStatusPillAction extends Action {
 	constructor() {
-		super('princyai.titleBarStatusPill', localize('princyAiStatusPill', "Princy IA"), Codicon.sparkle.classNames, true);
+		super('princyai.titleBarStatusPill', localize('princyAiStatusPill', "Princy IA"), ThemeIcon.asClassName(Codicon.sparkle), true);
 	}
 }
 
@@ -40,17 +41,17 @@ class PrincyAiStatusPillViewItem extends BaseActionViewItem {
 		const dot = append(this.rootEl, $('.princy-titlebar-status-dot'));
 		dot.setAttribute('aria-hidden', 'true');
 		this.labelEl = append(this.rootEl, $('span.princy-titlebar-status-label'));
-		this.updateLabel();
+		this.refreshStatusLabel();
 		this._register(this.contextKeyService.onDidChangeContext(e => {
 			if (e.affectsSome(new Set([PrincyAiStatusLabelContext.key, PrincyAiStatusKindContext.key]))) {
-				this.updateLabel();
+				this.refreshStatusLabel();
 				this.updateDot();
 			}
 		}));
 		this.updateDot();
 	}
 
-	private updateLabel(): void {
+	private refreshStatusLabel(): void {
 		if (this.labelEl) {
 			this.labelEl.textContent = PrincyAiStatusLabelContext.bindTo(this.contextKeyService).get() ?? 'IA: Pronto';
 		}
