@@ -20,7 +20,7 @@ Write-Host "=== Deploy Princy apos git pull ===" -ForegroundColor Cyan
 Write-Host "Pasta: $ProjectRoot"
 Write-Host ""
 Write-Host "NOTA: git pull so atualiza src/. A UI do chat usa extensions\princy-ai\dist\browser\extension.js" -ForegroundColor Yellow
-Write-Host "      (pasta dist/ esta no .gitignore — precisa compilar nesta maquina)." -ForegroundColor Yellow
+Write-Host "      (pasta dist/ esta no .gitignore - precisa compilar nesta maquina)." -ForegroundColor Yellow
 Write-Host ""
 
 $userDataDir = Join-Path $ProjectRoot ".princy-user-data"
@@ -73,7 +73,7 @@ if ($FullCompile) {
 
 $extJs = Join-Path $ProjectRoot "extensions\princy-ai\dist\browser\extension.js"
 if (-not (Test-Path $extJs)) {
-	throw "Falta $extJs — compile falhou"
+	throw "Falta $extJs - compile falhou"
 }
 
 $requiredMarkers = @(
@@ -94,7 +94,7 @@ Write-Host "[2] Verificacao extension.js ($extJs)" -ForegroundColor Cyan
 Write-Host "  OK: $($found.Count)/$($requiredMarkers.Count) marcadores" -ForegroundColor $(if ($missing.Count -eq 0) { 'Green' } else { 'Red' })
 if ($missing.Count -gt 0) {
 	Write-Host "  FALTAM: $($missing -join ', ')" -ForegroundColor Red
-	throw "extension.js ANTIGO — rode sem -FullCompile apos confirmar que o pull trouxe o commit certo (git log -1)."
+	throw "extension.js ANTIGO - rode apos git pull com commit a7064242+ (git log -1)."
 }
 Write-Host "  Rev UI: cursor-editor-2026.05.23" -ForegroundColor Green
 
@@ -135,11 +135,11 @@ if (-not $SkipRestart) {
 Write-Host ""
 Write-Host "=== Concluido ===" -ForegroundColor Green
 Write-Host "  Browser: Ctrl+F5 em https://princyai.com/webeditor/" -ForegroundColor Cyan
-Write-Host "  DevTools no painel chat: document.body.dataset.princyUiRev deve ser cursor-editor-2026.05.23" -ForegroundColor DarkGray
+Write-Host "  DevTools painel chat: document.body.dataset.princyUiRev = cursor-editor-2026.05.23" -ForegroundColor DarkGray
 Write-Host "  Activity bar: icone + (Criar) com 5 acoes" -ForegroundColor DarkGray
 if (-not $apiOk) {
-	Write-Host "  AVISO: backend :3210 offline — chat ficara offline ate iniciar o agent" -ForegroundColor Red
+	Write-Host "  AVISO: backend :3210 offline - chat ficara offline ate iniciar o agent" -ForegroundColor Red
 }
 if (-not $proxyOk) {
-	Write-Host "  AVISO: proxy /princy-api na :3200 falhou — recompile servidor com -FullCompile" -ForegroundColor Red
+	Write-Host "  AVISO: proxy /princy-api na :3200 falhou - recompile servidor com -FullCompile" -ForegroundColor Red
 }

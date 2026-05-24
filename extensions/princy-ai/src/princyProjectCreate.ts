@@ -5,7 +5,8 @@
 
 import * as vscode from 'vscode';
 import { AgentClient, type ProjectTemplateId } from './agentClient';
-import { setPrincyAiStatus, labelForPrincyAiStatus } from './princyStatusBar';
+import { labelForPrincyAiStatus } from './princyAiStatus';
+import { setPrincyAiStatus } from './princyStatusBar';
 
 export interface PrincyCreateAction {
 	readonly id: string;
