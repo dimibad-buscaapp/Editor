@@ -27,7 +27,7 @@ const agentModelSchema = z.enum(['princy', 'deepseek', 'qwen', 'codellama', 'lla
 const segmentSchema = z.enum(['LOGIC', 'FRONTEND', 'BACKEND', 'DEBUG']);
 
 const inlineEditSchema = z.object({
-	agent: agentModelSchema.default('deepseek'),
+	agent: agentModelSchema.default('princy'),
 	instruction: z.string().min(1).max(4000),
 	selectedText: z.string().min(1),
 	languageId: z.string().min(1).max(80),
@@ -37,7 +37,7 @@ const inlineEditSchema = z.object({
 });
 
 const inlineCompleteSchema = z.object({
-	agent: agentModelSchema.default('deepseek'),
+	agent: agentModelSchema.default('princy'),
 	filePath: z.string().min(1),
 	languageId: z.string().min(1).max(80),
 	prefix: z.string().max(16000),
@@ -46,7 +46,7 @@ const inlineCompleteSchema = z.object({
 });
 
 const chatSchema = z.object({
-	agent: agentModelSchema.default('deepseek'),
+	agent: agentModelSchema.default('princy'),
 	segment: segmentSchema.optional(),
 	force_segment: segmentSchema.optional(),
 	context: z.string().max(200).optional(),
@@ -136,14 +136,14 @@ const composerPlanSchema = z.object({
 });
 
 const composerPlanRequestSchema = z.object({
-	agent: agentModelSchema.default('deepseek'),
+	agent: agentModelSchema.default('princy'),
 	instruction: z.string().min(1).max(12000),
 	shadowContext: z.unknown().optional(),
 	codeGraph: z.unknown().optional()
 });
 
 const repairAfterCommandSchema = z.object({
-	agent: agentModelSchema.default('deepseek'),
+	agent: agentModelSchema.default('princy'),
 	originalInstruction: z.string().min(1).max(12000),
 	previousPlan: composerPlanSchema,
 	commandResult: z.object({
@@ -204,7 +204,7 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 		ok: true,
 		publicChat: config.publicChatEnabled,
 		needsToken: Boolean(config.agentApiToken) && !config.publicChatEnabled,
-		defaultAgent: 'deepseek',
+		defaultAgent: 'princy',
 		simpleMode: config.simpleMode,
 		aiProvider: config.aiProvider,
 		chatModel: config.aiProvider === 'groq' ? config.groqChatModel : config.ollamaChatModel,

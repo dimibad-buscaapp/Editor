@@ -120,6 +120,15 @@ try {
 	Write-Host "  Recompile servidor: -FullCompile ou compile-incremental + reinicie PrincyAiCodeWeb" -ForegroundColor Yellow
 }
 
+Write-Host ""
+Write-Host "[3b] Repair agent :3210 + proxy ..." -ForegroundColor Cyan
+$repairAgent = Join-Path $ProjectRoot "deploy\windows\agent-backend\repair-princy-agent-3210.ps1"
+if (Test-Path $repairAgent) {
+	& powershell -ExecutionPolicy Bypass -File $repairAgent -ProjectRoot $ProjectRoot -SkipRestartCodeWeb
+} else {
+	Write-Host "  AVISO: ausente $repairAgent" -ForegroundColor Yellow
+}
+
 if (-not $SkipRestart) {
 	Write-Host ""
 	Write-Host "[4] Reiniciar PrincyAiCodeWeb ..." -ForegroundColor Cyan

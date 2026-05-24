@@ -55,3 +55,9 @@ Verificacao completa:
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\deploy\windows\code-web\verify-princy-chat-api.ps1
 ```
+
+## Chat/API :3210 offline
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\deploy\windows\agent-backend\repair-princy-agent-3210.ps1 -ProjectRoot "C:\Apps\Editor"
+```
