@@ -8,6 +8,14 @@ Este serviço Fastify fornece a API usada pela extensão embutida `extensions/pr
 3210
 ```
 
+## Reparo completo (chat offline no editor ou dashboard)
+
+```powershell
+powershell -ExecutionPolicy Bypass -File C:\Apps\Editor\deploy\windows\agent-backend\repair-princy-agent-3210.ps1 -ProjectRoot C:\Apps\Editor
+```
+
+Verifica servicos, build, `.env`, health `:3210`, proxy `:3200/princy-api`, HTTPS e `/api/diagnostic`.
+
 O Code-OSS Web usa `3200`. O backend de IA usa `3210`.
 
 ## Preparar
