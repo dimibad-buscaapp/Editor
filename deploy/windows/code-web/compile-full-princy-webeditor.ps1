@@ -82,8 +82,11 @@ $layoutOut = Join-Path $ProjectRoot "out\vs\workbench\contrib\princy\browser\pri
 
 $checks = @(
 	@{ Name = "Chat bundle (extension.js)"; Path = $extJs; Pattern = $RevMarker },
+	@{ Name = "Chat UI track (extension.js)"; Path = $extJs; Pattern = "cursor-agent-track" },
+	@{ Name = "Chat shell (extension.js)"; Path = $extJs; Pattern = "cursor-shell" },
 	@{ Name = "Workbench bundle (workbench.js)"; Path = $wbJs; Pattern = $null },
-	@{ Name = "Layout unlock (out/)"; Path = $layoutOut; Pattern = "princyLayoutUnlock" }
+	@{ Name = "Layout unlock (out/)"; Path = $layoutOut; Pattern = "princyLayoutUnlock" },
+	@{ Name = "Layout no-maximize (out/layout)"; Path = (Join-Path $ProjectRoot "out\vs\workbench\browser\layout.js"); Pattern = "forceMaximized" }
 )
 
 $allOk = $true
