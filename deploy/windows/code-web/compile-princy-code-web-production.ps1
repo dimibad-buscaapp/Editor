@@ -112,6 +112,18 @@ if (-not (Test-PrincyCodeWebProdBuild -ProjectRoot $ProjectRoot)) {
 }
 Write-Host "OK: bundle producao (CSS ou JS do workbench)" -ForegroundColor Green
 
+$revMarker = 'cursor-agent-2026.05.25-r2'
+if (-not (Select-String -Path $extJs -Pattern $revMarker -Quiet)) {
+	throw "extension.js sem revisao $revMarker — compile-web da extensao incompleto"
+}
+Write-Host "OK: chat UI revisao $revMarker" -ForegroundColor Green
+
+$layoutOut = Join-Path $ProjectRoot "out\vs\workbench\contrib\princy\browser\princyLayoutUnlock.contribution.js"
+if (-not (Test-Path $layoutOut)) {
+	throw "Ausente layout unlock compilado: $layoutOut (compile-incremental incompleto)"
+}
+Write-Host "OK: princyLayoutUnlock em out/" -ForegroundColor Green
+
 $userDataDir = Join-Path $ProjectRoot ".princy-user-data"
 $productionSettings = Join-Path $ProjectRoot "deploy\windows\princy-production.settings.json"
 if (Test-Path $productionSettings) {

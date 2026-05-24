@@ -14,6 +14,42 @@ O servico `PrincyAiCodeWeb` usa:
 
 Ou seja, le diretamente `extensions/princy-ai/dist/`, nao o codigo em `src/`.
 
+## Compile COMPLETO (editor + chat + layout)
+
+Quando mudou **workbench** (`layout.ts`, `princyLayoutUnlock`) **ou** quer garantir tudo novo:
+
+```powershell
+cd C:\Apps\Editor
+git pull --no-rebase origin main
+powershell -ExecutionPolicy Bypass -File .\deploy\windows\code-web\compile-full-princy-webeditor.ps1 -ProjectRoot "C:\Apps\Editor"
+```
+
+Equivalente (sem git pull automatico):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\deploy\windows\code-web\unlock-princy-visual-global.ps1 -ProjectRoot "C:\Apps\Editor"
+```
+
+### O que cada etapa compila
+
+| Etapa | Comando | Gera | Afeta |
+|-------|---------|------|-------|
+| 1 | `compile-incremental` | `out/` (workbench, layout, contrib princy) | Chat maximizado, layout docked |
+| 2 | `compile-web` | `extensions/princy-ai/dist/browser/extension.js` | Visual chat, botoes, animacoes |
+| 3 | `bundle-server-web-out` | `out/.../workbench.js` + `.css` | Carregamento PROD no browser |
+
+Tempo tipico: **15–45 min** na VPS.
+
+## Compile rapido (so extensao chat)
+
+Se mudou **apenas** CSS/HTML/TS da extensao (sem workbench):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\deploy\windows\code-web\deploy-princy-after-pull.ps1 -ProjectRoot "C:\Apps\Editor"
+```
+
+Tempo tipico: 1–3 minutos.
+
 ## O que fazer na VPS (apos cada pull com mudancas no chat)
 
 ```powershell
@@ -22,13 +58,7 @@ git pull --no-rebase origin main
 powershell -ExecutionPolicy Bypass -File .\deploy\windows\code-web\deploy-princy-after-pull.ps1 -ProjectRoot "C:\Apps\Editor"
 ```
 
-Tempo tipico: 1–3 minutos (so `bundle-web` da extensao).
-
-**Importante (layout maximizado + chat antigo):** estas alteracoes incluem `src/vs/workbench/browser/layout.ts`. Para o chat **nao abrir maximizado**, use o script completo (apaga cache de layout + recompila workbench):
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\deploy\windows\code-web\unlock-princy-visual-global.ps1 -ProjectRoot "C:\Apps\Editor"
-```
+**Importante (layout maximizado + chat antigo):** use o compile completo acima, nao so deploy-princy-after-pull.
 
 Se mudou apenas CSS/HTML da extensao (sem workbench):
 
