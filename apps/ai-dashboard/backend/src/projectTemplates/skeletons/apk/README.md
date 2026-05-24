@@ -1,23 +1,30 @@
 # {{PROJECT_NAME}}
 
-App Android com Capacitor.
+App Android: **React/Vite → Capacitor → Gradle → APK**
 
 ## Requisitos
 
 - Node.js 20+
+- JDK 17+ (Android)
+- Android SDK (ou Android Studio)
 
-## Configuracao
+## Comandos (manual)
 
-1. Copie `.env.example` para `.env`
-2. `npm install && npm run build`
-3. `npx cap add android` (se pasta android ausente)
-4. `npx cap sync android`
-5. Abra android/ no Android Studio
+```bash
+npm install
+npm run build
+npx cap add android    # primeira vez (cria pasta android/)
+npx cap sync android
+cd android
+./gradlew assembleDebug   # Windows: .\gradlew assembleDebug
+```
 
-## Scripts
+**APK gerado:**
 
-- `npm run dev` — desenvolvimento
-- `npm run build` — build de producao
-- `npm start` — producao (quando aplicavel)
+`android/app/build/outputs/apk/debug/app-debug.apk`
+
+## Build Center (Princy)
+
+No painel **Build Center**, tipo **APK**: o backend executa o mesmo pipeline automaticamente.
 
 Gerado por Princy IA Creator — {{YEAR}}.

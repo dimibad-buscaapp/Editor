@@ -1,0 +1,35 @@
+.princy-titlebar-status {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 0 8px;
+	font-size: 11px;
+	color: var(--vscode-titleBar-activeForeground);
+}
+
+.princy-titlebar-status-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: #22c55e;
+}
+
+.princy-titlebar-status.princy-busy .princy-titlebar-status-dot {
+	background: #22d3ee;
+	box-shadow: 0 0 6px rgba(34, 211, 238, 0.5);
+}
+
+.princy-titlebar-status.princy-offline .princy-titlebar-status-dot {
+	background: #71717a;
+}
+
+.princy-titlebar-status.princy-error .princy-titlebar-status-dot {
+	background: #f48771;
+}
+
+.princy-titlebar-status-label {
+	max-width: 140px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}

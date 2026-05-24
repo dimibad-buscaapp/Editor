@@ -5,6 +5,11 @@
 
 import { PRINCY_DESIGN_TOKENS_CSS } from './princyDesignTokens';
 
+/** Template visual base do painel Princy Chat (CSP aplicado em buildChatPanelHtml). */
+export function getPrincyChatHtml(cspSource: string, nonce: string, styleUri?: string): string {
+	return buildChatPanelHtml(cspSource, nonce, styleUri);
+}
+
 export function buildChatPanelHtml(cspSource: string, nonce: string, styleUri?: string): string {
 	const styleLink = styleUri ? `<link rel="stylesheet" href="${styleUri}">` : '';
 	return /* html */`<!DOCTYPE html>
@@ -24,7 +29,7 @@ export function buildChatPanelHtml(cspSource: string, nonce: string, styleUri?: 
 			overflow: hidden;
 			color: var(--vscode-foreground, var(--princy-text));
 			background: var(--vscode-sideBar-background, var(--princy-bg));
-			font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif);
+			font-family: var(--vscode-font-family, Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
 			font-size: var(--vscode-font-size, 13px);
 			line-height: 1.5;
 			-webkit-font-smoothing: antialiased;
@@ -33,7 +38,9 @@ export function buildChatPanelHtml(cspSource: string, nonce: string, styleUri?: 
 			height: 100vh;
 			display: flex;
 			flex-direction: column;
-			background: var(--vscode-sideBar-background, var(--princy-bg));
+			background:
+				radial-gradient(circle at top right, rgba(124, 92, 255, 0.12), transparent 32%),
+				var(--vscode-sideBar-background, var(--princy-bg));
 		}
 		.chat-header {
 			flex-shrink: 0;
@@ -41,8 +48,24 @@ export function buildChatPanelHtml(cspSource: string, nonce: string, styleUri?: 
 			align-items: center;
 			justify-content: space-between;
 			gap: 8px;
-			padding: 10px 14px 6px;
-			border-bottom: 1px solid var(--vscode-sideBar-border, var(--princy-border));
+			height: 44px;
+			padding: 0 12px;
+			border-bottom: 1px solid var(--vscode-panel-border, var(--princy-border));
+			background: rgba(20, 24, 33, 0.82);
+			backdrop-filter: blur(12px);
+		}
+		.princy-orb {
+			width: 10px;
+			height: 10px;
+			border-radius: 50%;
+			flex-shrink: 0;
+			background: linear-gradient(135deg, var(--princy-accent), var(--princy-accent-2));
+			box-shadow: 0 0 18px rgba(124, 92, 255, 0.8);
+			animation: pulseOrb 2.2s ease-in-out infinite;
+		}
+		@keyframes pulseOrb {
+			0%, 100% { transform: scale(1); opacity: 0.8; }
+			50% { transform: scale(1.28); opacity: 1; }
 		}
 		.chat-header-brand {
 			display: flex;
@@ -98,23 +121,25 @@ export function buildChatPanelHtml(cspSource: string, nonce: string, styleUri?: 
 		}
 		.chat-mode-pill {
 			flex: 1;
-			height: 28px;
-			border: 1px solid var(--vscode-widget-border, var(--princy-border));
-			border-radius: 6px;
+			height: 32px;
+			border: 1px solid transparent;
+			border-radius: 9px;
 			background: transparent;
-			color: var(--vscode-descriptionForeground, var(--princy-muted));
+			color: var(--princy-muted);
 			font-size: 11px;
 			font-weight: 500;
 			cursor: pointer;
+			transition: all 0.16s ease;
 		}
 		.chat-mode-pill:hover {
-			background: var(--vscode-list-hoverBackground, var(--princy-elevated));
-			color: var(--vscode-foreground, var(--princy-text));
+			background: rgba(255, 255, 255, 0.045);
+			color: var(--princy-text);
 		}
 		.chat-mode-pill.active {
-			background: var(--princy-elevated);
-			color: var(--vscode-sideBarTitle-foreground, var(--princy-text-strong));
-			border-color: var(--vscode-focusBorder, var(--princy-border));
+			color: var(--princy-text-strong);
+			background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.035));
+			border-color: rgba(124, 92, 255, 0.35);
+			box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
 		}
 		.chat-history {
 			flex-shrink: 0;
@@ -539,23 +564,24 @@ export function buildChatPanelHtml(cspSource: string, nonce: string, styleUri?: 
 			background: var(--vscode-toolbar-hoverBackground, rgba(90, 93, 94, 0.31));
 		}
 		.chat-send-btn {
-			width: 28px;
-			height: 28px;
-			padding: 0;
+			min-width: 30px;
+			height: 30px;
+			padding: 0 12px;
 			border: none;
-			border-radius: 8px;
+			border-radius: 9px;
 			cursor: pointer;
 			display: grid;
 			place-items: center;
 			font-size: 14px;
-			font-weight: 600;
-			background: var(--vscode-button-background, var(--princy-accent));
-			color: var(--vscode-button-foreground, var(--princy-accent-fg));
-			transition: transform 0.12s ease, background 0.12s ease;
+			font-weight: 650;
+			background: linear-gradient(135deg, var(--princy-accent), var(--princy-accent-2));
+			color: #fff;
+			transition: all 0.16s ease;
 		}
 		.chat-send-btn:hover {
-			background: var(--vscode-button-hoverBackground, #E4E4E7);
-			transform: scale(1.04);
+			filter: brightness(1.08);
+			transform: translateY(-1px);
+			box-shadow: 0 8px 28px rgba(124, 92, 255, 0.28);
 		}
 		.chat-send-btn:active {
 			transform: scale(0.96);
@@ -688,7 +714,7 @@ export function buildChatPanelHtml(cspSource: string, nonce: string, styleUri?: 
 	<div class="chat-panel">
 		<header class="chat-header">
 			<div class="chat-header-brand">
-				<span class="chat-header-logo" aria-hidden="true">✦</span>
+				<span class="princy-orb" aria-hidden="true"></span>
 				<div>
 					<div class="chat-header-title">Princy IA</div>
 					<div class="chat-header-sub" id="chatHeaderSub">Agent · Composer · :3210</div>
@@ -1897,6 +1923,19 @@ function getChatPanelScript(): string {
 				streamingNode = null;
 				streamingBody = null;
 				scrollBottom();
+			}
+			if (message.type === 'response') {
+				const content = message.content || message.text || '';
+				if (content) {
+					appendAssistant(content, message.suggestedCommands);
+				}
+				if (sendBtn) sendBtn.disabled = false;
+				setStatus('Pronto');
+			}
+			if (message.type === 'error') {
+				appendAssistant('Erro: ' + (message.message || 'falha desconhecida'));
+				if (sendBtn) sendBtn.disabled = false;
+				setStatus('Erro');
 			}
 		});
 

@@ -29,7 +29,7 @@ async function applyMinimalWorkbench(): Promise<void> {
 	const ed = vscode.workspace.getConfiguration('editor');
 	const bc = vscode.workspace.getConfiguration('breadcrumbs');
 
-	await wb.update('activityBar.location', 'top', target);
+	await wb.update('activityBar.location', 'default', target);
 	await wb.update('editor.showTabs', 'multiple', target);
 	await wb.update('statusBar.visible', true, target);
 	await wb.update('layoutControl.enabled', true, target);

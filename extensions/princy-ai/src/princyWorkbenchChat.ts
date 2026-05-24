@@ -118,7 +118,6 @@ async function tryCommand(command: string): Promise<boolean> {
 /** Garante barra lateral direita visível sem maximizar (layout Cursor). */
 export async function ensurePrincyChatShellVisible(): Promise<void> {
 	await tryCommand('workbench.action.restoreAuxiliaryBar');
-	await tryCommand('workbench.action.focusAuxiliaryBar');
 }
 
 /** Explorer à esquerda + chat dockado à direita (não maximizado). */
@@ -126,12 +125,11 @@ export async function ensureCursorLayoutOnStartup(): Promise<void> {
 	await tryCommand('workbench.action.restoreAuxiliaryBar');
 	await tryCommand('workbench.view.explorer');
 	await tryCommand('workbench.action.focusSideBar');
-	await ensurePrincyChatShellVisible();
 }
 
 /** Abre o container Princy Ai — não chama princyai.chat.focus (evita loop com provider.focus). */
 export async function focusPrincyChatPanel(): Promise<void> {
-	await ensurePrincyChatShellVisible();
+	await tryCommand('workbench.action.restoreAuxiliaryBar');
 	const steps = [
 		PRINCY_CHAT_VIEW,
 		'princyai.open',
@@ -156,7 +154,9 @@ export function scheduleOpenPrincyChatOnStartup(): void {
 				return;
 			}
 			void (async () => {
-				await ensureCursorLayoutOnStartup();
+				if (vscode.workspace.getConfiguration('princyai').get<boolean>('chat.dockedRight', true)) {
+					await ensureCursorLayoutOnStartup();
+				}
 				await focusPrincyChatPanel();
 			})();
 		}, ms);

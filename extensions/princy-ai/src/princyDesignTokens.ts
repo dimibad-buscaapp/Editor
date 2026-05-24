@@ -5,22 +5,27 @@
 
 /** Tokens partilhados Princy Black (webview chat + dashboard chat-panel). */
 export const PRINCY_DESIGN_TOKENS_CSS = `
-		--princy-bg: #000000;
-		--princy-surface: #09090B;
-		--princy-elevated: #18181B;
-		--princy-border: #27272A;
-		--princy-muted: #71717A;
-		--princy-text: #E4E4E7;
-		--princy-text-strong: #FAFAFA;
-		--princy-accent: #FAFAFA;
-		--princy-accent-fg: #09090B;
-		--princy-glow: #22D3EE;
-		--princy-glow-soft: rgba(34, 211, 238, 0.12);
-		--princy-violet: #A78BFA;
-		--princy-transition-fast: 120ms ease;
+		--princy-bg: #0f1117;
+		--princy-panel: #141821;
+		--princy-panel-soft: #1a1f2b;
+		--princy-surface: #141821;
+		--princy-elevated: #1a1f2b;
+		--princy-border: rgba(255, 255, 255, 0.08);
+		--princy-muted: #8f98aa;
+		--princy-text: #e6e8ef;
+		--princy-text-strong: #f4f5f9;
+		--princy-accent: #7c5cff;
+		--princy-accent-2: #28d8ff;
+		--princy-accent-fg: #ffffff;
+		--princy-glow: #28d8ff;
+		--princy-glow-soft: rgba(124, 92, 255, 0.14);
+		--princy-violet: #7c5cff;
+		--princy-danger: #ff5c7a;
+		--princy-success: #2ee59d;
+		--princy-transition-fast: 160ms ease;
 		--princy-transition-panel: 180ms ease-out;
 		--princy-chat-width-target: 360px;
-		--princy-radius-sm: 6px;
-		--princy-radius-md: 8px;
-		--princy-radius-lg: 10px;
+		--princy-radius-sm: 8px;
+		--princy-radius-md: 10px;
+		--princy-radius-lg: 14px;
 `;

@@ -2,6 +2,8 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { config } from '../config.js';
+import { CAPACITOR_DEBUG_APK_REL, resolveCapacitorDebugApk } from './capacitorApkPipeline.js';
+import { ELECTRON_DIST_DIR, resolveElectronExe } from './electronExePipeline.js';
 import type { BuildType } from './types.js';
 
 async function findFirstFile(dir: string, pattern: RegExp): Promise<string | undefined> {
@@ -100,9 +102,10 @@ export async function collectBuildArtifact(
 			return zipName;
 		}
 		case 'apk': {
-			const apk = await findFirstFile(workspacePath, /\.apk$/i);
+			const standard = resolveCapacitorDebugApk(workspacePath);
+			const apk = standard ?? await findFirstFile(workspacePath, /\.apk$/i);
 			if (!apk) {
-				throw new Error('Nenhum ficheiro .apk encontrado');
+				throw new Error(`Nenhum .apk encontrado (esperado: ${CAPACITOR_DEBUG_APK_REL})`);
 			}
 			const stat = fs.statSync(apk);
 			assertArtifactSize(stat.size);
@@ -111,7 +114,8 @@ export async function collectBuildArtifact(
 			return name;
 		}
 		case 'exe': {
-			const exe = await findFirstFile(workspacePath, /\.exe$/i);
+			const standard = resolveElectronExe(workspacePath);
+			const exe = standard ?? await findFirstFile(workspacePath, /\.exe$/i);
 			if (exe) {
 				const stat = fs.statSync(exe);
 				assertArtifactSize(stat.size);
@@ -119,14 +123,14 @@ export async function collectBuildArtifact(
 				copyFileSync(exe, path.join(destDir, name));
 				return name;
 			}
-			const releaseDir = distCandidates.find(candidate => fs.existsSync(candidate));
-			if (!releaseDir) {
-				throw new Error('Nenhum .exe nem pasta dist/ encontrada');
+			const releaseDir = path.join(workspacePath, ELECTRON_DIST_DIR);
+			if (fs.existsSync(releaseDir)) {
+				assertArtifactSize(dirSizeBytes(releaseDir));
+				const zipName = 'artifact.zip';
+				await zipDirectory(releaseDir, path.join(destDir, zipName));
+				return zipName;
 			}
-			assertArtifactSize(dirSizeBytes(releaseDir));
-			const zipName = 'artifact.zip';
-			await zipDirectory(releaseDir, path.join(destDir, zipName));
-			return zipName;
+			throw new Error(`Nenhum .exe em ${ELECTRON_DIST_DIR}/ (execute npm run dist)`);
 		}
 		default:
 			throw new Error(`Tipo de artefato desconhecido: ${type}`);

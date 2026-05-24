@@ -1,21 +1,26 @@
 # {{PROJECT_NAME}}
 
-App Windows Electron.
+App Windows: **React/Vite → Electron → electron-builder → .exe**
 
 ## Requisitos
 
 - Node.js 20+
+- Windows (build do instalador/portable)
 
-## Configuracao
+## Comandos (manual)
 
-1. Copie `.env.example` para `.env`
-2. `npm install`
-3. `npm run dev` ou `npm run dist` para EXE
+```powershell
+npm install
+npm run build
+npm run dist
+```
 
-## Scripts
+**Resultado:**
 
-- `npm run dev` — desenvolvimento
-- `npm run build` — build de producao
-- `npm start` — producao (quando aplicavel)
+`dist\*.exe` (portable)
+
+## Build Center (Princy)
+
+No painel **Build Center**, tipo **EXE**: o backend executa o mesmo pipeline automaticamente.
 
 Gerado por Princy IA Creator — {{YEAR}}.

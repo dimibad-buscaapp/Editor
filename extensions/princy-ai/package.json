@@ -208,7 +208,9 @@
       "workbench.colorTheme": "Princy Black",
       "workbench.preferredDarkColorTheme": "Princy Black",
       "editor.fontFamily": "'JetBrains Mono', 'Cascadia Code', Consolas, monospace",
-      "workbench.activityBar.location": "top",
+      "workbench.activityBar.location": "default",
+      "princyai.ui.minimalWorkbench": false,
+      "princyai.chat.dockedRight": true,
       "editor.minimap.enabled": false,
       "editor.glyphMargin": false,
       "editor.scrollBeyondLastLine": false,
@@ -279,8 +281,13 @@
         },
         "princyai.ui.minimalWorkbench": {
           "type": "boolean",
-          "default": true,
+          "default": false,
           "description": "Simplify workbench UI (Cursor-like: no minimap, compact menu)."
+        },
+        "princyai.chat.dockedRight": {
+          "type": "boolean",
+          "default": true,
+          "description": "Keep Princy Chat docked in the right auxiliary bar (never maximized fullscreen)."
         },
         "princyai.ui.defaultChat": {
           "type": "boolean",

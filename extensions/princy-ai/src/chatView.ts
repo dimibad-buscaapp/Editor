@@ -21,7 +21,7 @@ import * as path from 'path';
 type ModelSegment = 'LOGIC' | 'FRONTEND' | 'BACKEND' | 'DEBUG';
 
 type WebviewMessage =
-	| { readonly type: 'sendMessage'; readonly text: string; readonly agent: AgentModel | 'auto'; readonly segmentMode?: ModelSegment; readonly priority?: 'normal' | 'high'; readonly chatMode?: ChatMode }
+	| { readonly type: 'sendMessage'; readonly text?: string; readonly message?: string; readonly agent: AgentModel | 'auto'; readonly segmentMode?: ModelSegment; readonly priority?: 'normal' | 'high'; readonly chatMode?: ChatMode }
 	| { readonly type: 'requestComposer'; readonly text: string; readonly agent: AgentModel }
 	| { readonly type: 'applyComposerPlan'; readonly instruction: string; readonly agent: AgentModel; readonly plan: ComposerPlan; readonly operationIds: readonly string[] }
 	| { readonly type: 'insertCode'; readonly code: string }
@@ -149,20 +149,22 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 
 	private async handleMessage(message: WebviewMessage): Promise<void> {
 		switch (message.type) {
-			case 'sendMessage':
+			case 'sendMessage': {
+				const text = (message.text ?? message.message ?? '').trim();
 				if (message.chatMode === 'composer') {
-					await this.requestComposerPlan(message.text, this.resolveAgentChoice(message.agent));
+					await this.requestComposerPlan(text, this.resolveAgentChoice(message.agent));
 					break;
 				}
 				if (message.chatMode === 'builder' || message.chatMode === 'buildCenter') {
-					await this.runBuildCenter(message.text, undefined, undefined, message.chatMode === 'builder');
+					await this.runBuildCenter(text, undefined, undefined, message.chatMode === 'builder');
 					break;
 				}
 				if (message.chatMode === 'creator') {
 					break;
 				}
-				await this.sendChatMessage(message.text, message.agent, message.segmentMode, message.priority, message.chatMode);
+				await this.handleSendMessage(text, message.agent, message.segmentMode, message.priority, message.chatMode);
 				break;
+			}
 			case 'approveActionRun':
 				try {
 					await this.handleApproveActionRun(message);
@@ -536,6 +538,28 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 		}
 	}
 
+	private postToWebview(payload: Record<string, unknown>): void {
+		this.view?.webview.postMessage(payload);
+	}
+
+	private async handleSendMessage(
+		text: string,
+		agent: AgentModel | 'auto',
+		forceSegment?: ModelSegment,
+		priority: 'normal' | 'high' = 'normal',
+		chatMode?: ChatMode
+	): Promise<void> {
+		this.postToWebview({ type: 'status', text: 'Coletando contexto...' });
+		try {
+			await this.sendChatMessage(text, agent, forceSegment, priority, chatMode);
+		} catch (error) {
+			this.postToWebview({
+				type: 'error',
+				message: error instanceof Error ? error.message : String(error)
+			});
+		}
+	}
+
 	private async sendChatMessage(text: string, agent: AgentModel | 'auto', forceSegment?: ModelSegment, priority: 'normal' | 'high' = 'normal', chatMode?: ChatMode): Promise<void> {
 		if (!text.trim()) {
 			return;
@@ -617,6 +641,7 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 					text: reply,
 					suggestedCommands: response.suggestedCommands ?? []
 				});
+				this.view?.webview.postMessage({ type: 'response', content: reply });
 				void setPrincyAiStatus({ kind: 'ready', label: labelForPrincyAiStatus('ready') });
 				this.view?.webview.postMessage({ type: 'status', text: 'Pronto' });
 				return;

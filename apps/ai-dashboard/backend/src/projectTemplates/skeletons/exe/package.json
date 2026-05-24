@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "concurrently \"vite\" \"tsc -p electron -w\"",
     "build": "vite build && tsc -p electron",
-    "dist": "npm run build && electron-builder",
+    "dist": "npm run build && electron-builder --win portable",
     "start": "electron ."
   },
   "dependencies": {
@@ -22,5 +22,22 @@
     "vite": "^5.4.11",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1"
+  },
+  "build": {
+    "appId": "com.princy.{{PROJECT_SLUG}}",
+    "productName": "{{PROJECT_NAME}}",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "portable"
+      ]
+    }
   }
 }

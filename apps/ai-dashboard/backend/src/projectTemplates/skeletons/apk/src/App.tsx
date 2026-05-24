@@ -1,8 +1,8 @@
 export default function App() {
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 p-8">
-      <h1 className="text-3xl font-bold text-cyan-400">{{PROJECT_NAME}}</h1>
-      <p className="mt-4 text-slate-300">Starter webapp Princy — edite src/App.tsx</p>
+    <main style={{ minHeight: '100vh', background: '#0f172a', color: '#e2e8f0', padding: 24, fontFamily: 'system-ui' }}>
+      <h1 style={{ color: '#22d3ee' }}>{{PROJECT_NAME}}</h1>
+      <p>App Android Capacitor — edite src/App.tsx</p>
     </main>
   );
 }

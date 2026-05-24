@@ -115,3 +115,5 @@ powershell -ExecutionPolicy Bypass -File C:\Apps\Editor\deploy\windows\run-fase1
 ```
 
 Gate 0 rapido (Task Scheduler opcional): `install-princy-phase1-scheduled-task.ps1`
+
+Visual premium Fase 2: **[FASE2-VISUAL.md](FASE2-VISUAL.md)**

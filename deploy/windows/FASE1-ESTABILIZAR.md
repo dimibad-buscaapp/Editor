@@ -88,6 +88,8 @@ Restart-Service PrincyAiCodeWeb
 powershell -ExecutionPolicy Bypass -File deploy\windows\test-princy-phase1.ps1
 ```
 
+Proxima etapa: **[FASE2-VISUAL.md](FASE2-VISUAL.md)** (visual premium).
+
 ## Definicao de pronto
 
 - Gate 0 e scripts verify com **exit 0** (2x seguidas apos `Restart-Service PrincyAiCodeWeb`)
