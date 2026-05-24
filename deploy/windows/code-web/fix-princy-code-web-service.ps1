@@ -165,10 +165,17 @@ Write-Host "AppDirectory: $ProjectRoot"
 & $nssm set $ServiceName AppExit Default Restart
 
 # Producao: NAO definir VSCODE_DEV nem NODE_ENV=development
+$uiRev = 'princy'
+$revScript = Join-Path $ProjectRoot "deploy\windows\princy-ui-revision.ps1"
+if (Test-Path $revScript) {
+	. $revScript
+	$uiRev = Get-PrincyUiRevision
+}
 $envExtra = @(
 	"VSCODE_SKIP_PRELAUNCH=1",
 	"NODE_OPTIONS=--max-old-space-size=8192",
-	"PRINCY_EDITOR_ROOT=$ProjectRoot"
+	"PRINCY_EDITOR_ROOT=$ProjectRoot",
+	"PRINCY_UI_REVISION=$uiRev"
 )
 if (-not $hasProd) {
 	Write-Host "Modo DEV forcado (sem bundle prod) - adicionando VSCODE_DEV=1" -ForegroundColor Yellow

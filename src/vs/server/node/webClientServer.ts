@@ -49,6 +49,15 @@ export const enum CacheControl {
 	NO_CACHING, ETAG, NO_EXPIRY
 }
 
+/** Princy: workbench + extensao princy-ai nao podem ficar 1 ano em cache do browser. */
+export function princyDisallowsLongLivedCache(filePath: string): boolean {
+	const p = filePath.replace(/\\/g, '/').toLowerCase();
+	return p.includes('/princy-ai/')
+		|| p.includes('/out/vs/code/browser/workbench/workbench.')
+		|| p.includes('/out/vs/workbench/contrib/princy/')
+		|| p.includes('/out/vs/workbench/browser/layout.');
+}
+
 /**
  * Serve a file at a given path or 404 if the file is missing.
  */
@@ -183,7 +192,8 @@ export class WebClientServer {
 			return serveError(req, res, 400, `Bad request.`);
 		}
 
-		return serveFile(filePath, this._environmentService.isBuilt ? CacheControl.NO_EXPIRY : CacheControl.ETAG, this._logService, req, res, headers);
+		const useLongCache = this._environmentService.isBuilt && !princyDisallowsLongLivedCache(filePath);
+		return serveFile(filePath, useLongCache ? CacheControl.NO_EXPIRY : CacheControl.ETAG, this._logService, req, res, headers);
 	}
 
 	private _getResourceURLTemplateAuthority(uri: URI): string | undefined {
@@ -444,6 +454,15 @@ export class WebClientServer {
 				const metaTag = `\t\t<meta id="vscode-workbench-builtin-extensions" data-settings="${builtinsAttr}">\n`;
 				data = data.replace('</head>', `${metaTag}\t</head>`);
 			}
+			const cacheBust = process.env['PRINCY_UI_REVISION'] || this._productService.commit || 'princy';
+			data = data.replaceAll(
+				'out/vs/code/browser/workbench/workbench.js',
+				`out/vs/code/browser/workbench/workbench.js?v=${cacheBust}`
+			);
+			data = data.replaceAll(
+				'out/vs/code/browser/workbench/workbench.css',
+				`out/vs/code/browser/workbench/workbench.css?v=${cacheBust}`
+			);
 		} catch (e) {
 			res.writeHead(404, { 'Content-Type': 'text/plain' });
 			return void res.end('Not found');

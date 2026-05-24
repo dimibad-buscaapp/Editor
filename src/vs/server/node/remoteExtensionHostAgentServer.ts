@@ -40,7 +40,7 @@ import { IServerEnvironmentService, ServerParsedArgs } from './serverEnvironment
 import { IServerLifetimeService } from './serverLifetimeService.js';
 import { setupServerServices, SocketServer } from './serverServices.js';
 import { handlePrincyAgentApiProxy, isPrincyAgentApiProxyPath } from './princyAgentApiProxy.js';
-import { CacheControl, serveError, serveFile, WebClientServer } from './webClientServer.js';
+import { CacheControl, serveError, serveFile, WebClientServer, princyDisallowsLongLivedCache } from './webClientServer.js';
 const require = createRequire(import.meta.url);
 
 declare namespace vsda {
@@ -184,10 +184,12 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 
 			const responseHeaders: Record<string, string> = Object.create(null);
 			if (this._environmentService.isBuilt) {
-				if (isEqualOrParent(filePath, this._environmentService.builtinExtensionsPath, !platform.isLinux)
-					|| isEqualOrParent(filePath, this._environmentService.extensionsPath, !platform.isLinux)
-				) {
+				const underExtensions = isEqualOrParent(filePath, this._environmentService.builtinExtensionsPath, !platform.isLinux)
+					|| isEqualOrParent(filePath, this._environmentService.extensionsPath, !platform.isLinux);
+				if (underExtensions && !princyDisallowsLongLivedCache(filePath)) {
 					responseHeaders['Cache-Control'] = 'public, max-age=31536000';
+				} else if (princyDisallowsLongLivedCache(filePath)) {
+					responseHeaders['Cache-Control'] = 'no-cache, must-revalidate';
 				}
 			}
 
