@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 /** Incrementar ao mudar HTML/CSS do chat (invalida cache do webview). */
-export const PRINCY_CHAT_UI_REVISION = 'cursor-editor-2026.05';
+export const PRINCY_CHAT_UI_REVISION = 'cursor-editor-2026.05.23';
 
 /** Tokens estilo Cursor Editor window (painel lateral direito). */
 export const PRINCY_DESIGN_TOKENS_CSS = `

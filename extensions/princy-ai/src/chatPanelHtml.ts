@@ -713,13 +713,20 @@ export function buildChatPanelHtml(cspSource: string, nonce: string, styleUri?: 
 <body data-princy-ui-rev="${PRINCY_CHAT_UI_REVISION}">
 	<div class="chat-panel">
 		<header class="chat-header cursor-header">
-			<span class="cursor-header-title">Editor</span>
+			<div class="cursor-header-left">
+				<span class="cursor-header-title">Princy</span>
+				<span class="cursor-header-sub" id="chatHeaderSub">Princy IA</span>
+			</div>
 			<div class="chat-header-actions">
 				<button type="button" class="cursor-icon-btn" id="toggleHistory" title="Histórico">⏱</button>
 				<button type="button" class="cursor-icon-btn" id="newChat" title="Nova conversa">+</button>
 				<button type="button" class="cursor-icon-btn" id="openSettings" title="Configurações">⋯</button>
 			</div>
 		</header>
+		<div class="chat-offline-banner" id="offlineBanner" style="display:none" role="alert">
+			<span class="chat-offline-text" id="offlineBannerText">Backend offline</span>
+			<button type="button" class="chat-offline-reconnect" id="reconnectBackend">Reconectar</button>
+		</div>
 		<div class="chat-mode-bar cursor-hidden-modes" aria-hidden="true">
 			<button type="button" class="chat-mode-pill" data-mode="chat">Chat</button>
 			<button type="button" class="chat-mode-pill" data-mode="composer">Composer</button>
@@ -897,9 +904,9 @@ export function buildChatPanelHtml(cspSource: string, nonce: string, styleUri?: 
 						<span class="chat-backend-dot" id="backendDot" title="Agent backend"></span>
 						<label class="chat-sr-only" for="princy-agent-select">Modelo</label>
 						<select id="princy-agent-select" class="chat-model-select" title="Modelo">
-							<option value="auto" selected>Auto</option>
+							<option value="princy" selected>Princy IA</option>
+							<option value="auto">Auto</option>
 							<option value="deepseek">DeepSeek</option>
-							<option value="princy">Princy IA</option>
 							<option value="qwen">Qwen</option>
 							<option value="codellama">CodeLlama</option>
 						</select>
@@ -1595,6 +1602,10 @@ function getChatPanelScript(): string {
 			vscode.postMessage({ type: 'openSettings' });
 		});
 
+		document.getElementById('reconnectBackend')?.addEventListener('click', () => {
+			vscode.postMessage({ type: 'reconnectBackend' });
+		});
+
 		document.getElementById('newChat')?.addEventListener('click', () => {
 			vscode.postMessage({ type: 'newSession' });
 		});
@@ -1715,7 +1726,7 @@ function getChatPanelScript(): string {
 			if (!text) return;
 			hideEmpty();
 			if (currentMode === 'composer') {
-				const picked = !agent || agent.value === 'auto' ? 'deepseek' : agent.value;
+				const picked = !agent || agent.value === 'auto' ? 'princy' : agent.value;
 				vscode.postMessage({ type: 'requestComposer', text, agent: picked });
 			} else {
 				vscode.postMessage({
@@ -1800,10 +1811,19 @@ function getChatPanelScript(): string {
 				backendDot.classList.toggle('online', Boolean(message.online));
 				backendDot.title = (message.online ? 'Backend online' : 'Backend offline') + (message.endpoint ? ' — ' + message.endpoint : '');
 				const sub = document.getElementById('chatHeaderSub');
+				const banner = document.getElementById('offlineBanner');
+				const bannerText = document.getElementById('offlineBannerText');
 				if (sub) {
-					sub.textContent = message.online
-						? 'Princy IA online · painel direito'
-						: 'Backend offline — porta 3210';
+					sub.textContent = message.online ? 'Online' : 'Offline';
+				}
+				if (banner) {
+					banner.style.display = message.online ? 'none' : 'flex';
+				}
+				if (bannerText && !message.online) {
+					bannerText.textContent = message.message || 'Backend offline — verifique /princy-api e porta 3210';
+				}
+				if (status) {
+					status.textContent = message.online ? 'Pronto' : 'Offline';
 				}
 			}
 			if (message.type === 'defaultAgent' && message.agent && agent) {

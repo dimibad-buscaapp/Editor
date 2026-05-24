@@ -12,12 +12,61 @@
 	backdrop-filter: none;
 }
 
+.cursor-header-left {
+	display: flex;
+	flex-direction: column;
+	gap: 0;
+	min-width: 0;
+}
+
 .cursor-header-title {
-	font-size: 11px;
+	font-size: 12px;
 	font-weight: 600;
+	color: var(--princy-text-strong, #e4e4e4);
+	letter-spacing: 0;
+	text-transform: none;
+}
+
+.cursor-header-sub {
+	font-size: 10px;
 	color: var(--princy-muted);
-	letter-spacing: 0.04em;
-	text-transform: uppercase;
+	line-height: 1.2;
+}
+
+.chat-offline-banner {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 6px 10px;
+	background: rgba(180, 60, 60, 0.15);
+	border-bottom: 1px solid rgba(200, 80, 80, 0.35);
+	font-size: 11px;
+	color: #f0a8a8;
+}
+
+.chat-offline-text {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.chat-offline-reconnect {
+	flex-shrink: 0;
+	height: 22px;
+	padding: 0 8px;
+	border: 1px solid rgba(255, 255, 255, 0.2);
+	border-radius: 4px;
+	background: rgba(255, 255, 255, 0.08);
+	color: var(--princy-text-strong);
+	font-size: 11px;
+	cursor: pointer;
+}
+
+.chat-offline-reconnect:hover {
+	background: rgba(255, 255, 255, 0.14);
 }
 
 .cursor-icon-btn {

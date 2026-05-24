@@ -20,6 +20,7 @@ import { enforcePrincyEditorUnlocked, registerPrincyWorkbenchUi } from './workbe
 import { registerPrincyStatusBar } from './princyStatusBar';
 import { registerPrincyChatIsolation } from './princyChatIsolation';
 import { registerPrincyDefaultChat } from './princyWorkbenchChat';
+import { registerPrincyCreateSidebar } from './princyCreateSidebar';
 import { ChatSessionManager } from './chatSessions';
 import { checkAgentBackend } from './agentConnectivity';
 import { TerminalRunner } from './terminalRunner';
@@ -103,6 +104,7 @@ export function activate(context: vscode.ExtensionContext): void {
 				void vscode.window.showErrorMessage(msg, { modal: false });
 			}
 			output.appendLine(msg);
+			await provider.refreshBackendStatus();
 		}),
 		vscode.workspace.onDidSaveTextDocument(document => {
 			const autoIndex = vscode.workspace.getConfiguration('princyai').get<boolean>('autoIndexOnSave', true);
@@ -119,6 +121,7 @@ export function activate(context: vscode.ExtensionContext): void {
 	registerPrincyWorkbenchUi(context);
 	registerPrincyStatusBar(context);
 	registerPrincyDefaultChat(context);
+	registerPrincyCreateSidebar(context, client);
 	registerPrincyChatIsolation(context);
 	void ensurePrincyRulesTemplate();
 

@@ -54,8 +54,12 @@ async function applyPrincyDefaultChat(): Promise<void> {
 	await files.update('readonlyFromPermissions', false, target);
 
 	const princy = vscode.workspace.getConfiguration('princyai');
-	await princy.update('defaultAgent', 'deepseek', target);
-	await princy.update('ghostText.agent', 'deepseek', target);
+	if (princy.get<string>('defaultAgent') !== 'princy') {
+		await princy.update('defaultAgent', 'princy', target);
+	}
+	if (princy.get<string>('ghostText.agent') !== 'princy') {
+		await princy.update('ghostText.agent', 'princy', target);
+	}
 
 	// Fecha o container de chat da plataforma se ainda estiver visível (layout antigo).
 	await tryClosePlatformChat();

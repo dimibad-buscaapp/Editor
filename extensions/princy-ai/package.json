@@ -96,6 +96,36 @@
         "title": "Reconnect Agent Backend",
         "category": "Princy Ai",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "princyai.create.project",
+        "title": "Criar novo projeto",
+        "category": "Princy Criar",
+        "icon": "$(folder)"
+      },
+      {
+        "command": "princyai.create.app",
+        "title": "Criar novo aplicativo",
+        "category": "Princy Criar",
+        "icon": "$(device-mobile)"
+      },
+      {
+        "command": "princyai.create.exe",
+        "title": "Criar novo programa (.exe)",
+        "category": "Princy Criar",
+        "icon": "$(package)"
+      },
+      {
+        "command": "princyai.create.api",
+        "title": "Criar nova API",
+        "category": "Princy Criar",
+        "icon": "$(server)"
+      },
+      {
+        "command": "princyai.create.system",
+        "title": "Criar novo sistema",
+        "category": "Princy Criar",
+        "icon": "$(layers)"
       }
     ],
     "keybindings": [
@@ -155,6 +185,13 @@
       ]
     },
     "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "princy-create",
+          "title": "Criar",
+          "icon": "$(add)"
+        }
+      ],
       "secondarySidebar": [
         {
           "id": "princyai",
@@ -164,6 +201,13 @@
       ]
     },
     "views": {
+      "princy-create": [
+        {
+          "id": "princyCreate.actions",
+          "name": "Novo",
+          "icon": "$(add)"
+        }
+      ],
       "princyai": [
         {
           "type": "webview",
@@ -229,8 +273,8 @@
       "files.readonlyInclude": {},
       "files.readonlyFromPermissions": false,
       "workbench.activityBar.visible": true,
-      "princyai.defaultAgent": "deepseek",
-      "princyai.ghostText.agent": "deepseek"
+      "princyai.defaultAgent": "princy",
+      "princyai.ghostText.agent": "princy"
     },
     "configuration": {
       "title": "Princy Ai",
@@ -263,7 +307,7 @@
         "princyai.ghostText.agent": {
           "type": "string",
           "enum": ["princy", "deepseek", "qwen", "codellama", "llama3", "mistral", "openai"],
-          "default": "deepseek",
+          "default": "princy",
           "description": "Agent used for ghost text completions."
         },
         "princyai.ghostText.debounceMs": {
@@ -308,8 +352,8 @@
         "princyai.defaultAgent": {
           "type": "string",
           "enum": ["princy", "deepseek", "qwen", "codellama", "llama3", "mistral", "openai"],
-          "default": "deepseek",
-          "description": "Default AI engine for Princy Ai chat and Composer (DeepSeek recommended)."
+          "default": "princy",
+          "description": "Default AI engine for Princy Ai chat and Composer (Princy IA recomendado)."
         },
         "princyai.chat.simpleMode": {
           "type": "boolean",

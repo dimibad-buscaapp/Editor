@@ -12,24 +12,39 @@ export interface BackendStatus {
 	readonly build?: string;
 }
 
+function isHealthOk(health: { readonly ok?: boolean } | undefined): boolean {
+	return health?.ok !== false;
+}
+
 export async function checkAgentBackend(client: AgentClient): Promise<BackendStatus> {
 	await client.resolveEndpoint();
 	const endpoint = client.getAgentEndpoint();
-	try {
-		const health = await client.agentHealth();
-		return {
-			online: true,
-			endpoint,
-			message: `Backend online (${endpoint})`,
-			build: health.build
-		};
-	} catch (error) {
-		return {
-			online: false,
-			endpoint,
-			message: formatConnectivityError(endpoint, error)
-		};
+	let lastError: unknown;
+
+	for (const probe of [
+		() => client.agentHealth(),
+		() => client.health()
+	]) {
+		try {
+			const health = await probe();
+			if (isHealthOk(health)) {
+				return {
+					online: true,
+					endpoint,
+					message: `Backend online (${endpoint})`,
+					build: health.build
+				};
+			}
+		} catch (error) {
+			lastError = error;
+		}
 	}
+
+	return {
+		online: false,
+		endpoint,
+		message: formatConnectivityError(endpoint, lastError)
+	};
 }
 
 export function formatConnectivityError(endpoint: string, error: unknown): string {

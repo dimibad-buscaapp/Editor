@@ -125,7 +125,7 @@ export class PrincyGhostTextProvider implements vscode.InlineCompletionItemProvi
 	}
 
 	private getAgent(): AgentModel {
-		return vscode.workspace.getConfiguration('princyai').get<AgentModel>('ghostText.agent', 'deepseek');
+		return vscode.workspace.getConfiguration('princyai').get<AgentModel>('ghostText.agent', 'princy');
 	}
 }
 

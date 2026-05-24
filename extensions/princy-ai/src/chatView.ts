@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { AgentClient, AgentDefinition, AgentModel, ComposerPlan, ProjectTemplateId, TerminalCommandResult } from './agentClient';
 import { checkAgentBackend } from './agentConnectivity';
+import { runPrincyProjectCreate } from './princyProjectCreate';
 import { focusPrincyChatPanel, PRINCY_CHAT_VIEW_ID } from './princyWorkbenchChat';
 import { buildChatPanelHtml } from './chatPanelHtml';
 import { PRINCY_CHAT_UI_REVISION } from './princyDesignTokens';
@@ -39,6 +40,7 @@ type WebviewMessage =
 	| { readonly type: 'deleteSession'; readonly sessionId: string }
 	| { readonly type: 'setChatMode'; readonly mode: ChatMode }
 	| { readonly type: 'openSettings' }
+	| { readonly type: 'reconnectBackend' }
 	| { readonly type: 'readFileForDiff'; readonly operationId: string; readonly filePath: string; readonly operation: import('./agentClient').ComposerOperation }
 	| { readonly type: 'approveActionRun'; readonly jobId: string; readonly instruction: string; readonly agent: AgentModel; readonly plan: ComposerPlan }
 	| { readonly type: 'rejectActionRun'; readonly jobId: string }
@@ -153,7 +155,7 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 			'Analise o contexto atual, encontre a causa provavel e gere uma correcao imediata.'
 		].join('\n\n');
 		this.view?.webview.postMessage({ type: 'prefillComposer', text: prompt });
-		await this.requestComposerPlan(prompt, 'deepseek');
+		await this.requestComposerPlan(prompt, 'princy');
 	}
 
 	private async handleMessage(message: WebviewMessage): Promise<void> {
@@ -324,6 +326,9 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 			case 'openSettings':
 				await vscode.commands.executeCommand('workbench.action.openSettings');
 				break;
+			case 'reconnectBackend':
+				await vscode.commands.executeCommand('princyai.reconnectBackend');
+				break;
 			case 'readFileForDiff':
 				await this.replyFileDiff(message);
 				break;
@@ -361,7 +366,7 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 
 	private async sendQuickFix(): Promise<void> {
 		const cfg = vscode.workspace.getConfiguration('princyai');
-		const agent = cfg.get<AgentModel>('defaultAgent', 'deepseek');
+		const agent = cfg.get<AgentModel>('defaultAgent', 'princy');
 		const editor = vscode.window.activeTextEditor;
 		const selection = editor && !editor.selection.isEmpty ? editor.document.getText(editor.selection) : undefined;
 		const text = selection
@@ -372,7 +377,7 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 
 	private async sendQuickExplain(): Promise<void> {
 		const cfg = vscode.workspace.getConfiguration('princyai');
-		const agent = cfg.get<AgentModel>('defaultAgent', 'deepseek');
+		const agent = cfg.get<AgentModel>('defaultAgent', 'princy');
 		const editor = vscode.window.activeTextEditor;
 		const selection = editor && !editor.selection.isEmpty ? editor.document.getText(editor.selection) : undefined;
 		const text = selection
@@ -403,10 +408,11 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 	}
 
 	private async initializeChatPanel(): Promise<void> {
+		this.client.clearEndpointCache();
 		this.pushSessionState();
 		const wsName = vscode.workspace.name ?? vscode.workspace.workspaceFolders?.[0]?.name ?? 'Workspace';
 		this.view?.webview.postMessage({ type: 'workspaceInfo', name: wsName });
-		const defaultAgent = vscode.workspace.getConfiguration('princyai').get<AgentModel>('defaultAgent', 'deepseek');
+		const defaultAgent = vscode.workspace.getConfiguration('princyai').get<AgentModel>('defaultAgent', 'princy');
 		this.view?.webview.postMessage({ type: 'defaultAgent', agent: defaultAgent });
 		this.view?.webview.postMessage({ type: 'status', text: 'Pronto' });
 		void setPrincyAiStatus({ kind: 'ready', label: labelForPrincyAiStatus('ready') });
@@ -450,7 +456,7 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 
 	private resolveAgentChoice(agent: AgentModel | 'auto'): AgentModel {
 		if (agent === 'auto') {
-			return vscode.workspace.getConfiguration('princyai').get<AgentModel>('defaultAgent', 'deepseek');
+			return vscode.workspace.getConfiguration('princyai').get<AgentModel>('defaultAgent', 'princy');
 		}
 		return agent;
 	}
@@ -770,33 +776,20 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 
 	private async runCreateProject(templateId: ProjectTemplateId, projectName: string, runInstall: boolean): Promise<void> {
 		this.view?.webview.postMessage({ type: 'status', text: 'Criando projeto...' });
-		void setPrincyAiStatus({ kind: 'planning', label: 'IA: Criando projeto' });
 		try {
-			const result = await this.client.createProject(templateId, projectName, runInstall);
-			if (!result.ok || !result.projectPath) {
-				throw new Error(result.message ?? 'Falha ao criar projeto');
-			}
-			let installLog = '';
-			if (result.installJobId) {
-				this.view?.webview.postMessage({ type: 'status', text: 'Instalando dependencias...' });
-				const install = await this.client.pollCreateProjectInstall(result.installJobId);
-				installLog = install.output;
-				if (install.status === 'FAILED') {
-					throw new Error('npm install falhou — veja o log no painel');
-				}
-			}
-			const summary = `Projeto criado em ${result.projectPath}`;
+			const { projectPath } = await runPrincyProjectCreate(this.client, templateId, projectName, {
+				runInstall,
+				openFolder: false
+			});
+			const summary = `Projeto criado em ${projectPath}`;
 			this.recordTurn('assistant', summary);
 			this.view?.webview.postMessage({
 				type: 'projectCreated',
-				projectPath: result.projectPath,
-				templateId: result.templateId,
-				buildTarget: result.buildTarget,
-				slug: result.slug,
-				installLog
+				projectPath,
+				templateId,
+				installLog: ''
 			});
 			this.view?.webview.postMessage({ type: 'append', role: 'assistant', text: summary });
-			void setPrincyAiStatus({ kind: 'ready', label: labelForPrincyAiStatus('ready') });
 			this.view?.webview.postMessage({ type: 'status', text: 'Projeto criado' });
 		} catch (error) {
 			const errText = error instanceof Error ? error.message : String(error);
@@ -804,6 +797,10 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 			this.view?.webview.postMessage({ type: 'status', text: errText });
 			void setPrincyAiStatus({ kind: 'error', label: labelForPrincyAiStatus('error') });
 		}
+	}
+
+	public async refreshBackendStatus(): Promise<void> {
+		await this.refreshBackendStatusLazy();
 	}
 
 	private async runBuildCenter(
@@ -1310,8 +1307,8 @@ function getNonce(): string {
 }
 
 const defaultAgents: readonly AgentDefinition[] = [
-	{ id: 'deepseek', label: 'Princy Ai DeepSeek', modelName: 'deepseek-coder', isLocal: true },
-	{ id: 'princy', label: 'Princy Ai', modelName: 'deepseek-coder', isLocal: true },
+	{ id: 'princy', label: 'Princy IA', modelName: 'deepseek-coder', isLocal: true },
+	{ id: 'deepseek', label: 'DeepSeek', modelName: 'deepseek-coder', isLocal: true },
 	{ id: 'qwen', label: 'Qwen Coder', modelName: 'qwen2.5-coder', isLocal: true },
 	{ id: 'codellama', label: 'CodeLlama', modelName: 'codellama', isLocal: true },
 	{ id: 'llama3', label: 'Llama 3.1', modelName: 'llama3.1', isLocal: true },
