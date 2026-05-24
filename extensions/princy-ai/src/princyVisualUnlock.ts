@@ -77,6 +77,11 @@ export async function runGlobalVisualUnlock(
 	await vscode.workspace.getConfiguration('editor').update('centeredLayoutAutoResize', false, target);
 
 	await enforcePrincyEditorUnlocked();
+	try {
+		await vscode.commands.executeCommand('princy.unlockEditorLayout');
+	} catch {
+		// workbench command only in Code OSS build with contrib princy
+	}
 	provider.forceReloadPanel();
 
 	if (showMessage) {

@@ -16,7 +16,7 @@ import { registerPrincyGhostText } from './ghostTextProvider';
 import { registerPrincyThemeOnActivate } from './princyTheme';
 import { ensurePrincyRulesTemplate } from './princyRules';
 import { registerWorkspaceIndexing } from './workspaceIndexService';
-import { enforcePrincyEditorUnlocked, registerPrincyWorkbenchUi } from './workbenchUi';
+import { registerPrincyWorkbenchUi } from './workbenchUi';
 import { registerPrincyStatusBar } from './princyStatusBar';
 import { registerPrincyChatIsolation } from './princyChatIsolation';
 import { registerPrincyDefaultChat } from './princyWorkbenchChat';

@@ -2120,6 +2120,11 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 			return false;
 		}
 
+		// Princy: com forceMaximized=false o chat fica dockado (estilo Cursor), nunca fullscreen
+		if (maximized && this.configurationService.getValue(WorkbenchLayoutSettings.AUXILIARYBAR_FORCE_MAXIMIZED) === false) {
+			return false;
+		}
+
 		if (maximized) {
 			const state = {
 				sideBarVisible: this.isVisible(Parts.SIDEBAR_PART),
@@ -3044,6 +3049,25 @@ class LayoutStateModel extends Disposable {
 		if (this.isNew[StorageScope.WORKSPACE] && configuration.mainContainerDimension.width <= DEFAULT_WORKSPACE_WINDOW_DIMENSIONS.width) {
 			this.setInitializationValue(LayoutStateKeys.SIDEBAR_SIZE, Math.min(300, configuration.mainContainerDimension.width / 4));
 			this.setInitializationValue(LayoutStateKeys.AUXILIARYBAR_SIZE, Math.min(300, configuration.mainContainerDimension.width / 4));
+		}
+
+		// Princy: nunca restaurar chat maximizado (esconde editor) quando forceMaximized=false
+		if (this.configurationService.getValue(WorkbenchLayoutSettings.AUXILIARYBAR_FORCE_MAXIMIZED) === false) {
+			if (this.getRuntimeValue(LayoutStateKeys.AUXILIARYBAR_WAS_LAST_MAXIMIZED)) {
+				const lastVis = this.getRuntimeValue(LayoutStateKeys.AUXILIARYBAR_LAST_NON_MAXIMIZED_VISIBILITY);
+				this.setRuntimeValue(LayoutStateKeys.AUXILIARYBAR_WAS_LAST_MAXIMIZED, false);
+				if (lastVis) {
+					this.setRuntimeValue(LayoutStateKeys.SIDEBAR_HIDDEN, !lastVis.sideBarVisible);
+					this.setRuntimeValue(LayoutStateKeys.PANEL_HIDDEN, !lastVis.panelVisible);
+					this.setRuntimeValue(LayoutStateKeys.EDITOR_HIDDEN, !lastVis.editorVisible);
+					this.setRuntimeValue(LayoutStateKeys.AUXILIARYBAR_HIDDEN, !lastVis.auxiliaryBarVisible);
+				} else {
+					this.setRuntimeValue(LayoutStateKeys.EDITOR_HIDDEN, false);
+					this.setRuntimeValue(LayoutStateKeys.SIDEBAR_HIDDEN, false);
+					this.setRuntimeValue(LayoutStateKeys.PANEL_HIDDEN, false);
+					this.setRuntimeValue(LayoutStateKeys.AUXILIARYBAR_HIDDEN, false);
+				}
+			}
 		}
 	}
 

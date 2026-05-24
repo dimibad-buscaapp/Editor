@@ -87,6 +87,11 @@ async function applyMinimalWorkbenchExtras(): Promise<void> {
 /** Remove maximize da barra lateral direita (so restore; toggle cego maximizaria de novo). */
 async function clearAuxiliaryBarFullscreen(): Promise<void> {
 	try {
+		await vscode.commands.executeCommand('princy.unlockEditorLayout');
+	} catch {
+		// workbench contrib princy
+	}
+	try {
 		await vscode.commands.executeCommand('workbench.action.restoreAuxiliaryBar');
 	} catch {
 		// comando pode nao existir nesta build

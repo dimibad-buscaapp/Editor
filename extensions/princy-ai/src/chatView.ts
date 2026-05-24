@@ -16,7 +16,7 @@ import { loadPrincyRules } from './princyRules';
 import { EMPTY_SHADOW_CONTEXT } from './shadowContext';
 import { ChatMode, ChatSessionManager } from './chatSessions';
 import { buildLineDiff } from './diffLines';
-import { mapAgentJobStateToStatus, thinkingStepsForAgentState, labelForPrincyAiStatus } from './princyAiStatus';
+import { actionRunPhaseForAgentState, mapAgentJobStateToStatus, thinkingStepsForAgentState, labelForPrincyAiStatus } from './princyAiStatus';
 import { setPrincyAiStatus } from './princyStatusBar';
 
 type ModelSegment = 'LOGIC' | 'FRONTEND' | 'BACKEND' | 'DEBUG';
@@ -592,6 +592,11 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 		this.view?.webview.postMessage({ type: 'streamStart' });
 		this.view?.webview.postMessage({ type: 'status', text: 'Gerando…' });
 		if (!simple) {
+			this.view?.webview.postMessage({
+				type: 'actionRun',
+				phase: 'planning',
+				resultSummary: 'A analisar o pedido...'
+			});
 			this.view?.webview.postMessage({ type: 'thinking', steps: [
 				{ label: 'Coletando Shadow Context...', state: 'done' },
 				{ label: 'THINKING: plano e RAG...', state: 'active' },
@@ -1165,6 +1170,20 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 	private postThinkingForState(state: string, hasContent = false): void {
 		const steps = thinkingStepsForAgentState(state);
 		this.view?.webview.postMessage({ type: 'thinking', steps });
+		const phase = actionRunPhaseForAgentState(state);
+		const activeStep = steps.find(s => s.state === 'active');
+		this.view?.webview.postMessage({
+			type: 'actionRun',
+			phase,
+			actionRun: {
+				tasks: steps.map(s => ({
+					id: s.label,
+					label: s.label,
+					state: s.state === 'active' ? 'active' : s.state === 'done' ? 'done' : 'pending'
+				}))
+			},
+			resultSummary: activeStep ? `${activeStep.label}...` : undefined
+		});
 		const status = mapAgentJobStateToStatus(state, hasContent);
 		void setPrincyAiStatus({ kind: status.kind, label: status.label, detail: state });
 		this.view?.webview.postMessage({ type: 'status', text: status.label.replace(/^IA:\s*/, '') });

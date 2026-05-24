@@ -132,7 +132,7 @@ Write-Host "`n[4] Agent backend (reinstalar se necessario)" -ForegroundColor Cya
 $agentHealth = Test-HttpJson "Agent direto" "http://127.0.0.1:3210/api/agent/health"
 $errTail = $null
 if (Test-Path $errLog) {
-	$errTail = Get-Content $errLog -Tail 20 -Raw -ErrorAction SilentlyContinue
+	$errTail = (Get-Content $errLog -Tail 20 -ErrorAction SilentlyContinue) -join "`n"
 }
 if ($errTail -match 'FST_ERR_DEC_ALREADY_PRESENT|sendFile.*already been added') {
 	Add-Warn "Log com crash sendFile duplicado - rebuild backend necessario (git pull + build-princy-agent-backend.ps1)"

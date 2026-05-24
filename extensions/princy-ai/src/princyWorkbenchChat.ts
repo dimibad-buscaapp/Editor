@@ -135,6 +135,7 @@ export async function ensureCursorLayoutOnStartup(): Promise<void> {
 
 /** Abre o container Princy Ai — não chama princyai.chat.focus (evita loop com provider.focus). */
 export async function focusPrincyChatPanel(): Promise<void> {
+	await tryCommand('princy.unlockEditorLayout');
 	await tryCommand('workbench.action.restoreAuxiliaryBar');
 	const steps = [
 		PRINCY_CHAT_VIEW,

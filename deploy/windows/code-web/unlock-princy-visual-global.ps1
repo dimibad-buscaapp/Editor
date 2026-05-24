@@ -50,17 +50,20 @@ if ($SkipFullCompile) {
 	& powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "deploy-princy-after-pull.ps1") -ProjectRoot $ProjectRoot
 } else {
 	& powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "force-princy-visual-web.ps1") -ProjectRoot $ProjectRoot
+	if ($LASTEXITCODE -ne 0) {
+		throw "force-princy-visual-web falhou (exit $LASTEXITCODE). Veja erros de compile acima."
+	}
 }
 
 $extJs = Join-Path $ProjectRoot "extensions\princy-ai\dist\browser\extension.js"
-$revMarker = 'cursor-editor-2026.05.24-unlock'
-if (Test-Path $extJs) {
-	if (Select-String -Path $extJs -Pattern $revMarker -Quiet) {
-		Write-Host "OK: extension.js com revisao $revMarker" -ForegroundColor Green
-	} else {
-		Write-Host "AVISO: extension.js sem $revMarker - compile-web incompleto" -ForegroundColor Yellow
-	}
+$revMarker = 'cursor-agent-2026.05.25-r2'
+if (-not (Test-Path $extJs)) {
+	throw "Falta $extJs - compile nao gerou bundle browser."
 }
+if (-not (Select-String -Path $extJs -Pattern $revMarker -Quiet)) {
+	throw "extension.js sem $revMarker - compile incompleto. Faca git pull e repita o script."
+}
+Write-Host "OK: extension.js com revisao $revMarker" -ForegroundColor Green
 
 Write-Host ""
 Write-Host "=== Concluido ===" -ForegroundColor Green

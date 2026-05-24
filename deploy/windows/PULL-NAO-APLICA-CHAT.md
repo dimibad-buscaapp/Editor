@@ -24,7 +24,19 @@ powershell -ExecutionPolicy Bypass -File .\deploy\windows\code-web\deploy-princy
 
 Tempo tipico: 1–3 minutos (so `bundle-web` da extensao).
 
-Se mudou tambem o workbench ou proxy `/princy-api` no servidor:
+**Importante (layout maximizado + chat antigo):** estas alteracoes incluem `src/vs/workbench/browser/layout.ts`. Para o chat **nao abrir maximizado**, use o script completo (apaga cache de layout + recompila workbench):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\deploy\windows\code-web\unlock-princy-visual-global.ps1 -ProjectRoot "C:\Apps\Editor"
+```
+
+Se mudou apenas CSS/HTML da extensao (sem workbench):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\deploy\windows\code-web\deploy-princy-after-pull.ps1 -ProjectRoot "C:\Apps\Editor"
+```
+
+Se mudou tambem o proxy `/princy-api` no servidor:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\deploy\windows\code-web\deploy-princy-after-pull.ps1 -ProjectRoot "C:\Apps\Editor" -FullCompile
@@ -34,7 +46,7 @@ Depois no browser: **Ctrl+F5**.
 
 ## Como confirmar que aplicou
 
-1. **DevTools** no painel do chat → `document.body.dataset.princyUiRev` = `cursor-editor-2026.05.23`
+1. **DevTools** no painel do chat → `document.body.dataset.princyUiRev` = `cursor-agent-2026.05.25-r2`
 2. Activity bar com icone **+** (Criar) e lista de 5 tipos de projeto
 3. Cabecalho do chat: **Princy** + faixa vermelha **Reconectar** se offline
 

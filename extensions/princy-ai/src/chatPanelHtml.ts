@@ -710,8 +710,8 @@ export function buildChatPanelHtml(cspSource: string, nonce: string, styleUri?: 
 		.loading-dots span:nth-child(3) { animation-delay: 0.3s; }
 	</style>
 </head>
-<body data-princy-ui-rev="${PRINCY_CHAT_UI_REVISION}">
-	<div class="chat-panel">
+<body data-princy-ui-rev="${PRINCY_CHAT_UI_REVISION}" class="cursor-agent-ui">
+	<div class="chat-panel cursor-shell">
 		<header class="chat-header cursor-header">
 			<div class="cursor-header-left">
 				<span class="cursor-header-title">Princy</span>
@@ -735,11 +735,6 @@ export function buildChatPanelHtml(cspSource: string, nonce: string, styleUri?: 
 			<button type="button" class="chat-mode-pill" data-mode="apiStudio">API Studio</button>
 			<button type="button" class="chat-mode-pill" data-mode="automationStudio">Automations</button>
 			<button type="button" class="chat-mode-pill" data-mode="creator">Creator</button>
-		</div>
-		<div class="action-run-panel" id="actionRunPanel" style="display:none" aria-live="polite">
-			<div class="action-run-title">Painel de acao</div>
-			<div class="action-run-steps" id="actionRunSteps"></div>
-			<div class="action-run-result" id="actionRunResult"></div>
 		</div>
 		<div class="build-center-panel" id="buildCenterPanel" style="display:none">
 			<div class="build-center-header">
@@ -858,6 +853,11 @@ export function buildChatPanelHtml(cspSource: string, nonce: string, styleUri?: 
 			<div class="chat-history-list" id="historyList"></div>
 		</details>
 		<div class="chat-scroll" id="scroll">
+			<div class="action-run-panel cursor-agent-track" id="actionRunPanel" aria-live="polite">
+				<div class="action-run-title">Agent</div>
+				<div class="action-run-steps" id="actionRunSteps"></div>
+				<div class="action-run-result" id="actionRunResult"></div>
+			</div>
 			<div class="chat-welcome" id="empty">
 				<div class="chat-welcome-icon">◇</div>
 				<h2>Ask anything</h2>
@@ -1035,6 +1035,7 @@ function getChatPanelScript(): string {
 		input.removeAttribute('disabled');
 		setTimeout(() => input.focus(), 50);
 		setChatMode('agent', true);
+		renderActionRunPanel('idle', null, 'Pronto — descreva a tarefa.');
 
 		function insertAtInput(text) {
 			input.value = (input.value + (input.value.endsWith(' ') || !input.value ? '' : ' ') + text).trimStart();
@@ -1118,8 +1119,13 @@ function getChatPanelScript(): string {
 			}
 			if (creatorPanel) creatorPanel.style.display = mode === 'creator' ? 'flex' : 'none';
 			if (input && mode === 'creator') input.placeholder = MODE_PLACEHOLDERS.creator;
-			if (actionRunPanel && (mode === 'chat' || mode === 'creator' || mode === 'buildCenter')) {
-				actionRunPanel.style.display = 'none';
+			if (actionRunPanel) {
+				if (mode === 'agent' || mode === 'composer') {
+					actionRunPanel.style.display = 'flex';
+					actionRunPanel.classList.add('cursor-agent-track');
+				} else {
+					actionRunPanel.style.display = 'none';
+				}
 			}
 			if (!fromHost) {
 				vscode.postMessage({ type: 'setChatMode', mode });
@@ -1552,13 +1558,29 @@ function getChatPanelScript(): string {
 
 		function renderActionRunPanel(phase, actionRun, resultSummary) {
 			if (!actionRunPanel || !actionRunSteps) return;
-			actionRunPanel.style.display = 'flex';
+			actionRunPanel.style.display = (currentMode === 'agent' || currentMode === 'composer') ? 'flex' : 'none';
 			actionRunSteps.innerHTML = '';
-			const tasks = (actionRun && actionRun.tasks) || ACTION_STEP_LABELS.map((label, i) => ({
-				id: 's' + i,
-				label,
-				state: 'pending'
-			}));
+			let tasks = (actionRun && actionRun.tasks) || [];
+			if (!tasks.length && phase && phase !== 'idle') {
+				const idx = {
+					planning: 0, reading: 1, generating: 2, applying: 3,
+					awaiting_approval: 4, building: 5, verifying: 6, testing: 6,
+					done: 7, completed: 7, success: 7, failed: 7, cancelled: -1
+				};
+				const activeAt = idx[phase] ?? 0;
+				tasks = ACTION_STEP_LABELS.map((label, i) => ({
+					id: 's' + i,
+					label,
+					state: i < activeAt ? 'done' : i === activeAt ? 'active' : 'pending'
+				}));
+			}
+			if (!tasks.length) {
+				tasks = ACTION_STEP_LABELS.map((label, i) => ({
+					id: 's' + i,
+					label,
+					state: phase === 'idle' ? 'pending' : (i === 0 ? 'active' : 'pending')
+				}));
+			}
 			for (const task of tasks) {
 				const step = document.createElement('div');
 				step.className = 'action-step ' + (task.state || 'pending');
@@ -1566,7 +1588,21 @@ function getChatPanelScript(): string {
 				actionRunSteps.appendChild(step);
 			}
 			if (actionRunResult) {
-				actionRunResult.textContent = resultSummary || (phase === 'awaiting_approval' ? 'Revise o diff e aprove para aplicar.' : '');
+				const defaults = {
+					idle: 'Pronto — descreva a tarefa no campo abaixo.',
+					planning: 'Planejando...',
+					generating: 'A gerar resposta...',
+					applying: 'A aplicar alteracoes...',
+					awaiting_approval: 'Revise o diff e aprove para aplicar.',
+					building: 'Compilando...',
+					verifying: 'A testar...',
+					done: 'Concluido.',
+					completed: 'Concluido.',
+					success: 'Concluido.',
+					failed: 'Falhou — veja a mensagem abaixo.',
+					cancelled: 'Cancelado.'
+				};
+				actionRunResult.textContent = resultSummary || defaults[phase] || '';
 			}
 		}
 
@@ -1725,6 +1761,9 @@ function getChatPanelScript(): string {
 			const text = input.value.trim();
 			if (!text) return;
 			hideEmpty();
+			if (currentMode === 'agent' || currentMode === 'composer') {
+				renderActionRunPanel('planning', null, 'A iniciar tarefa...');
+			}
 			if (currentMode === 'composer') {
 				const picked = !agent || agent.value === 'auto' ? 'princy' : agent.value;
 				vscode.postMessage({ type: 'requestComposer', text, agent: picked });
@@ -1941,6 +1980,7 @@ function getChatPanelScript(): string {
 			if (message.type === 'mentionSuggestions') renderMentionMenu(message.items || []);
 			if (message.type === 'streamStart') {
 				hideEmpty();
+				renderActionRunPanel('generating', null, 'A gerar resposta...');
 				streamTargetText = '';
 				streamDisplayed = 0;
 				if (streamRaf) cancelAnimationFrame(streamRaf);
@@ -1958,6 +1998,9 @@ function getChatPanelScript(): string {
 				scheduleStreamReveal();
 			}
 			if (message.type === 'streamEnd') {
+				if (currentMode === 'agent' || currentMode === 'composer') {
+					renderActionRunPanel('done', null, 'Concluido.');
+				}
 				if (streamRaf) {
 					cancelAnimationFrame(streamRaf);
 					streamRaf = 0;

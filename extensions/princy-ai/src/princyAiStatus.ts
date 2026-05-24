@@ -73,6 +73,36 @@ export function mapAgentJobStateToStatus(state: string, hasContent = false): Pri
 	return { kind: 'ready', label: labelForPrincyAiStatus('ready') };
 }
 
+/** Fase do painel Agent (track estilo Cursor) a partir do estado do job. */
+export function actionRunPhaseForAgentState(state: string): string {
+	const upper = state.toUpperCase();
+	if (upper === 'THINKING' || upper === 'PLANNING') {
+		return 'planning';
+	}
+	if (upper === 'GENERATING') {
+		return 'generating';
+	}
+	if (upper === 'AWAITING_APPROVAL') {
+		return 'awaiting_approval';
+	}
+	if (upper === 'APPLYING') {
+		return 'applying';
+	}
+	if (upper === 'COMPILING') {
+		return 'building';
+	}
+	if (upper === 'TESTING' || upper === 'HEALING') {
+		return 'verifying';
+	}
+	if (upper === 'SUCCESS') {
+		return 'done';
+	}
+	if (upper === 'FAILED') {
+		return 'failed';
+	}
+	return 'planning';
+}
+
 export function thinkingStepsForAgentState(state: string): Array<{ label: string; state: 'active' | 'done' | 'pending' }> {
 	const upper = state.toUpperCase();
 	const order = ['THINKING', 'PLANNING', 'AWAITING_APPROVAL', 'APPLYING', 'COMPILING', 'TESTING'] as const;
