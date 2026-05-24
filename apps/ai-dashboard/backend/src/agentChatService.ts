@@ -32,6 +32,9 @@ export type AgentChatRequest = {
 	readonly mode?: 'chat' | 'composer' | 'agent' | 'builder';
 	readonly actionOnlyExplain?: boolean;
 	readonly skipPostApply?: boolean;
+	readonly buildTarget?: 'web' | 'api' | 'exe' | 'apk';
+	readonly autoPublish?: boolean;
+	readonly projectSlug?: string;
 };
 
 function resolveSegment(body: AgentChatRequest): ModelSegment {

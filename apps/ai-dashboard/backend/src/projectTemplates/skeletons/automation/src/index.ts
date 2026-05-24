@@ -1,3 +1,7 @@
 import cron from 'node-cron';
-console.log('{{PROJECT_NAME}} automation started');
-cron.schedule('*/5 * * * *', () => console.log('[cron]', new Date().toISOString(), 'heartbeat'));
+import './jobs/index.js';
+
+console.log('{{PROJECT_NAME}} automation scheduler active');
+
+// Keep process alive
+process.stdin.resume();

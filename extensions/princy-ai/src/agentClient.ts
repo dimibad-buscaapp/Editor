@@ -228,7 +228,7 @@ export interface BuildJobSnapshot {
 
 export type ProjectTemplateId =
 	| 'apk' | 'exe' | 'webapp' | 'saas' | 'api' | 'express-api' | 'webhook'
-	| 'automation' | 'bot' | 'dashboard' | 'landing'
+	| 'automation' | 'bot' | 'powershell-script' | 'browser-bot' | 'api-integration' | 'chatbot-support' | 'dashboard' | 'landing'
 	| 'auth' | 'payments' | 'database';
 
 export interface ApiStudioProjectInfo {
@@ -240,6 +240,20 @@ export interface ApiStudioProjectInfo {
 	readonly docsUrl: string;
 	readonly openapiUrl: string;
 	readonly healthUrl: string;
+}
+
+export interface AutomationStudioProjectInfo {
+	readonly slug: string;
+	readonly projectPath: string;
+	readonly type: 'powershell' | 'node-cron' | 'playwright' | 'webhook' | 'api-client' | 'chatbot' | 'unknown';
+	readonly hasPrisma: boolean;
+	readonly entryScript?: string;
+	readonly schedule?: string;
+	readonly taskName?: string;
+	readonly lastRunAt?: number;
+	readonly lastRunStatus?: 'success' | 'error';
+	readonly lastHealthCheck?: number;
+	readonly lastFailure?: string;
 }
 
 export interface ProjectTemplateSummary {
@@ -604,6 +618,77 @@ export class AgentClient {
 			failed: result.failed ?? 0,
 			baseUrl: result.baseUrl ?? ''
 		};
+	}
+
+	public async getAutomationStudioInfo(slug: string, projectPath?: string): Promise<AutomationStudioProjectInfo> {
+		const q = projectPath ? `?projectPath=${encodeURIComponent(projectPath)}` : '';
+		const result = await this.get<{ readonly ok: boolean; readonly project: AutomationStudioProjectInfo }>(
+			`/api/automations/${encodeURIComponent(slug)}${q}`
+		);
+		if (!result.project) {
+			throw new Error('Projeto de automacao nao encontrado');
+		}
+		return result.project;
+	}
+
+	public async scaffoldAutomation(
+		slug: string,
+		input: { readonly name: string; readonly schedule?: string; readonly description?: string; readonly projectPath?: string }
+	): Promise<{ readonly filePath: string }> {
+		const result = await this.post<{ readonly ok: boolean; readonly filePath?: string; readonly message?: string }>(
+			`/api/automations/${encodeURIComponent(slug)}/scaffold`,
+			input
+		);
+		if (!result.ok || !result.filePath) {
+			throw new Error(result.message ?? 'Falha ao gerar automacao');
+		}
+		return { filePath: result.filePath };
+	}
+
+	public async runAutomation(slug: string, projectPath?: string): Promise<{ readonly exitCode: number; readonly output: string }> {
+		const result = await this.post<{ readonly ok: boolean; readonly exitCode?: number; readonly output?: string; readonly message?: string }>(
+			`/api/automations/${encodeURIComponent(slug)}/run`,
+			projectPath ? { projectPath } : {}
+		);
+		if (!result.ok) {
+			throw new Error(result.message ?? 'Falha ao executar automacao');
+		}
+		return { exitCode: result.exitCode ?? 1, output: result.output ?? '' };
+	}
+
+	public async testAutomation(slug: string, projectPath?: string): Promise<{ readonly exitCode: number; readonly output: string }> {
+		const result = await this.post<{ readonly ok: boolean; readonly exitCode?: number; readonly output?: string; readonly message?: string }>(
+			`/api/automations/${encodeURIComponent(slug)}/test`,
+			projectPath ? { projectPath } : {}
+		);
+		return {
+			exitCode: result.exitCode ?? (result.ok ? 0 : 1),
+			output: result.output ?? result.message ?? ''
+		};
+	}
+
+	public async scheduleAutomation(slug: string, schedule: string, projectPath?: string): Promise<{ readonly localInstructions?: string }> {
+		const result = await this.post<{ readonly ok: boolean; readonly localInstructions?: string; readonly message?: string }>(
+			`/api/automations/${encodeURIComponent(slug)}/schedule`,
+			{ schedule, ...(projectPath ? { projectPath } : {}) }
+		);
+		if (!result.ok) {
+			throw new Error(result.message ?? 'Falha ao agendar');
+		}
+		return { localInstructions: result.localInstructions };
+	}
+
+	public async runAutomationPipeline(
+		slug: string,
+		recipe: 'full-stack-web' | 'api-deploy' | 'daily-script',
+		options?: { readonly autoPublish?: boolean; readonly projectPath?: string }
+	): Promise<{ readonly ok: boolean; readonly steps: readonly { readonly stepId: string; readonly ok: boolean; readonly message?: string }[] }> {
+		const result = await this.post<{
+			readonly ok: boolean;
+			readonly steps?: readonly { readonly stepId: string; readonly ok: boolean; readonly message?: string }[];
+			readonly message?: string;
+		}>(`/api/automations/${encodeURIComponent(slug)}/pipeline`, { recipe, ...options });
+		return { ok: result.ok, steps: result.steps ?? [] };
 	}
 
 	public async pollBuildCenter(

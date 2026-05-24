@@ -137,6 +137,11 @@ export const config = {
 	sitesPreviewPathPrefix: '/princy-sites-preview',
 	/** Origem publica para URLs de sites (ex. https://princyai.com). */
 	publicOrigin: stripTrailingSlash(process.env.PRINCY_PUBLIC_ORIGIN ?? 'https://princyai.com'),
+	/** Fase 10: manifests de automacao em workspace-storage/princy-automations */
+	automationsRoot: (() => {
+		const storageRoot = path.resolve(process.env.WORKSPACE_STORAGE_ROOT ?? './workspace-storage');
+		return path.resolve(process.env.PRINCY_AUTOMATIONS_ROOT ?? path.join(storageRoot, 'princy-automations'));
+	})(),
 	buildArtifactMaxMb: Number(process.env.PRINCY_BUILD_ARTIFACT_MAX_MB ?? '500'),
 	compileJobWaitTimeoutMs: Number(process.env.PRINCY_COMPILE_WAIT_MS ?? String(30 * 60_000)),
 	allowedWorkspaceRoots: (() => {
@@ -152,6 +157,9 @@ export const config = {
 		const sitesPreviewRoot = path.resolve(
 			process.env.PRINCY_SITES_PREVIEW_ROOT ?? path.join(storageRoot, 'princy-sites-preview')
 		);
+		const automationsRoot = path.resolve(
+			process.env.PRINCY_AUTOMATIONS_ROOT ?? path.join(storageRoot, 'princy-automations')
+		);
 		const extra = (process.env.PRINCY_ALLOWED_WORKSPACE_ROOTS ?? '')
 			.split(',')
 			.map(value => value.trim())
@@ -164,6 +172,7 @@ export const config = {
 			buildsRoot,
 			sitesPublishedRoot,
 			sitesPreviewRoot,
+			automationsRoot,
 			storageRoot
 		])];
 	})()

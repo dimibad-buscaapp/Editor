@@ -11,6 +11,13 @@ import { runDebugAutoHeal } from '../orchestrator/orchestrator.js';
 import type { ModelSegment } from '../orchestrator/types.js';
 import { runProjectTests } from '../testRunner.js';
 import { indexEditorProject } from '../workspaceIndexer.js';
+import { getBuildStatus, startBuild } from '../build/buildCenterService.js';
+import type { BuildTarget } from '../projectTemplates/types.js';
+import { getApiProjectInfo } from '../apiStudio/apiStudioService.js';
+import { startDevServer } from '../apiStudio/devProcessManager.js';
+import { defaultSmokeTests, runEndpointTests } from '../apiStudio/endpointTester.js';
+import { syncPreview, publishSite } from '../sites/webSiteService.js';
+import { resolveProjectPath } from '../projectCreatorService.js';
 import { appendThinking, createJob, getJob, toActionRunSnapshot, toSnapshot, updateJob } from './store.js';
 import type { AgentJobRecord, AgentJobSnapshot } from './types.js';
 
@@ -162,7 +169,7 @@ async function runAgentJobPipeline(jobId: string): Promise<void> {
 		return;
 	}
 
-	if (mode === 'agent' || mode === 'composer') {
+	if (mode === 'agent' || mode === 'composer' || mode === 'builder') {
 		await runActionPipelineJob(jobId, job, segment, mode);
 		return;
 	}
@@ -227,7 +234,7 @@ async function runActionPipelineJob(
 	jobId: string,
 	job: AgentJobRecord,
 	segment: ModelSegment,
-	mode: 'agent' | 'composer'
+	mode: 'agent' | 'composer' | 'builder'
 ): Promise<void> {
 	updateJob(jobId, { state: 'THINKING' });
 	appendThinking(jobId, `Segmento: ${segment} | Modo: ${mode}`);
@@ -358,6 +365,14 @@ async function runPostApplyPhase(
 		return;
 	}
 
+	const mode = job.mode ?? job.request.mode ?? 'agent';
+	if (mode === 'builder' || job.request.buildTarget) {
+		const buildOk = await runPostBuildPhase(jobId, job, plan, composerPlan, compileValidation.status);
+		if (!buildOk) {
+			return;
+		}
+	}
+
 	const finalStatus = compileValidation.status;
 	await finishAfterApply(
 		jobId,
@@ -367,6 +382,100 @@ async function runPostApplyPhase(
 		finalStatus,
 		`Pipeline concluido. Compile: ${finalStatus}.`
 	);
+}
+
+async function waitForBuildComplete(buildId: string, timeoutMs = 1_800_000): Promise<{ ok: boolean; previewUrl?: string }> {
+	const startedAt = Date.now();
+	while (Date.now() - startedAt < timeoutMs) {
+		const status = getBuildStatus(buildId);
+		if (!status) {
+			return { ok: false };
+		}
+		if (status.status === 'success') {
+			return { ok: true, previewUrl: status.previewUrl };
+		}
+		if (status.status === 'error') {
+			return { ok: false };
+		}
+		await new Promise(resolve => setTimeout(resolve, 3000));
+	}
+	return { ok: false };
+}
+
+async function runPostBuildPhase(
+	jobId: string,
+	job: AgentJobRecord,
+	plan: string[],
+	composerPlan: NonNullable<AgentJobRecord['composerPlan']>,
+	compileStatus: import('../orchestrator/types.js').VpsCompileStatus
+): Promise<boolean> {
+	const buildTarget = job.request.buildTarget ?? 'web';
+	const projectSlug = job.request.projectSlug?.trim();
+	appendThinking(jobId, `Build Center: iniciando build ${buildTarget}${projectSlug ? ` (${projectSlug})` : ''}...`);
+	syncActionPhase(jobId);
+
+	try {
+		const started = startBuild({
+			type: buildTarget as BuildTarget,
+			...(projectSlug ? { projectSlug } : {})
+		});
+		updateJob(jobId, { buildJobId: started.buildId });
+		appendThinking(jobId, `Build job ${started.buildId} em curso...`);
+
+		const buildResult = await waitForBuildComplete(started.buildId);
+		if (!buildResult.ok) {
+			updateJob(jobId, {
+				state: 'FAILED',
+				status: 'FAILED',
+				error: 'Build falhou',
+				resultSummary: 'Compile OK; build do projeto falhou.',
+				response: buildPreviewResponse(job, composerPlan, plan, compileStatus, getJob(jobId)?.testOutput)
+			});
+			appendThinking(jobId, 'Build falhou.');
+			syncActionPhase(jobId);
+			return false;
+		}
+		appendThinking(jobId, `Build concluido${buildResult.previewUrl ? `: ${buildResult.previewUrl}` : ''}.`);
+
+		if (buildTarget === 'api' && projectSlug) {
+			appendThinking(jobId, 'API Studio: testando endpoints...');
+			try {
+				const info = getApiProjectInfo(projectSlug);
+				await startDevServer(projectSlug, info.projectPath);
+				const testResult = await runEndpointTests(`http://127.0.0.1:${info.port}`, defaultSmokeTests());
+				appendThinking(jobId, `API test passed=${testResult.passed} failed=${testResult.failed}`);
+			} catch (error) {
+				appendThinking(jobId, `API test ignorado: ${error instanceof Error ? error.message : String(error)}`);
+			}
+		}
+
+		if (buildTarget === 'web' && projectSlug) {
+			appendThinking(jobId, 'Sites: sincronizando preview...');
+			try {
+				const projectPath = resolveProjectPath(projectSlug);
+				const previewUrl = await syncPreview(projectSlug, projectPath);
+				appendThinking(jobId, `Preview: ${previewUrl}`);
+				if (job.request.autoPublish) {
+					const published = await publishSite(projectSlug, projectPath);
+					appendThinking(jobId, `Publicado: ${published.publishedUrl}`);
+				}
+			} catch (error) {
+				appendThinking(jobId, `Sites: ${error instanceof Error ? error.message : String(error)}`);
+			}
+		}
+
+		return true;
+	} catch (error) {
+		updateJob(jobId, {
+			state: 'FAILED',
+			status: 'FAILED',
+			error: error instanceof Error ? error.message : String(error),
+			resultSummary: 'Falha na fase de build/publicacao.'
+		});
+		appendThinking(jobId, `Build phase falhou: ${error instanceof Error ? error.message : String(error)}`);
+		syncActionPhase(jobId);
+		return false;
+	}
 }
 
 async function finishAfterApply(

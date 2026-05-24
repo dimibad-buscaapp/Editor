@@ -7,8 +7,11 @@ import * as vscode from 'vscode';
 import { TerminalCommandResult } from './agentClient';
 
 const ALLOWED_COMMANDS = [
-	/^npm (run )?(test|build|lint)(\b|$)/,
+	/^npm (run )?(test|build|lint|start|dev)(\b|$)/,
 	/^npm run [\w:-]+(\b|$)/,
+	/^node scripts\/[\w.-]+\.mjs(\b|$)/,
+	/^npx playwright [\w:-]+(\b|$)/,
+	/^powershell(\.exe)? -(?:NoProfile )?(?:ExecutionPolicy Bypass )?-File [\w./\\-]+\.ps1(\b|$)/,
 	/^python -m pytest(\b|$)/,
 	/^pytest(\b|$)/
 ];

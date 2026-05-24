@@ -56,6 +56,13 @@ type WebviewMessage =
 	| { readonly type: 'apiStudioMigrate'; readonly slug: string }
 	| { readonly type: 'apiStudioTest'; readonly slug: string }
 	| { readonly type: 'apiStudioOpenDocs'; readonly slug: string }
+	| { readonly type: 'loadAutomationStudioInfo'; readonly slug: string }
+	| { readonly type: 'automationScaffold'; readonly slug: string; readonly name: string; readonly schedule?: string }
+	| { readonly type: 'automationSchedule'; readonly slug: string; readonly schedule: string }
+	| { readonly type: 'automationRun'; readonly slug: string }
+	| { readonly type: 'automationTest'; readonly slug: string }
+	| { readonly type: 'automationPipeline'; readonly slug: string; readonly recipe: 'full-stack-web' | 'api-deploy' | 'daily-script' }
+	| { readonly type: 'automationRunLocal'; readonly slug: string }
 	| { readonly type: 'createProject'; readonly templateId: ProjectTemplateId; readonly projectName: string; readonly runInstall?: boolean }
 	| { readonly type: 'openCreatedProject'; readonly projectPath: string }
 	| { readonly type: 'buildCreatedProject'; readonly projectPath: string; readonly target: import('./agentClient').BuildTarget };
@@ -209,6 +216,27 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 				break;
 			case 'apiStudioOpenDocs':
 				await this.apiStudioOpenDocs(message.slug);
+				break;
+			case 'loadAutomationStudioInfo':
+				await this.loadAutomationStudioInfo(message.slug);
+				break;
+			case 'automationScaffold':
+				await this.automationScaffold(message.slug, message.name, message.schedule);
+				break;
+			case 'automationSchedule':
+				await this.automationSchedule(message.slug, message.schedule);
+				break;
+			case 'automationRun':
+				await this.automationRun(message.slug);
+				break;
+			case 'automationTest':
+				await this.automationTest(message.slug);
+				break;
+			case 'automationPipeline':
+				await this.automationPipeline(message.slug, message.recipe);
+				break;
+			case 'automationRunLocal':
+				await this.automationRunLocal(message.slug);
 				break;
 			case 'createProject':
 				await this.runCreateProject(message.templateId, message.projectName, message.runInstall ?? true);
@@ -424,7 +452,7 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 		if (chatMode === 'agent' || chatMode === 'chat') {
 			return true;
 		}
-		if (chatMode === 'composer' || chatMode === 'builder' || chatMode === 'buildCenter' || chatMode === 'apiStudio' || chatMode === 'creator') {
+		if (chatMode === 'composer' || chatMode === 'builder' || chatMode === 'buildCenter' || chatMode === 'apiStudio' || chatMode === 'automationStudio' || chatMode === 'creator') {
 			return false;
 		}
 		return !this.isSimpleChatMode();
@@ -920,6 +948,107 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 		try {
 			const info = await this.client.getApiStudioInfo(slug);
 			await vscode.env.openExternal(vscode.Uri.parse(info.docsUrl));
+		} catch (error) {
+			const errText = error instanceof Error ? error.message : String(error);
+			void vscode.window.showErrorMessage(errText);
+		}
+	}
+
+	private async loadAutomationStudioInfo(slug: string): Promise<void> {
+		try {
+			const info = await this.client.getAutomationStudioInfo(slug);
+			this.view?.webview.postMessage({ type: 'automationStudioInfo', info });
+		} catch {
+			this.view?.webview.postMessage({ type: 'automationStudioInfo', info: null });
+		}
+	}
+
+	private async automationScaffold(slug: string, name: string, schedule?: string): Promise<void> {
+		this.view?.webview.postMessage({ type: 'automationStudioStatus', status: 'compiling' });
+		this.view?.webview.postMessage({ type: 'automationStudioLog', text: `[gerar] ${name}\n` });
+		try {
+			const result = await this.client.scaffoldAutomation(slug, { name, schedule });
+			this.view?.webview.postMessage({ type: 'automationStudioLog', text: `[ok] ${result.filePath}\n` });
+			this.view?.webview.postMessage({ type: 'automationStudioStatus', status: 'success' });
+		} catch (error) {
+			const errText = error instanceof Error ? error.message : String(error);
+			this.view?.webview.postMessage({ type: 'automationStudioLog', text: `[erro] ${errText}\n` });
+			this.view?.webview.postMessage({ type: 'automationStudioStatus', status: 'error' });
+		}
+	}
+
+	private async automationSchedule(slug: string, schedule: string): Promise<void> {
+		this.view?.webview.postMessage({ type: 'automationStudioStatus', status: 'compiling' });
+		try {
+			const result = await this.client.scheduleAutomation(slug, schedule);
+			this.view?.webview.postMessage({
+				type: 'automationStudioLog',
+				text: `[agendar] ${schedule}\n${result.localInstructions ?? ''}\n`
+			});
+			this.view?.webview.postMessage({ type: 'automationStudioStatus', status: 'success' });
+		} catch (error) {
+			const errText = error instanceof Error ? error.message : String(error);
+			this.view?.webview.postMessage({ type: 'automationStudioLog', text: `[erro] ${errText}\n` });
+			this.view?.webview.postMessage({ type: 'automationStudioStatus', status: 'error' });
+		}
+	}
+
+	private async automationRun(slug: string): Promise<void> {
+		this.view?.webview.postMessage({ type: 'automationStudioStatus', status: 'compiling' });
+		try {
+			const result = await this.client.runAutomation(slug);
+			this.view?.webview.postMessage({
+				type: 'automationStudioLog',
+				text: `[run] exit=${result.exitCode}\n${result.output}\n`
+			});
+			this.view?.webview.postMessage({ type: 'automationStudioStatus', status: result.exitCode === 0 ? 'success' : 'error' });
+		} catch (error) {
+			const errText = error instanceof Error ? error.message : String(error);
+			this.view?.webview.postMessage({ type: 'automationStudioLog', text: `[erro] ${errText}\n` });
+			this.view?.webview.postMessage({ type: 'automationStudioStatus', status: 'error' });
+		}
+	}
+
+	private async automationTest(slug: string): Promise<void> {
+		this.view?.webview.postMessage({ type: 'automationStudioStatus', status: 'compiling' });
+		try {
+			const result = await this.client.testAutomation(slug);
+			this.view?.webview.postMessage({
+				type: 'automationStudioLog',
+				text: `[test] exit=${result.exitCode}\n${result.output}\n`
+			});
+			this.view?.webview.postMessage({ type: 'automationStudioStatus', status: result.exitCode === 0 ? 'success' : 'error' });
+		} catch (error) {
+			const errText = error instanceof Error ? error.message : String(error);
+			this.view?.webview.postMessage({ type: 'automationStudioLog', text: `[erro] ${errText}\n` });
+			this.view?.webview.postMessage({ type: 'automationStudioStatus', status: 'error' });
+		}
+	}
+
+	private async automationPipeline(slug: string, recipe: 'full-stack-web' | 'api-deploy' | 'daily-script'): Promise<void> {
+		this.view?.webview.postMessage({ type: 'automationStudioStatus', status: 'compiling' });
+		try {
+			const result = await this.client.runAutomationPipeline(slug, recipe, { autoPublish: false });
+			const lines = result.steps.map(s => `  ${s.stepId}: ${s.ok ? 'OK' : 'FALHA'} ${s.message ?? ''}`).join('\n');
+			this.view?.webview.postMessage({ type: 'automationStudioLog', text: `[pipeline ${recipe}]\n${lines}\n` });
+			this.view?.webview.postMessage({ type: 'automationStudioStatus', status: result.ok ? 'success' : 'error' });
+		} catch (error) {
+			const errText = error instanceof Error ? error.message : String(error);
+			this.view?.webview.postMessage({ type: 'automationStudioLog', text: `[erro] ${errText}\n` });
+			this.view?.webview.postMessage({ type: 'automationStudioStatus', status: 'error' });
+		}
+	}
+
+	private async automationRunLocal(slug: string): Promise<void> {
+		try {
+			const info = await this.client.getAutomationStudioInfo(slug);
+			const command = info.type === 'powershell'
+				? 'powershell -ExecutionPolicy Bypass -File run.ps1'
+				: 'npm run start';
+			const terminal = vscode.window.createTerminal({ name: `Princy Auto: ${slug}`, cwd: info.projectPath });
+			terminal.show();
+			terminal.sendText(command);
+			this.view?.webview.postMessage({ type: 'automationStudioLog', text: `[local] ${command}\n` });
 		} catch (error) {
 			const errText = error instanceof Error ? error.message : String(error);
 			void vscode.window.showErrorMessage(errText);

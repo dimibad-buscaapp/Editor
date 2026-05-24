@@ -6,7 +6,8 @@ import { createProject, getInstallJob } from './projectCreatorService.js';
 import { getTemplate, listTemplates } from './projectTemplates/index.js';
 
 const templateIdSchema = z.enum([
-	'apk', 'exe', 'webapp', 'saas', 'api', 'automation', 'bot',
+	'apk', 'exe', 'webapp', 'saas', 'api', 'express-api', 'webhook',
+	'automation', 'bot', 'powershell-script', 'browser-bot', 'api-integration', 'chatbot-support',
 	'dashboard', 'landing', 'auth', 'payments', 'database'
 ]);
 

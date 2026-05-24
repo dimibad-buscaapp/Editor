@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 
-export type ChatMode = 'chat' | 'composer' | 'agent' | 'builder' | 'buildCenter' | 'apiStudio' | 'creator';
+export type ChatMode = 'chat' | 'composer' | 'agent' | 'builder' | 'buildCenter' | 'apiStudio' | 'automationStudio' | 'creator';
 
 export interface ChatMessageTurn {
 	readonly role: 'user' | 'assistant';

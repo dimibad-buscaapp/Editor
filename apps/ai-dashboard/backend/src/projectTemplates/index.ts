@@ -78,16 +78,52 @@ export const templates: Record<ProjectTemplateId, ProjectTemplateDefinition> = {
 		stack: ['Node', 'node-cron'],
 		build: 'npm run build',
 		skeletonDir: 'automation',
-		tags: ['scripts', 'cron']
+		tags: ['scripts', 'cron', 'automation']
 	},
 	bot: {
 		id: 'bot',
 		name: 'Bot',
-		description: 'Bot Telegram/Discord com handlers modulares.',
+		description: 'Bot Telegram com handlers modulares.',
 		stack: ['Node', 'Telegraf'],
 		build: 'npm run build',
 		skeletonDir: 'bot',
 		tags: ['bot', 'telegram']
+	},
+	'powershell-script': {
+		id: 'powershell-script',
+		name: 'Script PowerShell',
+		description: 'Automacao Windows com scripts .ps1 parametrizados.',
+		stack: ['PowerShell', 'Windows'],
+		build: 'powershell -File run.ps1',
+		skeletonDir: 'powershell-script',
+		tags: ['scripts', 'powershell', 'windows']
+	},
+	'browser-bot': {
+		id: 'browser-bot',
+		name: 'Bot de navegador',
+		description: 'Automacao web com Playwright (login, scrape, click).',
+		stack: ['Node', 'Playwright'],
+		build: 'npm run build',
+		skeletonDir: 'browser-bot',
+		tags: ['automation', 'playwright', 'browser']
+	},
+	'api-integration': {
+		id: 'api-integration',
+		name: 'Integracao API',
+		description: 'Cliente HTTP com retry, tokens e jobs agendados.',
+		stack: ['Node', 'axios', 'node-cron'],
+		build: 'npm run build',
+		skeletonDir: 'api-integration',
+		tags: ['integration', 'api', 'cron']
+	},
+	'chatbot-support': {
+		id: 'chatbot-support',
+		name: 'Robo de atendimento',
+		description: 'Chatbot Telegram com FAQ e handoff webhook.',
+		stack: ['Node', 'Telegraf', 'Webhooks'],
+		build: 'npm run build',
+		skeletonDir: 'chatbot-support',
+		tags: ['bot', 'support', 'telegram']
 	},
 	dashboard: {
 		id: 'dashboard',

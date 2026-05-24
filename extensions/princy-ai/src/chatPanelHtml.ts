@@ -705,6 +705,7 @@ export function buildChatPanelHtml(cspSource: string, nonce: string, styleUri?: 
 			<button type="button" class="chat-mode-pill" data-mode="agent" role="tab">Agent</button>
 			<button type="button" class="chat-mode-pill" data-mode="buildCenter" role="tab">Build Center</button>
 			<button type="button" class="chat-mode-pill" data-mode="apiStudio" role="tab">API Studio</button>
+			<button type="button" class="chat-mode-pill" data-mode="automationStudio" role="tab">Automations</button>
 			<button type="button" class="chat-mode-pill" data-mode="creator" role="tab">Creator</button>
 		</div>
 		<div class="action-run-panel" id="actionRunPanel" style="display:none" aria-live="polite">
@@ -781,6 +782,35 @@ export function buildChatPanelHtml(cspSource: string, nonce: string, styleUri?: 
 			</div>
 			<div class="web-publisher-urls" id="apiStudioUrls"></div>
 			<pre class="build-center-log" id="apiStudioLog" aria-live="polite"></pre>
+		</div>
+		<div class="build-center-panel automation-studio-panel" id="automationStudioPanel" style="display:none">
+			<div class="build-center-header">
+				<span class="build-center-title">Princy Automations</span>
+				<span class="build-center-status-badge waiting" id="automationStudioStatusBadge">pronto</span>
+			</div>
+			<div class="web-publisher-stepper" aria-label="Fluxo Automacao">
+				<span class="web-step" data-step="create">1 Criar</span>
+				<span class="web-step" data-step="generate">2 Gerar</span>
+				<span class="web-step" data-step="schedule">3 Agendar</span>
+				<span class="web-step" data-step="run">4 Executar</span>
+				<span class="web-step" data-step="monitor">5 Monitorar</span>
+			</div>
+			<div class="build-center-form">
+				<label class="chat-sr-only" for="autoProject">Projeto</label>
+				<select id="autoProject" class="chat-model-select" title="Projeto">
+					<option value="">Selecione o projeto</option>
+				</select>
+				<input type="text" id="autoJobName" class="creator-input" placeholder="nome-do-job" style="min-width:100px" />
+				<input type="text" id="autoSchedule" class="creator-input" placeholder="*/15 * * * *" style="min-width:100px" />
+				<button type="button" class="chat-toolbar-btn" id="autoScaffoldBtn">Gerar</button>
+				<button type="button" class="chat-toolbar-btn" id="autoScheduleBtn">Agendar</button>
+				<button type="button" class="chat-toolbar-btn" id="autoRunBtn">Executar</button>
+				<button type="button" class="chat-toolbar-btn" id="autoTestBtn">Testar</button>
+				<button type="button" class="chat-toolbar-btn" id="autoPipelineBtn">Pipeline</button>
+				<button type="button" class="chat-toolbar-btn" id="autoRunLocalBtn">Executar aqui</button>
+			</div>
+			<div class="web-publisher-urls" id="automationStudioUrls"></div>
+			<pre class="build-center-log" id="automationStudioLog" aria-live="polite"></pre>
 		</div>
 		<div class="creator-panel" id="creatorPanel" style="display:none">
 			<div class="creator-header">
@@ -891,6 +921,7 @@ function getChatPanelScript(): string {
 			builder: 'Opcional: nota sobre o build…',
 			buildCenter: 'Nota opcional sobre o build…',
 			apiStudio: 'Projeto API selecionado — use os botoes do painel',
+			automationStudio: 'Projeto de automacao — use os botoes do painel Automations',
 			creator: 'Nome do projeto acima, depois escolha um template'
 		};
 		const creatorPanel = document.getElementById('creatorPanel');
@@ -917,6 +948,20 @@ function getChatPanelScript(): string {
 		const apiStudioUrls = document.getElementById('apiStudioUrls');
 		const apiStudioStatusBadge = document.getElementById('apiStudioStatusBadge');
 		let apiStudioProjects = [];
+		const automationStudioPanel = document.getElementById('automationStudioPanel');
+		const autoProject = document.getElementById('autoProject');
+		const autoJobName = document.getElementById('autoJobName');
+		const autoSchedule = document.getElementById('autoSchedule');
+		const autoScaffoldBtn = document.getElementById('autoScaffoldBtn');
+		const autoScheduleBtn = document.getElementById('autoScheduleBtn');
+		const autoRunBtn = document.getElementById('autoRunBtn');
+		const autoTestBtn = document.getElementById('autoTestBtn');
+		const autoPipelineBtn = document.getElementById('autoPipelineBtn');
+		const autoRunLocalBtn = document.getElementById('autoRunLocalBtn');
+		const automationStudioLog = document.getElementById('automationStudioLog');
+		const automationStudioUrls = document.getElementById('automationStudioUrls');
+		const automationStudioStatusBadge = document.getElementById('automationStudioStatusBadge');
+		let automationStudioProjects = [];
 		const bcBuildType = document.getElementById('bcBuildType');
 		const bcProject = document.getElementById('bcProject');
 		const bcStartBtn = document.getElementById('bcStartBtn');
@@ -1016,9 +1061,13 @@ function getChatPanelScript(): string {
 			if (composerBtn) composerBtn.style.display = mode === 'composer' ? 'none' : '';
 			if (buildCenterPanel) buildCenterPanel.style.display = mode === 'buildCenter' ? 'flex' : 'none';
 			if (apiStudioPanel) apiStudioPanel.style.display = mode === 'apiStudio' ? 'flex' : 'none';
+			if (automationStudioPanel) automationStudioPanel.style.display = mode === 'automationStudio' ? 'flex' : 'none';
 			if (mode === 'buildCenter') updateWebPublisherVisibility();
 			if (mode === 'apiStudio') {
 				renderApiStudioProjects(apiStudioProjects.length ? apiStudioProjects : buildCenterProjects);
+			}
+			if (mode === 'automationStudio') {
+				renderAutomationStudioProjects(automationStudioProjects.length ? automationStudioProjects : buildCenterProjects);
 			}
 			if (creatorPanel) creatorPanel.style.display = mode === 'creator' ? 'flex' : 'none';
 			if (input && mode === 'creator') input.placeholder = MODE_PLACEHOLDERS.creator;
@@ -1056,6 +1105,8 @@ function getChatPanelScript(): string {
 			}
 			apiStudioProjects = projects || [];
 			if (currentMode === 'apiStudio') renderApiStudioProjects(apiStudioProjects);
+			automationStudioProjects = projects || [];
+			if (currentMode === 'automationStudio') renderAutomationStudioProjects(automationStudioProjects);
 		}
 
 		function renderApiStudioProjects(projects) {
@@ -1139,6 +1190,97 @@ function getChatPanelScript(): string {
 			const slug = asProject?.value;
 			if (!slug) { setStatus('Selecione um projeto'); return; }
 			vscode.postMessage({ type: 'apiStudioOpenDocs', slug });
+		});
+
+		function renderAutomationStudioProjects(projects) {
+			if (!autoProject) return;
+			const current = autoProject.value;
+			autoProject.innerHTML = '<option value="">Selecione o projeto</option>';
+			for (const p of projects || []) {
+				const opt = document.createElement('option');
+				opt.value = p.slug;
+				opt.textContent = p.slug;
+				autoProject.appendChild(opt);
+			}
+			if (current && Array.from(autoProject.options).some(o => o.value === current)) {
+				autoProject.value = current;
+			}
+			if (autoProject.value) {
+				vscode.postMessage({ type: 'loadAutomationStudioInfo', slug: autoProject.value });
+			}
+		}
+
+		function appendAutomationStudioLog(text) {
+			if (!automationStudioLog || !text) return;
+			automationStudioLog.textContent += text;
+			automationStudioLog.scrollTop = automationStudioLog.scrollHeight;
+		}
+
+		function setAutomationStudioStatus(status) {
+			if (!automationStudioStatusBadge) return;
+			automationStudioStatusBadge.textContent = status;
+			automationStudioStatusBadge.className = 'build-center-status-badge ' + (status || 'waiting');
+		}
+
+		function renderAutomationStudioInfo(info) {
+			if (!automationStudioUrls) return;
+			automationStudioUrls.innerHTML = '';
+			if (!info) return;
+			const p = document.createElement('p');
+			p.textContent = (info.type || 'automation') + (info.schedule ? ' cron=' + info.schedule : '');
+			automationStudioUrls.appendChild(p);
+			if (info.lastRunStatus) {
+				const r = document.createElement('p');
+				r.textContent = 'Ultima execucao: ' + info.lastRunStatus;
+				automationStudioUrls.appendChild(r);
+			}
+		}
+
+		autoProject?.addEventListener('change', () => {
+			if (autoProject.value) vscode.postMessage({ type: 'loadAutomationStudioInfo', slug: autoProject.value });
+		});
+
+		autoScaffoldBtn?.addEventListener('click', () => {
+			const slug = autoProject?.value;
+			const name = (autoJobName?.value || '').trim();
+			if (!slug || !name) { setStatus('Selecione projeto e nome do job'); return; }
+			vscode.postMessage({
+				type: 'automationScaffold',
+				slug,
+				name,
+				schedule: (autoSchedule?.value || '').trim() || undefined
+			});
+		});
+
+		autoScheduleBtn?.addEventListener('click', () => {
+			const slug = autoProject?.value;
+			const schedule = (autoSchedule?.value || '').trim();
+			if (!slug || !schedule) { setStatus('Selecione projeto e cron'); return; }
+			vscode.postMessage({ type: 'automationSchedule', slug, schedule });
+		});
+
+		autoRunBtn?.addEventListener('click', () => {
+			const slug = autoProject?.value;
+			if (!slug) { setStatus('Selecione um projeto'); return; }
+			vscode.postMessage({ type: 'automationRun', slug });
+		});
+
+		autoTestBtn?.addEventListener('click', () => {
+			const slug = autoProject?.value;
+			if (!slug) { setStatus('Selecione um projeto'); return; }
+			vscode.postMessage({ type: 'automationTest', slug });
+		});
+
+		autoPipelineBtn?.addEventListener('click', () => {
+			const slug = autoProject?.value;
+			if (!slug) { setStatus('Selecione um projeto'); return; }
+			vscode.postMessage({ type: 'automationPipeline', slug, recipe: 'daily-script' });
+		});
+
+		autoRunLocalBtn?.addEventListener('click', () => {
+			const slug = autoProject?.value;
+			if (!slug) { setStatus('Selecione um projeto'); return; }
+			vscode.postMessage({ type: 'automationRunLocal', slug });
 		});
 
 		function updateWebPublisherVisibility() {
@@ -1641,6 +1783,15 @@ function getChatPanelScript(): string {
 			}
 			if (message.type === 'apiStudioStatus') {
 				setApiStudioStatus(message.status || 'pronto');
+			}
+			if (message.type === 'automationStudioInfo') {
+				renderAutomationStudioInfo(message.info || null);
+			}
+			if (message.type === 'automationStudioLog') {
+				appendAutomationStudioLog(message.text || '');
+			}
+			if (message.type === 'automationStudioStatus') {
+				setAutomationStudioStatus(message.status || 'pronto');
 			}
 			if (message.type === 'buildCenterStarted') {
 				activeBuildId = message.buildId;
