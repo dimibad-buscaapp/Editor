@@ -26,7 +26,7 @@ if (Test-Path $productionSettings) {
 	Write-Host "OK: settings producao" -ForegroundColor Green
 }
 
-# Estado de layout maximizado (workspace storage) — forca reset
+# Estado de layout maximizado (workspace storage) - forca reset
 $wsStorage = Join-Path $userDataDir "workspaceStorage"
 if (Test-Path $wsStorage) {
 	$stateFiles = Get-ChildItem $wsStorage -Recurse -Filter "state.vscdb" -ErrorAction SilentlyContinue
@@ -62,7 +62,7 @@ if (-not $SkipFullCompile) {
 
 $extJs = Join-Path $ProjectRoot "extensions\princy-ai\dist\browser\extension.js"
 if (-not (Test-Path $extJs)) {
-	throw "Falta $extJs — compile-web nao gerou bundle browser"
+	throw "Falta $extJs - compile-web nao gerou bundle browser"
 }
 
 $markers = @('princy-orb', 'PRINCY_CHAT_UI_REVISION', '2026.05.24', 'data-princy-ui-rev')
@@ -90,5 +90,5 @@ if (-not $SkipRestart) {
 
 Write-Host "`n=== Concluido ===" -ForegroundColor Green
 Write-Host "  1. Abra o webeditor com Ctrl+F5 (hard refresh)" -ForegroundColor Cyan
-Write-Host "  2. F1 -> 'Reset Princy Layout' se o chat ainda estiver maximizado" -ForegroundColor Cyan
-Write-Host "  3. No DevTools do painel chat: document.body.dataset.princyUiRev deve ser 2026.05.24" -ForegroundColor DarkGray
+Write-Host "  2. F1 -> Reset Princy Layout se o chat ainda estiver maximizado" -ForegroundColor Cyan
+Write-Host "  3. DevTools painel chat: document.body.dataset.princyUiRev = 2026.05.24" -ForegroundColor DarkGray
