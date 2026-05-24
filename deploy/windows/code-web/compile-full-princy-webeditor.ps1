@@ -69,7 +69,7 @@ if (-not $SkipLayoutCacheClear) {
 
 $compileScript = Join-Path $PSScriptRoot "compile-princy-code-web-production.ps1"
 $exitCode = Invoke-PrincyDeployScript -ScriptPath $compileScript -ScriptArgs @{ ProjectRoot = $ProjectRoot }
-if ($exitCode -ne 0) {
+if ([int]$exitCode -ne 0) {
 	throw "compile-princy-code-web-production falhou (exit $exitCode)"
 }
 

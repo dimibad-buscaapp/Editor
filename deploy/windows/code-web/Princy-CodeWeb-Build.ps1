@@ -35,8 +35,12 @@ function Invoke-PrincyDeployScript {
 			$argList += [string]$val
 		}
 	}
-	& $exe @argList
-	return $LASTEXITCODE
+	& $exe @argList | Out-Host
+	$exitCode = $LASTEXITCODE
+	if ($null -eq $exitCode) {
+		$exitCode = 0
+	}
+	return [int]$exitCode
 }
 
 function Test-PrincyCodeWebProdBuild {
