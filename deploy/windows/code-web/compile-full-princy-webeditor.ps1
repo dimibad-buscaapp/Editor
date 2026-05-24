@@ -61,7 +61,7 @@ if (-not $SkipLayoutCacheClear) {
 			try { Remove-Item $_.FullName -Force -ErrorAction Stop; $removed++ } catch { }
 		}
 	}
-	Write-Host "OK: cache layout removido ($($removed) ficheiros state.vscdb)" -ForegroundColor Green
+	Write-Host ('OK: cache layout removido (' + $removed + ' ficheiros state.vscdb)') -ForegroundColor Green
 }
 
 $compileScript = Join-Path $PSScriptRoot "compile-princy-code-web-production.ps1"
