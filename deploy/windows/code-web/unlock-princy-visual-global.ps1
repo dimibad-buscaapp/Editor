@@ -57,7 +57,7 @@ if ($exitCode -ne 0) {
 }
 
 $extJs = Join-Path $ProjectRoot "extensions\princy-ai\dist\browser\extension.js"
-$revMarker = 'cursor-agent-2026.05.25-r2'
+$revMarker = 'cursor-agent-2026.05.25-r3'
 if (-not (Test-Path $extJs)) {
 	throw "Falta $extJs - compile nao gerou bundle browser."
 }

@@ -30,5 +30,5 @@ foreach ($name in $services) {
 
 if (-not $StopOnly) {
 	Start-Sleep -Seconds 3
-	powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "check-princy-ports.ps1")
+	& pwsh -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "check-princy-ports.ps1")
 }

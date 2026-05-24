@@ -113,7 +113,7 @@ if (-not (Test-PrincyCodeWebProdBuild -ProjectRoot $ProjectRoot)) {
 }
 Write-Host "OK: bundle producao (CSS ou JS do workbench)" -ForegroundColor Green
 
-$revMarker = 'cursor-agent-2026.05.25-r2'
+$revMarker = 'cursor-agent-2026.05.25-r3'
 if (-not (Select-String -Path $extJs -Pattern $revMarker -Quiet)) {
 	throw "extension.js sem revisao $revMarker — compile-web da extensao incompleto"
 }

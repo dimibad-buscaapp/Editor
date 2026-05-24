@@ -27,13 +27,13 @@ Tempo: **15 a 45 minutos**.
 ```
 OK: Chat bundle (extension.js)
 OK: Chat UI track (extension.js)
-OK: extension.js com revisao cursor-agent-2026.05.25-r2
+OK: extension.js com revisao cursor-agent-2026.05.25-r3
 OK: princyLayoutUnlock em out/
 ```
 
 No browser (Ctrl+F5):
 
-- `document.body.dataset.princyUiRev` = **`cursor-agent-2026.05.25-r2`**
+- `document.body.dataset.princyUiRev` = **`cursor-agent-2026.05.25-r3`**
 - Editor visivel + chat a direita (nao fullscreen)
 
 ## Forcar visual AGORA (browser ainda antigo)
@@ -50,7 +50,7 @@ Tempo: **1-3 minutos**. Depois **no browser**:
 2. Ctrl+F5 em https://princyai.com/webeditor/
 3. F1 → **Force Visual Reload**
 4. F1 → **Unlock Princy Editor Layout**
-5. F12 → Console **no painel chat** → `document.body.dataset.princyUiRev` = `cursor-agent-2026.05.25-r2`
+5. F12 → Console **no painel chat** → `document.body.dataset.princyUiRev` = `cursor-agent-2026.05.25-r3`
 
 ## Se falhar
 

@@ -76,7 +76,7 @@ Depois no browser: **Ctrl+F5**.
 
 ## Como confirmar que aplicou
 
-1. **DevTools** no painel do chat → `document.body.dataset.princyUiRev` = `cursor-agent-2026.05.25-r2`
+1. **DevTools** no painel do chat → `document.body.dataset.princyUiRev` = `cursor-agent-2026.05.25-r3`
 2. Activity bar com icone **+** (Criar) e lista de 5 tipos de projeto
 3. Cabecalho do chat: **Princy** + faixa vermelha **Reconectar** se offline
 
