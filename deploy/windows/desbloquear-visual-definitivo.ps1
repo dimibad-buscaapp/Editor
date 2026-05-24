@@ -140,11 +140,11 @@ foreach ($a in $artifactChecks) {
 $foundMarkers = @()
 foreach ($m in $RevMarkers) {
 	if (Test-Path $extJs) {
-		if (Select-String -Path $extJs -Pattern [regex]::Escape($m) -Quiet) { $foundMarkers += $m }
+		if (Select-String -Path $extJs -Pattern $m -SimpleMatch -Quiet) { $foundMarkers += $m }
 	}
 }
 Write-Host "  Marcadores chat: $($foundMarkers -join ', ')" -ForegroundColor $(if ($foundMarkers -contains $RevMarker) { 'Green' } else { 'Red' })
-if (-not (Select-String -Path $extJs -Pattern [regex]::Escape($RevMarker) -Quiet)) {
+if (-not (Select-String -Path $extJs -Pattern $RevMarker -SimpleMatch -Quiet)) {
 	Write-Host "  FALHA: extension.js sem $RevMarker — git pull + compile completo" -ForegroundColor Red
 	$artifactsOk = $false
 }

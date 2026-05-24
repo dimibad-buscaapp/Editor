@@ -89,7 +89,7 @@ $requiredMarkers = $RevMarkers + @(
 $found = @()
 $missing = @()
 foreach ($m in $requiredMarkers) {
-	if (Select-String -Path $extJs -Pattern $m -Quiet) { $found += $m } else { $missing += $m }
+	if (Select-String -Path $extJs -Pattern $m -SimpleMatch -Quiet) { $found += $m } else { $missing += $m }
 }
 Write-Host ""
 Write-Host "[2] Verificacao extension.js ($extJs)" -ForegroundColor Cyan

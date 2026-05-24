@@ -98,7 +98,7 @@ foreach ($c in $checks) {
 		$allOk = $false
 		continue
 	}
-	if ($c.Pattern -and -not (Select-String -Path $c.Path -Pattern $c.Pattern -Quiet)) {
+	if ($c.Pattern -and -not (Select-String -Path $c.Path -Pattern $c.Pattern -SimpleMatch -Quiet)) {
 		Write-Host "  FALTA marcador '$($c.Pattern)' em $($c.Name)" -ForegroundColor Red
 		$allOk = $false
 		continue

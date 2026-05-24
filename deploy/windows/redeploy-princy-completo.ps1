@@ -111,12 +111,12 @@ $extJs = Join-Path $ProjectRoot "extensions\princy-ai\dist\browser\extension.js"
 if (-not (Test-Path $extJs)) {
 	throw "Falta $extJs"
 }
-if (-not (Select-String -Path $extJs -Pattern $RevMarker -Quiet)) {
+if (-not (Select-String -Path $extJs -Pattern $RevMarker -SimpleMatch -Quiet)) {
 	Write-Host "  AVISO: extension.js sem $RevMarker - a correr compile-web rapido ..." -ForegroundColor Yellow
 	npm run compile-web
 	if ($LASTEXITCODE -ne 0) { throw "compile-web falhou" }
 	Invoke-PrincyDeployScript -ScriptPath (Join-Path $codeWebDir "sync-princy-ai-out-extensions.ps1") -ScriptArgs @{ ProjectRoot = $ProjectRoot } | Out-Null
-	if (-not (Select-String -Path $extJs -Pattern $RevMarker -Quiet)) {
+	if (-not (Select-String -Path $extJs -Pattern $RevMarker -SimpleMatch -Quiet)) {
 		throw "extension.js ainda sem $RevMarker"
 	}
 }

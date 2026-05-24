@@ -63,7 +63,7 @@ $RevMarker = Get-PrincyUiRevision
 if (-not (Test-Path $extJs)) {
 	throw "Falta $extJs - compile nao gerou bundle browser."
 }
-if (-not (Select-String -Path $extJs -Pattern [regex]::Escape($RevMarker) -Quiet)) {
+if (-not (Select-String -Path $extJs -Pattern $RevMarker -SimpleMatch -Quiet)) {
 	throw "extension.js sem $RevMarker - compile incompleto. Faca git pull e repita o script."
 }
 Write-Host "OK: extension.js com revisao $RevMarker" -ForegroundColor Green

@@ -79,11 +79,11 @@ if (-not (Test-Path $extJs)) {
 
 $found = @()
 foreach ($m in $RevMarkers) {
-	if (Select-String -Path $extJs -Pattern [regex]::Escape($m) -Quiet) { $found += $m }
+	if (Select-String -Path $extJs -Pattern $m -SimpleMatch -Quiet) { $found += $m }
 }
 Write-Host "`n[2] Verificacao extension.js" -ForegroundColor Cyan
 Write-Host "  Marcadores: $($found -join ', ')" -ForegroundColor $(if ($found.Count -ge 2) { 'Green' } else { 'Red' })
-if (-not (Select-String -Path $extJs -Pattern [regex]::Escape($RevMarker) -Quiet)) {
+if (-not (Select-String -Path $extJs -Pattern $RevMarker -SimpleMatch -Quiet)) {
 	throw "extension.js sem revisao $RevMarker. Compile falhou ou codigo desatualizado (git pull)."
 }
 if ($found.Count -lt 2) {

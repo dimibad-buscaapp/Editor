@@ -53,7 +53,7 @@ foreach ($root in @(
 Write-Host ('OK: cache removido (' + $removed + ' ficheiros)') -ForegroundColor Green
 
 $extJs = Join-Path $ProjectRoot "extensions\princy-ai\dist\browser\extension.js"
-$needsCompile = -not (Test-Path $extJs) -or -not (Select-String -Path $extJs -Pattern $RevMarker -Quiet)
+$needsCompile = -not (Test-Path $extJs) -or -not (Select-String -Path $extJs -Pattern $RevMarker -SimpleMatch -Quiet)
 
 if ($needsCompile -and -not $SkipCompileWeb) {
 	Write-Host "[1] compile-web (bundle chat) ..." -ForegroundColor Cyan
@@ -68,7 +68,7 @@ if ($needsCompile -and -not $SkipCompileWeb) {
 Write-Host "[2] sync out/extensions ..." -ForegroundColor Cyan
 Invoke-PrincyDeployScript -ScriptPath (Join-Path $PSScriptRoot "sync-princy-ai-out-extensions.ps1") -ScriptArgs @{ ProjectRoot = $ProjectRoot } | Out-Null
 
-if (-not (Select-String -Path $extJs -Pattern $RevMarker -Quiet)) {
+if (-not (Select-String -Path $extJs -Pattern $RevMarker -SimpleMatch -Quiet)) {
 	throw "extension.js ainda sem $RevMarker apos sync"
 }
 Write-Host "OK: $RevMarker confirmado em dist/browser/extension.js" -ForegroundColor Green
