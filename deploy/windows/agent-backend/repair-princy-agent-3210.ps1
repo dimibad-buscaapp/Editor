@@ -130,6 +130,25 @@ if (-not (Test-Path $envFile)) {
 # --- Reinstalar/iniciar agent se health falhar ---
 Write-Host "`n[4] Agent backend (reinstalar se necessario)" -ForegroundColor Cyan
 $agentHealth = Test-HttpJson "Agent direto" "http://127.0.0.1:3210/api/agent/health"
+$errTail = $null
+if (Test-Path $errLog) {
+	$errTail = Get-Content $errLog -Tail 20 -Raw -ErrorAction SilentlyContinue
+}
+if ($errTail -match 'FST_ERR_DEC_ALREADY_PRESENT|sendFile.*already been added') {
+	Add-Warn "Log com crash sendFile duplicado - rebuild backend necessario (git pull + build-princy-agent-backend.ps1)"
+	if (-not $SkipBuild) {
+		& powershell -ExecutionPolicy Bypass -File (Join-Path $ProjectRoot "deploy\windows\agent-backend\build-princy-agent-backend.ps1") -ProjectRoot $ProjectRoot
+		$fixes.Add("Rebuild agent (fix sendFile)")
+		try {
+			Restart-Service PrincyAiAgentBackend -Force -ErrorAction Stop
+			Start-Sleep -Seconds 4
+			$agentHealth = Test-HttpJson "Agent apos rebuild" "http://127.0.0.1:3210/api/agent/health"
+		} catch {
+			Add-Warn "Reinicie manualmente: Restart-Service PrincyAiAgentBackend"
+		}
+	}
+}
+
 if (-not $agentHealth) {
 	Write-Host "  Reinstalando PrincyAiAgentBackend ..." -ForegroundColor Cyan
 	$fixScript = Join-Path $ProjectRoot "deploy\windows\agent-backend\fix-princy-agent-backend-service.ps1"

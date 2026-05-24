@@ -95,12 +95,13 @@ await registerLogviewRoutes(app);
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const frontendDist = path.resolve(currentDir, '../../dist/frontend');
-	if (fs.existsSync(frontendDist)) {
+if (fs.existsSync(frontendDist)) {
+	// Unico registo com decorateReply: true (evita FST_ERR_DEC_ALREADY_PRESENT com site static)
 	await app.register(staticFiles, {
 		root: frontendDist,
 		prefix: '/',
 		index: ['index.html'],
-		decorateReply: false,
+		decorateReply: true,
 		allowedPath: (_pathName, _root, request) => {
 			const url = request.url.split('?')[0] ?? request.url;
 			return !url.startsWith('/api/')

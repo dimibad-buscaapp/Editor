@@ -186,10 +186,11 @@ export async function registerSiteRoutes(app: FastifyInstance): Promise<void> {
 export async function registerSiteStatic(app: FastifyInstance): Promise<void> {
 	ensureSitesStorageLayout();
 
+	// decorateReply: false — sendFile e decorado uma vez pelo dashboard em server.ts
 	await app.register(staticFiles, {
 		root: config.sitesPublishedRoot,
 		prefix: `${config.sitesPublishedPathPrefix}/`,
-		decorateReply: true,
+		decorateReply: false,
 		wildcard: false
 	});
 
