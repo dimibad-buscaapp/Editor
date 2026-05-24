@@ -1,8 +1,8 @@
 # Compile COMPLETO do Princy Web Editor (workbench + chat + visual Cursor).
 # O git pull NAO aplica UI — este script gera os bundles que o browser carrega.
 #
-# VPS Admin (apos git pull):
-#   powershell -ExecutionPolicy Bypass -File deploy\windows\code-web\compile-full-princy-webeditor.ps1 -ProjectRoot C:\Apps\Editor
+# VPS Admin (PowerShell 7 recomendado):
+#   pwsh -ExecutionPolicy Bypass -File deploy\windows\code-web\compile-full-princy-webeditor.ps1 -ProjectRoot C:\Apps\Editor
 #
 # Etapas (15-45 min tipico):
 #   [1] compile-incremental  -> out/ (workbench layout.ts, princy contrib, extensao out/)
@@ -23,7 +23,10 @@ $env:PRINCY_EDITOR_ROOT = $ProjectRoot
 
 $RevMarker = 'cursor-agent-2026.05.25-r2'
 
+. (Join-Path $PSScriptRoot "Princy-CodeWeb-Build.ps1")
+
 Write-Host "=== Compile COMPLETO Princy Web Editor ===" -ForegroundColor Cyan
+Write-Host "Shell: $(Get-PrincyPwshExe) (PS $($PSVersionTable.PSVersion))" -ForegroundColor DarkGray
 Write-Host "Pasta: $ProjectRoot"
 Write-Host ""
 Write-Host "O browser NAO le src/ — le estes artefactos compilados:" -ForegroundColor Yellow
@@ -65,9 +68,9 @@ if (-not $SkipLayoutCacheClear) {
 }
 
 $compileScript = Join-Path $PSScriptRoot "compile-princy-code-web-production.ps1"
-& powershell -ExecutionPolicy Bypass -File $compileScript -ProjectRoot $ProjectRoot
-if ($LASTEXITCODE -ne 0) {
-	throw "compile-princy-code-web-production falhou (exit $LASTEXITCODE)"
+$exitCode = Invoke-PrincyDeployScript -ScriptPath $compileScript -ScriptArgs @{ ProjectRoot = $ProjectRoot }
+if ($exitCode -ne 0) {
+	throw "compile-princy-code-web-production falhou (exit $exitCode)"
 }
 
 Write-Host ""

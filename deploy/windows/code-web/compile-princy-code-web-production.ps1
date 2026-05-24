@@ -1,7 +1,7 @@
 # Compile producao do Code-OSS Web (workbench.html + esbuild bundle CSS/JS) e reinicia PrincyAiCodeWeb.
 # Admin, VPS: pode demorar 30-90 min na primeira vez; -BundleOnly so esbuild+ext (10-30 min).
-# powershell -ExecutionPolicy Bypass -File deploy\windows\code-web\compile-princy-code-web-production.ps1
-# powershell -ExecutionPolicy Bypass -File deploy\windows\code-web\compile-princy-code-web-production.ps1 -BundleOnly
+# pwsh -ExecutionPolicy Bypass -File deploy\windows\code-web\compile-princy-code-web-production.ps1
+# pwsh -ExecutionPolicy Bypass -File deploy\windows\code-web\compile-princy-code-web-production.ps1 -BundleOnly
 
 param(
 	[string]$ProjectRoot = "C:\Apps\Editor",
@@ -15,13 +15,16 @@ Set-Location $ProjectRoot
 $env:NODE_OPTIONS = "--max-old-space-size=8192"
 $env:VSCODE_SKIP_PRELAUNCH = "1"
 
+. (Join-Path $PSScriptRoot "Princy-CodeWeb-Build.ps1")
+
 Write-Host "=== Compile Code Web PRODUCAO ===" -ForegroundColor Cyan
+Write-Host "Shell: $(Get-PrincyPwshExe) (PS $($PSVersionTable.PSVersion))" -ForegroundColor DarkGray
 Write-Host "Pasta: $ProjectRoot"
 Write-Host ""
 
 $stopPort = Join-Path $ProjectRoot "deploy\windows\code-web\Stop-CodeWebPort.ps1"
 if (Test-Path $stopPort) {
-	& powershell -ExecutionPolicy Bypass -File $stopPort -Port 3200
+	Invoke-PrincyDeployScript -ScriptPath $stopPort -ScriptArgs @{ Port = 3200 } | Out-Null
 }
 
 $svc = Get-Service PrincyAiCodeWeb -ErrorAction SilentlyContinue
@@ -62,7 +65,7 @@ if (-not (Test-Path $extJs)) {
 }
 Write-Host "OK: princy-ai browser bundle" -ForegroundColor Green
 
-& powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "sync-princy-ai-out-extensions.ps1") -ProjectRoot $ProjectRoot
+Invoke-PrincyDeployScript -ScriptPath (Join-Path $PSScriptRoot "sync-princy-ai-out-extensions.ps1") -ScriptArgs @{ ProjectRoot = $ProjectRoot } | Out-Null
 
 Write-Host ""
 Write-Host "[3/3] bundle-server-web-out (esbuild: workbench.js + workbench.css + princy-ai builtin) ..." -ForegroundColor Cyan
@@ -93,8 +96,6 @@ if (-not $hasPrincyInWorkbench -and -not $hasPrincyInServer) {
 	throw "princy-ai NAO aparece em workbench.js nem server-main.js - rebundle falhou"
 }
 Write-Host "OK: princy-ai no bundle (workbench=$hasPrincyInWorkbench server=$hasPrincyInServer)" -ForegroundColor Green
-
-. (Join-Path $PSScriptRoot "Princy-CodeWeb-Build.ps1")
 
 $required = @(
 	"out\server-main.js",
@@ -136,7 +137,7 @@ if (-not $SkipRestart) {
 	Write-Host ""
 	Write-Host "Reinstalando servico (sem -Dev) ..." -ForegroundColor Cyan
 	$fix = Join-Path $ProjectRoot "deploy\windows\code-web\fix-princy-code-web-service.ps1"
-	& powershell -ExecutionPolicy Bypass -File $fix -ProjectRoot $ProjectRoot
+	Invoke-PrincyDeployScript -ScriptPath $fix -ScriptArgs @{ ProjectRoot = $ProjectRoot } | Out-Null
 }
 
 Write-Host ""

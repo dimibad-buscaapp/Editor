@@ -21,13 +21,13 @@ Quando mudou **workbench** (`layout.ts`, `princyLayoutUnlock`) **ou** quer garan
 ```powershell
 cd C:\Apps\Editor
 git pull --no-rebase origin main
-powershell -ExecutionPolicy Bypass -File .\deploy\windows\code-web\compile-full-princy-webeditor.ps1 -ProjectRoot "C:\Apps\Editor"
+pwsh -ExecutionPolicy Bypass -File .\deploy\windows\code-web\compile-full-princy-webeditor.ps1 -ProjectRoot "C:\Apps\Editor"
 ```
 
 Equivalente (sem git pull automatico):
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\deploy\windows\code-web\unlock-princy-visual-global.ps1 -ProjectRoot "C:\Apps\Editor"
+pwsh -ExecutionPolicy Bypass -File .\deploy\windows\code-web\unlock-princy-visual-global.ps1 -ProjectRoot "C:\Apps\Editor"
 ```
 
 ### O que cada etapa compila

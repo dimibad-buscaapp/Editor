@@ -1,6 +1,6 @@
 # Forca visual premium do chat Princy no Code Web (compile-web + settings + sync + restart).
 # VPS Admin:
-#   powershell -ExecutionPolicy Bypass -File deploy\windows\code-web\force-princy-visual-web.ps1 -ProjectRoot C:\Apps\Editor
+#   pwsh -ExecutionPolicy Bypass -File deploy\windows\code-web\force-princy-visual-web.ps1 -ProjectRoot C:\Apps\Editor
 
 param(
 	[string]$ProjectRoot = "C:\Apps\Editor",
@@ -14,10 +14,11 @@ $env:NODE_OPTIONS = "--max-old-space-size=8192"
 $env:VSCODE_SKIP_PRELAUNCH = "1"
 $env:PRINCY_EDITOR_ROOT = $ProjectRoot
 
-Write-Host "=== Forcar visual Princy (chat premium) ===" -ForegroundColor Cyan
-Write-Host "Pasta: $ProjectRoot"
+. (Join-Path $PSScriptRoot "Princy-CodeWeb-Build.ps1")
 
-$userDataDir = Join-Path $ProjectRoot ".princy-user-data"
+Write-Host "=== Forcar visual Princy (chat premium) ===" -ForegroundColor Cyan
+Write-Host "Shell: $(Get-PrincyPwshExe) (PS $($PSVersionTable.PSVersion))" -ForegroundColor DarkGray
+Write-Host "Pasta: $ProjectRoot"
 $productionSettings = Join-Path $ProjectRoot "deploy\windows\princy-production.settings.json"
 $userSettings = Join-Path $userDataDir "User\settings.json"
 if (Test-Path $productionSettings) {
@@ -44,9 +45,12 @@ if (-not $SkipFullCompile) {
 	$compileScript = Join-Path $PSScriptRoot "compile-princy-code-web-production.ps1"
 	if (Test-Path $compileScript) {
 		Write-Host "`n[1] Compile producao completo ..." -ForegroundColor Cyan
-		& powershell -ExecutionPolicy Bypass -File $compileScript -ProjectRoot $ProjectRoot -SkipRestart
-		if ($LASTEXITCODE -ne 0) {
-			throw "compile-princy-code-web-production falhou (exit $LASTEXITCODE). Corrija erros TypeScript e repita."
+		$exitCode = Invoke-PrincyDeployScript -ScriptPath $compileScript -ScriptArgs @{
+			ProjectRoot = $ProjectRoot
+			SkipRestart = $true
+		}
+		if ($exitCode -ne 0) {
+			throw "compile-princy-code-web-production falhou (exit $exitCode). Corrija erros TypeScript e repita."
 		}
 	} else {
 		throw "Ausente: $compileScript"
@@ -55,7 +59,7 @@ if (-not $SkipFullCompile) {
 	Write-Host "`n[1] Apenas compile-web (SkipFullCompile) ..." -ForegroundColor Cyan
 	npm run compile-web
 	if ($LASTEXITCODE -ne 0) { throw "compile-web falhou" }
-	& powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "sync-princy-ai-out-extensions.ps1") -ProjectRoot $ProjectRoot
+	Invoke-PrincyDeployScript -ScriptPath (Join-Path $PSScriptRoot "sync-princy-ai-out-extensions.ps1") -ScriptArgs @{ ProjectRoot = $ProjectRoot } | Out-Null
 	$wbJs = Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench.js"
 	if (Test-Path $wbJs) {
 		npm run bundle-server-web-out
@@ -82,7 +86,7 @@ if ($found.Count -lt 2) {
 	throw "extension.js parece ANTIGO (sem visual premium). Rode sem -SkipFullCompile."
 }
 
-& powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "sync-princy-ai-out-extensions.ps1") -ProjectRoot $ProjectRoot
+Invoke-PrincyDeployScript -ScriptPath (Join-Path $PSScriptRoot "sync-princy-ai-out-extensions.ps1") -ScriptArgs @{ ProjectRoot = $ProjectRoot } | Out-Null
 
 if (Test-Path $productionSettings) {
 	Copy-Item $productionSettings $userSettings -Force
@@ -90,7 +94,7 @@ if (Test-Path $productionSettings) {
 
 if (-not $SkipRestart) {
 	Write-Host "`n[3] Reiniciar servico Code Web ..." -ForegroundColor Cyan
-	& powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "fix-princy-code-web-service.ps1") -ProjectRoot $ProjectRoot
+	Invoke-PrincyDeployScript -ScriptPath (Join-Path $PSScriptRoot "fix-princy-code-web-service.ps1") -ScriptArgs @{ ProjectRoot = $ProjectRoot } | Out-Null
 	Start-Sleep -Seconds 5
 }
 

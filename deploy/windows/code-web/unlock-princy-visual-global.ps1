@@ -1,6 +1,6 @@
 # Desbloqueio visual GLOBAL e definitivo: limpa cache de layout, compila extensao + workbench, reinicia.
-# Admin VPS:
-#   powershell -ExecutionPolicy Bypass -File deploy\windows\code-web\unlock-princy-visual-global.ps1 -ProjectRoot C:\Apps\Editor
+# Admin VPS (PowerShell 7):
+#   pwsh -ExecutionPolicy Bypass -File deploy\windows\code-web\unlock-princy-visual-global.ps1 -ProjectRoot C:\Apps\Editor
 
 param(
 	[string]$ProjectRoot = "C:\Apps\Editor",
@@ -13,7 +13,10 @@ $env:NODE_OPTIONS = "--max-old-space-size=8192"
 $env:VSCODE_SKIP_PRELAUNCH = "1"
 $env:PRINCY_EDITOR_ROOT = $ProjectRoot
 
+. (Join-Path $PSScriptRoot "Princy-CodeWeb-Build.ps1")
+
 Write-Host "=== Desbloqueio visual global Princy ===" -ForegroundColor Cyan
+Write-Host "Shell: $(Get-PrincyPwshExe) (PS $($PSVersionTable.PSVersion))" -ForegroundColor DarkGray
 
 $userDataDir = Join-Path $ProjectRoot ".princy-user-data"
 $productionSettings = Join-Path $ProjectRoot "deploy\windows\princy-production.settings.json"
@@ -25,7 +28,6 @@ if (Test-Path $productionSettings) {
 	Write-Host "OK: settings producao" -ForegroundColor Green
 }
 
-# Remove TODO cache de layout (state.vscdb) em todos os workspaces
 $wsStorage = Join-Path $userDataDir "workspaceStorage"
 if (Test-Path $wsStorage) {
 	$removed = 0
@@ -35,10 +37,9 @@ if (Test-Path $wsStorage) {
 			$removed++
 		} catch { }
 	}
-	Write-Host "OK: removidos $removed ficheiros state.vscdb (layout antigo)" -ForegroundColor Green
+	Write-Host ('OK: removidos ' + $removed + ' ficheiros state.vscdb (layout antigo)') -ForegroundColor Green
 }
 
-# Global storage que pode guardar layout maximizado
 $globalStorage = Join-Path $userDataDir "globalStorage"
 if (Test-Path $globalStorage) {
 	Get-ChildItem $globalStorage -Recurse -Filter "state.vscdb" -ErrorAction SilentlyContinue | ForEach-Object {
@@ -47,12 +48,12 @@ if (Test-Path $globalStorage) {
 }
 
 if ($SkipFullCompile) {
-	& powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "deploy-princy-after-pull.ps1") -ProjectRoot $ProjectRoot
+	$exitCode = Invoke-PrincyDeployScript -ScriptPath (Join-Path $PSScriptRoot "deploy-princy-after-pull.ps1") -ScriptArgs @{ ProjectRoot = $ProjectRoot }
 } else {
-	& powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "force-princy-visual-web.ps1") -ProjectRoot $ProjectRoot
-	if ($LASTEXITCODE -ne 0) {
-		throw "force-princy-visual-web falhou (exit $LASTEXITCODE). Veja erros de compile acima."
-	}
+	$exitCode = Invoke-PrincyDeployScript -ScriptPath (Join-Path $PSScriptRoot "force-princy-visual-web.ps1") -ScriptArgs @{ ProjectRoot = $ProjectRoot }
+}
+if ($exitCode -ne 0) {
+	throw "Deploy visual falhou (exit $exitCode). Veja erros de compile acima."
 }
 
 $extJs = Join-Path $ProjectRoot "extensions\princy-ai\dist\browser\extension.js"
