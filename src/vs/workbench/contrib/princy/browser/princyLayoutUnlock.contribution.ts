@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { mainWindow } from '../../../../base/browser/window.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
@@ -35,7 +36,7 @@ class PrincyLayoutUnlockContribution implements IWorkbenchContribution {
 			this.layoutService.setAuxiliaryBarMaximized(false);
 		}
 
-		if (!this.layoutService.isVisible(Parts.EDITOR_PART)) {
+		if (!this.layoutService.isVisible(Parts.EDITOR_PART, mainWindow)) {
 			this.layoutService.setPartHidden(false, Parts.EDITOR_PART);
 		}
 		if (!this.layoutService.isVisible(Parts.SIDEBAR_PART)) {
