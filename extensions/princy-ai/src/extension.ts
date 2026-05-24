@@ -16,7 +16,7 @@ import { registerPrincyGhostText } from './ghostTextProvider';
 import { registerPrincyThemeOnActivate } from './princyTheme';
 import { ensurePrincyRulesTemplate } from './princyRules';
 import { registerWorkspaceIndexing } from './workspaceIndexService';
-import { registerPrincyWorkbenchUi } from './workbenchUi';
+import { enforcePrincyEditorUnlocked, registerPrincyWorkbenchUi } from './workbenchUi';
 import { registerPrincyStatusBar } from './princyStatusBar';
 import { registerPrincyChatIsolation } from './princyChatIsolation';
 import { registerPrincyDefaultChat } from './princyWorkbenchChat';
@@ -121,6 +121,12 @@ export function activate(context: vscode.ExtensionContext): void {
 	registerPrincyDefaultChat(context);
 	registerPrincyChatIsolation(context);
 	void ensurePrincyRulesTemplate();
+
+	void enforcePrincyEditorUnlocked();
+	const forceVisualReloadDelays = [500, 2000, 6000];
+	for (const ms of forceVisualReloadDelays) {
+		setTimeout(() => provider.forceReloadPanel(), ms);
+	}
 
 	output.appendLine('Princy Ai view provider registered.');
 }

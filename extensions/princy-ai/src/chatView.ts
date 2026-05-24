@@ -8,6 +8,7 @@ import { AgentClient, AgentDefinition, AgentModel, ComposerPlan, ProjectTemplate
 import { checkAgentBackend } from './agentConnectivity';
 import { focusPrincyChatPanel, PRINCY_CHAT_VIEW_ID } from './princyWorkbenchChat';
 import { buildChatPanelHtml } from './chatPanelHtml';
+import { PRINCY_CHAT_UI_REVISION } from './princyDesignTokens';
 import { getMentionSuggestions, resolveContextMentions } from './contextMentions';
 import type { NativeContextBundle } from './nativeContext';
 import { loadPrincyRules } from './princyRules';
@@ -126,6 +127,15 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 			await vscode.commands.executeCommand(PRINCY_CHAT_VIEW_ID);
 		}
 		this.view?.webview.postMessage({ type: 'focusInput' });
+	}
+
+	/** Recarrega HTML/CSS do painel (forca visual novo apos deploy). */
+	public forceReloadPanel(): void {
+		if (!this.view) {
+			return;
+		}
+		this.reloadWebviewHtml(this.view.webview);
+		void this.initializeChatPanel();
 	}
 
 	public async focusComposer(): Promise<void> {
@@ -1252,7 +1262,8 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 
 	private getHtml(webview: vscode.Webview): string {
 		const nonce = getNonce();
-		const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'chat-panel.css')).toString();
+		const styleBase = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'chat-panel.css')).toString();
+		const styleUri = `${styleBase}${styleBase.includes('?') ? '&' : '?'}princyUi=${encodeURIComponent(PRINCY_CHAT_UI_REVISION)}`;
 		return buildChatPanelHtml(webview.cspSource, nonce, styleUri);
 	}
 

@@ -134,6 +134,7 @@ if ($existing) {
 Stop-PortListener -ListenPort $Port
 
 $serverMainAbs = $serverMain
+$builtinExtDir = Join-Path $ProjectRoot "extensions"
 $appParams = @(
 	$serverMainAbs,
 	$WorkspacePath,
@@ -142,7 +143,8 @@ $appParams = @(
 	'--without-connection-token',
 	'--disable-workspace-trust',
 	'--user-data-dir', $userDataDir,
-	'--server-base-path', $base
+	'--server-base-path', $base,
+	'--builtin-extensions-dir', $builtinExtDir
 )
 $appParamsLine = ($appParams | ForEach-Object {
 	if ($_ -match '\s') { "`"$_`"" } else { $_ }

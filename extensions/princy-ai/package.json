@@ -2,7 +2,7 @@
   "name": "princy-ai",
   "displayName": "Princy Ai",
   "description": "AI coding agent for Princy Ai Code-OSS Web.",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "publisher": "princyai",
   "license": "MIT",
   "engines": {

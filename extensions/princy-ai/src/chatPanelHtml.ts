@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { PRINCY_DESIGN_TOKENS_CSS } from './princyDesignTokens';
+import { PRINCY_CHAT_UI_REVISION, PRINCY_DESIGN_TOKENS_CSS } from './princyDesignTokens';
 
 /** Template visual base do painel Princy Chat (CSP aplicado em buildChatPanelHtml). */
 export function getPrincyChatHtml(cspSource: string, nonce: string, styleUri?: string): string {
@@ -710,7 +710,7 @@ export function buildChatPanelHtml(cspSource: string, nonce: string, styleUri?: 
 		.loading-dots span:nth-child(3) { animation-delay: 0.3s; }
 	</style>
 </head>
-<body>
+<body data-princy-ui-rev="${PRINCY_CHAT_UI_REVISION}">
 	<div class="chat-panel">
 		<header class="chat-header">
 			<div class="chat-header-brand">

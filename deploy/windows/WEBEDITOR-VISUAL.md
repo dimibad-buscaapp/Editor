@@ -41,6 +41,20 @@ Settings criticos (`deploy/windows/princy-production.settings.json`):
 - `princyai.chat.simpleMode`: `false` (jobs + streaming no Agent)
 - `princyai.workspaceIndex.onOpen`: `true`
 
+## Forcar visual novo (recomendado)
+
+```powershell
+cd C:\Apps\Editor
+git pull --no-rebase origin main
+powershell -ExecutionPolicy Bypass -File deploy\windows\code-web\force-princy-visual-web.ps1 -ProjectRoot C:\Apps\Editor
+```
+
+Rapido (so extensao, se `out/` ja compilado):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File deploy\windows\code-web\force-princy-visual-web.ps1 -ProjectRoot C:\Apps\Editor -SkipFullCompile
+```
+
 ## Deploy no VPS (`C:\Apps\Editor`)
 
 ```powershell

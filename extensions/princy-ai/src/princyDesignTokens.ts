@@ -3,6 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/** Incrementar ao mudar HTML/CSS do chat (invalida cache do webview). */
+export const PRINCY_CHAT_UI_REVISION = '2026.05.24';
+
 /** Tokens partilhados Princy Black (webview chat + dashboard chat-panel). */
 export const PRINCY_DESIGN_TOKENS_CSS = `
 		--princy-bg: #0f1117;
