@@ -76,13 +76,14 @@ if (-not (Test-Path $extJs)) {
 	throw "Falta $extJs - compile falhou"
 }
 
+# Marcadores presentes no bundle JS (ids do package.json como princy-create nao entram no esbuild)
 $requiredMarkers = @(
 	'cursor-editor-2026.05.23',
-	'princy-create',
 	'princyCreate.actions',
 	'offlineBanner',
 	'reconnectBackend',
-	'princyai.create.project'
+	'princyai.create.project',
+	'princyai.create.app'
 )
 $found = @()
 $missing = @()

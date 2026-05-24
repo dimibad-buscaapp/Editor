@@ -65,7 +65,7 @@ if (-not (Test-Path $extJs)) {
 	throw "Falta $extJs - compile-web nao gerou bundle browser"
 }
 
-$markers = @('cursor-editor-2026.05.23', 'princy-create', 'offlineBanner', 'reconnectBackend', 'princyai.create.project')
+$markers = @('cursor-editor-2026.05.23', 'princyCreate.actions', 'offlineBanner', 'reconnectBackend', 'princyai.create.project')
 $found = @()
 foreach ($m in $markers) {
 	if (Select-String -Path $extJs -Pattern $m -Quiet) { $found += $m }
