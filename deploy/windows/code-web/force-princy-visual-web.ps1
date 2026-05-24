@@ -19,6 +19,8 @@ $env:PRINCY_EDITOR_ROOT = $ProjectRoot
 Write-Host "=== Forcar visual Princy (chat premium) ===" -ForegroundColor Cyan
 Write-Host "Shell: $(Get-PrincyPwshExe) (PS $($PSVersionTable.PSVersion))" -ForegroundColor DarkGray
 Write-Host "Pasta: $ProjectRoot"
+
+$userDataDir = Join-Path $ProjectRoot ".princy-user-data"
 $productionSettings = Join-Path $ProjectRoot "deploy\windows\princy-production.settings.json"
 $userSettings = Join-Path $userDataDir "User\settings.json"
 if (Test-Path $productionSettings) {
@@ -49,7 +51,7 @@ if (-not $SkipFullCompile) {
 			ProjectRoot = $ProjectRoot
 			SkipRestart = $true
 		}
-		if ($exitCode -ne 0) {
+		if ([int]$exitCode -ne 0) {
 			throw "compile-princy-code-web-production falhou (exit $exitCode). Corrija erros TypeScript e repita."
 		}
 	} else {

@@ -36,6 +36,22 @@ No browser (Ctrl+F5):
 - `document.body.dataset.princyUiRev` = **`cursor-agent-2026.05.25-r2`**
 - Editor visivel + chat a direita (nao fullscreen)
 
+## Forcar visual AGORA (browser ainda antigo)
+
+Se o compile completo ja passou mas o browser mostra UI velha:
+
+```powershell
+pwsh -ExecutionPolicy Bypass -File .\deploy\windows\code-web\force-princy-visual-now.ps1 -ProjectRoot "C:\Apps\Editor"
+```
+
+Tempo: **1-3 minutos**. Depois **no browser**:
+
+1. Ctrl+Shift+Delete → limpar cache de `princyai.com` (ou janela anonima)
+2. Ctrl+F5 em https://princyai.com/webeditor/
+3. F1 → **Force Visual Reload**
+4. F1 → **Unlock Princy Editor Layout**
+5. F12 → Console **no painel chat** → `document.body.dataset.princyUiRev` = `cursor-agent-2026.05.25-r2`
+
 ## Se falhar
 
 1. Confirme commit recente: `git log -1` deve ser `169d224c` ou mais novo.
