@@ -15,7 +15,10 @@ $env:VSCODE_SKIP_PRELAUNCH = "1"
 $env:PRINCY_EDITOR_ROOT = $ProjectRoot
 
 . (Join-Path $PSScriptRoot "Princy-CodeWeb-Build.ps1")
+. (Join-Path $PSScriptRoot "..\princy-ui-revision.ps1")
 
+$RevMarker = Get-PrincyUiRevision
+$RevMarkers = Get-PrincyUiRevisionMarkers
 Write-Host "=== Forcar visual Princy (chat premium) ===" -ForegroundColor Cyan
 Write-Host "Shell: $(Get-PrincyPwshExe) (PS $($PSVersionTable.PSVersion))" -ForegroundColor DarkGray
 Write-Host "Pasta: $ProjectRoot"
@@ -74,15 +77,14 @@ if (-not (Test-Path $extJs)) {
 	throw "Falta $extJs - compile-web nao gerou bundle browser"
 }
 
-$markers = @('cursor-agent-2026.05.25-r3', 'cursor-agent-track', 'forceVisualUnlock', 'princyCreate.actions', 'offlineBanner', 'reconnectBackend')
 $found = @()
-foreach ($m in $markers) {
-	if (Select-String -Path $extJs -Pattern $m -Quiet) { $found += $m }
+foreach ($m in $RevMarkers) {
+	if (Select-String -Path $extJs -Pattern [regex]::Escape($m) -Quiet) { $found += $m }
 }
 Write-Host "`n[2] Verificacao extension.js" -ForegroundColor Cyan
 Write-Host "  Marcadores: $($found -join ', ')" -ForegroundColor $(if ($found.Count -ge 2) { 'Green' } else { 'Red' })
-if (-not (Select-String -Path $extJs -Pattern 'cursor-agent-2026.05.25-r3' -Quiet)) {
-	throw "extension.js sem revisao cursor-agent-2026.05.25-r3. Compile falhou ou codigo desatualizado (git pull)."
+if (-not (Select-String -Path $extJs -Pattern [regex]::Escape($RevMarker) -Quiet)) {
+	throw "extension.js sem revisao $RevMarker. Compile falhou ou codigo desatualizado (git pull)."
 }
 if ($found.Count -lt 2) {
 	throw "extension.js parece ANTIGO (sem visual premium). Rode sem -SkipFullCompile."
@@ -103,4 +105,4 @@ if (-not $SkipRestart) {
 Write-Host "`n=== Concluido ===" -ForegroundColor Green
 Write-Host "  1. Abra o webeditor com Ctrl+F5 (hard refresh)" -ForegroundColor Cyan
 Write-Host "  2. F1 -> Reset Princy Layout se o chat ainda estiver maximizado" -ForegroundColor Cyan
-Write-Host "  3. DevTools painel chat: document.body.dataset.princyUiRev = cursor-agent-2026.05.25-r3" -ForegroundColor DarkGray
+Write-Host "  3. DevTools painel chat: document.body.dataset.princyUiRev = $RevMarker" -ForegroundColor DarkGray

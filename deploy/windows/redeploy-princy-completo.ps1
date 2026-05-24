@@ -17,7 +17,9 @@ $env:NODE_OPTIONS = "--max-old-space-size=8192"
 $env:VSCODE_SKIP_PRELAUNCH = "1"
 $env:PRINCY_EDITOR_ROOT = $ProjectRoot
 
-$RevMarker = 'cursor-agent-2026.05.25-r3'
+. (Join-Path $PSScriptRoot "..\princy-ui-revision.ps1")
+
+$RevMarker = Get-PrincyUiRevision
 $codeWebDir = Join-Path $ProjectRoot "deploy\windows\code-web"
 $agentDir = Join-Path $ProjectRoot "deploy\windows\agent-backend"
 
@@ -173,6 +175,13 @@ foreach ($name in @('PrincyAiAgentBackend', 'PrincyAiCodeWeb', 'PrincyCaddy')) {
 		Write-Host "  FALHA servico $name" -ForegroundColor Red
 		$allOk = $false
 	}
+}
+
+Write-Host "`n[6b/8] Verificar chat API ..." -ForegroundColor Cyan
+$verify = Join-Path $codeWebDir "verify-princy-chat-api.ps1"
+if (Test-Path $verify) {
+	$exitVerify = Invoke-PrincyDeployScript -ScriptPath $verify -ScriptArgs @{ ProjectRoot = $ProjectRoot }
+	if ([int]$exitVerify -ne 0) { $allOk = $false }
 }
 
 Write-Host ""

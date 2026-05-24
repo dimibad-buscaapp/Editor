@@ -46,7 +46,8 @@ class PrincyLayoutUnlockContribution implements IWorkbenchContribution {
 
 	static readonly ID = 'workbench.contrib.princyLayoutUnlock';
 
-	private readonly unlockDelaysMs = [0, 200, 600, 1500, 3000, 6000, 12000, 25000, 60000];
+	private readonly unlockDelaysMs = [0, 200, 600, 1500, 3000, 6000, 12000, 25000, 60000, 120000, 300000, 600000];
+	private periodicUnlockTimer: ReturnType<typeof setInterval> | undefined;
 
 	constructor(
 		@IWorkbenchLayoutService private readonly layoutService: IWorkbenchLayoutService,
@@ -55,6 +56,13 @@ class PrincyLayoutUnlockContribution implements IWorkbenchContribution {
 		for (const ms of this.unlockDelaysMs) {
 			setTimeout(() => this.applyUnlock(), ms);
 		}
+		this.periodicUnlockTimer = setInterval(() => this.applyUnlock(), 30_000);
+		setTimeout(() => {
+			if (this.periodicUnlockTimer) {
+				clearInterval(this.periodicUnlockTimer);
+				this.periodicUnlockTimer = undefined;
+			}
+		}, 900_000);
 	}
 
 	private applyUnlock(): void {

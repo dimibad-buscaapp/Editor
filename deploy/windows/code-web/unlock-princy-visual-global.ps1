@@ -57,17 +57,19 @@ if ($exitCode -ne 0) {
 }
 
 $extJs = Join-Path $ProjectRoot "extensions\princy-ai\dist\browser\extension.js"
-$revMarker = 'cursor-agent-2026.05.25-r3'
+. (Join-Path $PSScriptRoot "..\princy-ui-revision.ps1")
+
+$RevMarker = Get-PrincyUiRevision
 if (-not (Test-Path $extJs)) {
 	throw "Falta $extJs - compile nao gerou bundle browser."
 }
-if (-not (Select-String -Path $extJs -Pattern $revMarker -Quiet)) {
-	throw "extension.js sem $revMarker - compile incompleto. Faca git pull e repita o script."
+if (-not (Select-String -Path $extJs -Pattern [regex]::Escape($RevMarker) -Quiet)) {
+	throw "extension.js sem $RevMarker - compile incompleto. Faca git pull e repita o script."
 }
-Write-Host "OK: extension.js com revisao $revMarker" -ForegroundColor Green
+Write-Host "OK: extension.js com revisao $RevMarker" -ForegroundColor Green
 
 Write-Host ""
 Write-Host "=== Concluido ===" -ForegroundColor Green
 Write-Host "  1. Ctrl+F5 no https://princyai.com/webeditor/" -ForegroundColor Cyan
 Write-Host "  2. F1 -> Force Visual Reload (chat + layout)" -ForegroundColor Cyan
-Write-Host "  3. DevTools chat: document.body.dataset.princyUiRev = $revMarker" -ForegroundColor DarkGray
+Write-Host "  3. DevTools chat: document.body.dataset.princyUiRev = $RevMarker" -ForegroundColor DarkGray

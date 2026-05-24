@@ -15,7 +15,9 @@ $env:NODE_OPTIONS = "--max-old-space-size=8192"
 $env:VSCODE_SKIP_PRELAUNCH = "1"
 $env:PRINCY_EDITOR_ROOT = $ProjectRoot
 
-$RevMarker = 'cursor-agent-2026.05.25-r3'
+. (Join-Path $PSScriptRoot "..\princy-ui-revision.ps1")
+
+$RevMarker = Get-PrincyUiRevision
 
 . (Join-Path $PSScriptRoot "Princy-CodeWeb-Build.ps1")
 

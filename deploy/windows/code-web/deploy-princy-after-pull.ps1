@@ -76,13 +76,13 @@ if (-not (Test-Path $extJs)) {
 	throw "Falta $extJs - compile falhou"
 }
 
+. (Join-Path $PSScriptRoot "..\princy-ui-revision.ps1")
+$RevMarker = Get-PrincyUiRevision
+$RevMarkers = Get-PrincyUiRevisionMarkers
+
 # Marcadores presentes no bundle JS (ids do package.json como princy-create nao entram no esbuild)
-$requiredMarkers = @(
-	'cursor-agent-2026.05.25-r3',
-	'cursor-agent-track',
+$requiredMarkers = $RevMarkers + @(
 	'princyCreate.actions',
-	'offlineBanner',
-	'reconnectBackend',
 	'princyai.create.project',
 	'princyai.create.app'
 )
@@ -98,7 +98,7 @@ if ($missing.Count -gt 0) {
 	Write-Host "  FALTAM: $($missing -join ', ')" -ForegroundColor Red
 	throw "extension.js ANTIGO - rode apos git pull com commit a7064242+ (git log -1)."
 }
-Write-Host "  Rev UI: cursor-agent-2026.05.25-r3" -ForegroundColor Green
+Write-Host "  Rev UI: $RevMarker" -ForegroundColor Green
 
 Write-Host ""
 Write-Host "[3] Health API (agent + proxy Code Web) ..." -ForegroundColor Cyan
@@ -146,7 +146,7 @@ if (-not $SkipRestart) {
 Write-Host ""
 Write-Host "=== Concluido ===" -ForegroundColor Green
 Write-Host "  Browser: Ctrl+F5 em https://princyai.com/webeditor/" -ForegroundColor Cyan
-Write-Host "  DevTools painel chat: document.body.dataset.princyUiRev = cursor-agent-2026.05.25-r3" -ForegroundColor DarkGray
+Write-Host "  DevTools painel chat: document.body.dataset.princyUiRev = $RevMarker" -ForegroundColor DarkGray
 Write-Host "  Activity bar: icone + (Criar) com 5 acoes" -ForegroundColor DarkGray
 if (-not $apiOk) {
 	Write-Host "  AVISO: backend :3210 offline - chat ficara offline ate iniciar o agent" -ForegroundColor Red

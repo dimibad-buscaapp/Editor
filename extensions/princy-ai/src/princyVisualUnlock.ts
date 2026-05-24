@@ -7,8 +7,9 @@ import * as vscode from 'vscode';
 import { enforcePrincyEditorUnlocked } from './workbenchUi';
 import type { PrincyChatViewProvider } from './chatView';
 
-const UNLOCK_INTERVAL_MS = 8000;
-const UNLOCK_DURATION_MS = 180_000;
+const UNLOCK_FAST_INTERVAL_MS = 8000;
+const UNLOCK_FAST_DURATION_MS = 600_000;
+const UNLOCK_SLOW_INTERVAL_MS = 30_000;
 
 /** Desbloqueio visual/ediciao global: layout + recarga do painel chat (cache webview). */
 export function registerPrincyVisualUnlock(
@@ -39,18 +40,28 @@ export function registerPrincyVisualUnlock(
 	void runGlobalVisualUnlock(provider, false);
 
 	const started = Date.now();
-	const timer = setInterval(() => {
+	const fastTimer = setInterval(() => {
 		if (!isForceVisualUnlockEnabled()) {
-			clearInterval(timer);
+			clearInterval(fastTimer);
 			return;
 		}
-		if (Date.now() - started > UNLOCK_DURATION_MS) {
-			clearInterval(timer);
+		if (Date.now() - started > UNLOCK_FAST_DURATION_MS) {
+			clearInterval(fastTimer);
 			return;
 		}
 		void runGlobalVisualUnlock(provider, false);
-	}, UNLOCK_INTERVAL_MS);
-	context.subscriptions.push({ dispose: () => clearInterval(timer) });
+	}, UNLOCK_FAST_INTERVAL_MS);
+	context.subscriptions.push({ dispose: () => clearInterval(fastTimer) });
+
+	// Mantem layout desbloqueado enquanto forceVisualUnlock=true (sessoes longas / cache tardio).
+	const slowTimer = setInterval(() => {
+		if (!isForceVisualUnlockEnabled()) {
+			clearInterval(slowTimer);
+			return;
+		}
+		void runGlobalVisualUnlock(provider, false);
+	}, UNLOCK_SLOW_INTERVAL_MS);
+	context.subscriptions.push({ dispose: () => clearInterval(slowTimer) });
 }
 
 function isForceVisualUnlockEnabled(): boolean {
@@ -76,6 +87,15 @@ export async function runGlobalVisualUnlock(
 	await files.update('readonlyFromPermissions', false, target);
 	await vscode.workspace.getConfiguration('editor').update('centeredLayoutAutoResize', false, target);
 
+	const princy = vscode.workspace.getConfiguration('princyai');
+	await princy.update('useSameOriginApi', true, target);
+	if (vscode.env.uiKind === vscode.UIKind.Web) {
+		const endpoint = (princy.get<string>('agentEndpoint', '') ?? '').trim();
+		if (endpoint !== '/princy-api') {
+			await princy.update('agentEndpoint', '/princy-api', target);
+		}
+	}
+
 	await enforcePrincyEditorUnlocked();
 	try {
 		await vscode.commands.executeCommand('princy.unlockEditorLayout');
@@ -83,6 +103,11 @@ export async function runGlobalVisualUnlock(
 		// workbench command only in Code OSS build with contrib princy
 	}
 	provider.forceReloadPanel();
+	try {
+		await vscode.commands.executeCommand('princyai.reconnectBackend');
+	} catch {
+		// reconnect optional during early activation
+	}
 
 	if (showMessage) {
 		void vscode.window.showInformationMessage('Princy: visual e layout recarregados (Ctrl+F5 no browser se usar webeditor).');
