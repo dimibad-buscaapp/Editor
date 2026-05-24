@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { labelForPrincyAiStatus, type PrincyAiStatusSnapshot, type PrincyAiVisualStatus } from './princyAiStatus';
+import { labelForPrincyAiStatus, type PrincyAiStatusSnapshot } from './princyAiStatus';
 
 let statusBarItem: vscode.StatusBarItem | undefined;
 let current: PrincyAiStatusSnapshot = { kind: 'ready', label: labelForPrincyAiStatus('ready') };

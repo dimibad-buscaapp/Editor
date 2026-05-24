@@ -14,9 +14,8 @@ import { loadPrincyRules } from './princyRules';
 import { EMPTY_SHADOW_CONTEXT } from './shadowContext';
 import { ChatMode, ChatSessionManager } from './chatSessions';
 import { buildLineDiff } from './diffLines';
-import { mapAgentJobStateToStatus, setPrincyAiStatus, thinkingStepsForAgentState, labelForPrincyAiStatus } from './princyAiStatus';
-import * as fs from 'fs/promises';
-import * as path from 'path';
+import { mapAgentJobStateToStatus, thinkingStepsForAgentState, labelForPrincyAiStatus } from './princyAiStatus';
+import { setPrincyAiStatus } from './princyStatusBar';
 
 type ModelSegment = 'LOGIC' | 'FRONTEND' | 'BACKEND' | 'DEBUG';
 
@@ -1261,10 +1260,12 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 		const op = message.operation;
 		let before = '';
 		try {
-			const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-			if (root && message.filePath) {
-				const full = path.isAbsolute(message.filePath) ? message.filePath : path.join(root, message.filePath);
-				before = await fs.readFile(full, 'utf8');
+			const folder = vscode.workspace.workspaceFolders?.[0];
+			if (folder && message.filePath) {
+				const uri = /^([a-zA-Z]:[\\/]|\/)/.test(message.filePath)
+					? vscode.Uri.file(message.filePath)
+					: vscode.Uri.joinPath(folder.uri, message.filePath);
+				before = new TextDecoder().decode(await vscode.workspace.fs.readFile(uri));
 			}
 		} catch {
 			before = '';
