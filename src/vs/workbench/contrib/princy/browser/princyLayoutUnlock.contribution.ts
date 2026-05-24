@@ -3,11 +3,11 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { WorkbenchLayoutSettings } from '../../../browser/layout.js';
-import { Parts } from '../../../browser/parts.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
+import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
+
+const AUXILIARYBAR_FORCE_MAXIMIZED = 'workbench.secondarySideBar.forceMaximized';
 
 /**
  * Desbloqueia layout Princy: nunca manter auxiliary bar maximizada nem editor escondido
@@ -27,7 +27,7 @@ class PrincyLayoutUnlockContribution implements IWorkbenchContribution {
 	}
 
 	private applyUnlock(): void {
-		if (this.configurationService.getValue(WorkbenchLayoutSettings.AUXILIARYBAR_FORCE_MAXIMIZED) !== false) {
+		if (this.configurationService.getValue(AUXILIARYBAR_FORCE_MAXIMIZED) !== false) {
 			return;
 		}
 
