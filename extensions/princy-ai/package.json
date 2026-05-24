@@ -45,6 +45,11 @@
         "icon": "$(sparkle)"
       },
       {
+        "command": "princyai.ui.resetLayout",
+        "title": "Reset Princy Layout (unlock editor + chat docked)",
+        "category": "Princy Ai"
+      },
+      {
         "command": "princyai.chat.focus",
         "title": "Focus Chat",
         "category": "Princy Ai",

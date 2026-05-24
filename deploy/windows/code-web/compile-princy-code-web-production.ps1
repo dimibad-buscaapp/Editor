@@ -112,6 +112,14 @@ if (-not (Test-PrincyCodeWebProdBuild -ProjectRoot $ProjectRoot)) {
 }
 Write-Host "OK: bundle producao (CSS ou JS do workbench)" -ForegroundColor Green
 
+$userDataDir = Join-Path $ProjectRoot ".princy-user-data"
+$productionSettings = Join-Path $ProjectRoot "deploy\windows\princy-production.settings.json"
+if (Test-Path $productionSettings) {
+	New-Item -ItemType Directory -Force (Join-Path $userDataDir "User") | Out-Null
+	Copy-Item $productionSettings (Join-Path $userDataDir "User\settings.json") -Force
+	Write-Host "OK: settings producao -> .princy-user-data\User\settings.json" -ForegroundColor Green
+}
+
 if (-not $SkipRestart) {
 	Write-Host ""
 	Write-Host "Reinstalando servico (sem -Dev) ..." -ForegroundColor Cyan

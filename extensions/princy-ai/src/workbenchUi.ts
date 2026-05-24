@@ -9,20 +9,64 @@ import { ensureCursorLayoutOnStartup, scheduleOpenPrincyChatOnStartup } from './
 export function registerPrincyWorkbenchUi(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeConfiguration(event => {
-			if (event.affectsConfiguration('princyai.ui.minimalWorkbench') || event.affectsConfiguration('princyai.ui.openChatOnStartup')) {
-				void applyMinimalWorkbench();
+			if (
+				event.affectsConfiguration('princyai.ui.minimalWorkbench')
+				|| event.affectsConfiguration('princyai.ui.openChatOnStartup')
+				|| event.affectsConfiguration('princyai.chat.dockedRight')
+			) {
+				void applyPrincyWorkbenchLayout();
 			}
 		})
 	);
-	void applyMinimalWorkbench();
+	context.subscriptions.push(
+		vscode.commands.registerCommand('princyai.ui.resetLayout', () => enforcePrincyEditorUnlocked())
+	);
+	void applyPrincyWorkbenchLayout();
+}
+
+async function applyPrincyWorkbenchLayout(): Promise<void> {
+	const princy = vscode.workspace.getConfiguration('princyai');
+	if (princy.get<boolean>('ui.minimalWorkbench', false)) {
+		await applyMinimalWorkbench();
+	} else {
+		await applyPremiumWorkbench();
+	}
+}
+
+/** Layout Cursor completo: editor visivel + chat dockado a direita (nao maximizado). */
+export async function applyPremiumWorkbench(): Promise<void> {
+	const target = vscode.ConfigurationTarget.Global;
+	const wb = vscode.workspace.getConfiguration('workbench');
+	const win = vscode.workspace.getConfiguration('window');
+	const files = vscode.workspace.getConfiguration('files');
+
+	// Travas antigas que escondem o editor ou maximizam o chat
+	await wb.update('secondarySideBar.forceMaximized', false, target);
+	await wb.update('secondarySideBar.defaultVisibility', 'visible', target);
+	await wb.update('panel.opensMaximized', 'never', target);
+	await wb.update('activityBar.visible', true, target);
+	await wb.update('activityBar.location', 'default', target);
+	await wb.update('layoutControl.enabled', true, target);
+	await wb.update('statusBar.visible', true, target);
+	await win.update('commandCenter', true, target);
+	await win.update('menuBarVisibility', 'classic', target);
+
+	await files.update('readonlyInclude', {}, target);
+	await files.update('readonlyExclude', {}, target);
+	await files.update('readonlyFromPermissions', false, target);
+
+	await clearAuxiliaryBarFullscreen();
+
+	const princy = vscode.workspace.getConfiguration('princyai');
+	if (princy.get<boolean>('ui.openChatOnStartup', true)) {
+		scheduleOpenPrincyChatOnStartup();
+	}
+	if (princy.get<boolean>('chat.dockedRight', true)) {
+		await ensureCursorLayoutOnStartup();
+	}
 }
 
 async function applyMinimalWorkbench(): Promise<void> {
-	const princy = vscode.workspace.getConfiguration('princyai');
-	if (!princy.get<boolean>('ui.minimalWorkbench', true)) {
-		return;
-	}
-
 	const target = vscode.ConfigurationTarget.Global;
 	const wb = vscode.workspace.getConfiguration('workbench');
 	const win = vscode.workspace.getConfiguration('window');
@@ -58,13 +102,25 @@ async function applyMinimalWorkbench(): Promise<void> {
 
 	await wb.update('activityBar.visible', true, target);
 
+	await clearAuxiliaryBarFullscreen();
+
+	const princy = vscode.workspace.getConfiguration('princyai');
 	if (princy.get<boolean>('ui.openChatOnStartup', true)) {
 		scheduleOpenPrincyChatOnStartup();
 	}
-	void ensureCursorLayoutOnStartup();
+	await ensureCursorLayoutOnStartup();
 }
 
-/** Reaplica layout Cursor e desbloqueia edicao (chamar apos pull/settings antigos). */
+/** Remove maximize da barra lateral direita (estado antigo em workspace storage). */
+async function clearAuxiliaryBarFullscreen(): Promise<void> {
+	try {
+		await vscode.commands.executeCommand('workbench.action.restoreAuxiliaryBar');
+	} catch {
+		// comando pode nao existir nesta build
+	}
+}
+
+/** Reaplica layout premium e desbloqueia edicao (apos pull ou settings antigos). */
 export async function enforcePrincyEditorUnlocked(): Promise<void> {
-	await applyMinimalWorkbench();
+	await applyPrincyWorkbenchLayout();
 }
