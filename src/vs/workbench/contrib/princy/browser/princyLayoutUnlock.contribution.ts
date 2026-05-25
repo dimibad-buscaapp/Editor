@@ -12,12 +12,14 @@ import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase 
 import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
 
 const AUXILIARYBAR_FORCE_MAXIMIZED = 'workbench.secondarySideBar.forceMaximized';
+const PRINCY_NEVER_LOCK_LAYOUT = 'princyai.ui.neverLockLayout';
 
 export function applyPrincyLayoutUnlock(
 	layoutService: IWorkbenchLayoutService,
 	configurationService: IConfigurationService
 ): void {
-	if (configurationService.getValue(AUXILIARYBAR_FORCE_MAXIMIZED) === true) {
+	const neverLock = configurationService.getValue<boolean>(PRINCY_NEVER_LOCK_LAYOUT);
+	if (!neverLock && configurationService.getValue(AUXILIARYBAR_FORCE_MAXIMIZED) === true) {
 		return;
 	}
 

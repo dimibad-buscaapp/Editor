@@ -81,7 +81,7 @@ async function tryClosePlatformChat(): Promise<void> {
 }
 
 /** No Code Web, chamar :3210 direto no browser aponta para o PC do usuario — usar proxy /princy-api. */
-async function migrateWebAgentEndpoint(): Promise<void> {
+export async function migrateWebAgentEndpoint(): Promise<void> {
 	if (vscode.env.uiKind !== vscode.UIKind.Web) {
 		return;
 	}

@@ -49,8 +49,27 @@ export const enum CacheControl {
 	NO_CACHING, ETAG, NO_EXPIRY
 }
 
+/** Modo live: zero cache no browser (rota /webeditor-live, env PRINCY_LIVE_MODE=1). */
+export function isPrincyLiveMode(req?: http.IncomingMessage): boolean {
+	if (process.env['PRINCY_LIVE_MODE'] === '1' || process.env['PRINCY_LIVE_MODE'] === 'true') {
+		return true;
+	}
+	if (!req) {
+		return false;
+	}
+	const h = req.headers['x-princy-live-mode'];
+	if (h === '1' || h === 'true') {
+		return true;
+	}
+	const url = req.url ?? '';
+	return url.includes('princy_live=1') || url.includes('/webeditor-live');
+}
+
 /** Princy: workbench + extensao princy-ai nao podem ficar 1 ano em cache do browser. */
-export function princyDisallowsLongLivedCache(filePath: string): boolean {
+export function princyDisallowsLongLivedCache(filePath: string, req?: http.IncomingMessage): boolean {
+	if (isPrincyLiveMode(req)) {
+		return true;
+	}
 	const p = filePath.replace(/\\/g, '/').toLowerCase();
 	return p.includes('/princy-ai/')
 		|| p.includes('/out/vs/code/browser/workbench/workbench.')
@@ -192,8 +211,13 @@ export class WebClientServer {
 			return serveError(req, res, 400, `Bad request.`);
 		}
 
-		const useLongCache = this._environmentService.isBuilt && !princyDisallowsLongLivedCache(filePath);
-		return serveFile(filePath, useLongCache ? CacheControl.NO_EXPIRY : CacheControl.ETAG, this._logService, req, res, headers);
+		if (isPrincyLiveMode(req)) {
+			headers['Cache-Control'] = 'no-store, no-cache, must-revalidate';
+			headers['Pragma'] = 'no-cache';
+		}
+		const useLongCache = this._environmentService.isBuilt && !princyDisallowsLongLivedCache(filePath, req);
+		const cacheMode = isPrincyLiveMode(req) ? CacheControl.NO_CACHING : (useLongCache ? CacheControl.NO_EXPIRY : CacheControl.ETAG);
+		return serveFile(filePath, cacheMode, this._logService, req, res, headers);
 	}
 
 	private _getResourceURLTemplateAuthority(uri: URI): string | undefined {
@@ -488,6 +512,10 @@ export class WebClientServer {
 			'Content-Type': 'text/html',
 			'Content-Security-Policy': cspDirectives
 		};
+		if (isPrincyLiveMode(req)) {
+			headers['Cache-Control'] = 'no-store, no-cache, must-revalidate';
+			headers['Pragma'] = 'no-cache';
+		}
 		if (this._connectionToken.type !== ServerConnectionTokenType.None) {
 			// At this point we know the client has a valid cookie
 			// and we want to set it prolong it to ensure that this

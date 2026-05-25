@@ -10,6 +10,7 @@ import { runPrincyProjectCreate } from './princyProjectCreate';
 import { focusPrincyChatPanel, PRINCY_CHAT_VIEW_ID } from './princyWorkbenchChat';
 import { buildChatPanelHtml } from './chatPanelHtml';
 import { PRINCY_CHAT_UI_REVISION } from './princyDesignTokens';
+import { migrateWebAgentEndpoint } from './princyWorkbenchChat';
 import { getMentionSuggestions, resolveContextMentions } from './contextMentions';
 import type { NativeContextBundle } from './nativeContext';
 import { loadPrincyRules } from './princyRules';
@@ -115,11 +116,15 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 		webviewView.webview.onDidReceiveMessage(message => this.handleMessage(message as WebviewMessage));
 		webviewView.onDidChangeVisibility(() => {
 			if (webviewView.visible) {
+				void migrateWebAgentEndpoint();
+				this.forceReloadPanel();
 				void this.initializeChatPanel();
 				webviewView.webview.postMessage({ type: 'reloadPanel' });
 			}
 		});
+		void migrateWebAgentEndpoint();
 		void this.initializeChatPanel();
+		void vscode.commands.executeCommand('princyai.reconnectBackend');
 		vscode.window.onDidChangeActiveTextEditor(() => this.pushEditorContext());
 		vscode.window.onDidChangeTextEditorSelection(() => this.pushEditorContext());
 	}

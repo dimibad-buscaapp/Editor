@@ -6,7 +6,9 @@ param(
 	[string]$WorkspacePath = "C:\Apps\Editor\workspaces\default",
 	[string]$ServiceName = "PrincyAiCodeWeb",
 	[int]$Port = 3200,
-	[string]$ServerBasePath = "/webeditor"
+	[string]$ServerBasePath = "/webeditor",
+	[string]$UserDataDirName = ".princy-user-data",
+	[switch]$LiveMode
 )
 
 $ErrorActionPreference = "Stop"
@@ -105,7 +107,7 @@ if ($hasProd) {
 New-Item -ItemType Directory -Force $WorkspacePath | Out-Null
 New-Item -ItemType Directory -Force $logsDir | Out-Null
 
-$userDataDir = Join-Path $ProjectRoot ".princy-user-data"
+$userDataDir = Join-Path $ProjectRoot $UserDataDirName
 New-Item -ItemType Directory -Force (Join-Path $userDataDir "User") | Out-Null
 $productionSettings = Join-Path $ProjectRoot "deploy\windows\princy-production.settings.json"
 if (Test-Path $productionSettings) {
@@ -177,6 +179,9 @@ $envExtra = @(
 	"PRINCY_EDITOR_ROOT=$ProjectRoot",
 	"PRINCY_UI_REVISION=$uiRev"
 )
+if ($LiveMode) {
+	$envExtra += "PRINCY_LIVE_MODE=1"
+}
 if (-not $hasProd) {
 	Write-Host "Modo DEV forcado (sem bundle prod) - adicionando VSCODE_DEV=1" -ForegroundColor Yellow
 	$envExtra += "VSCODE_DEV=1", "NODE_ENV=development"

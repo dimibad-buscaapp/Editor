@@ -65,7 +65,11 @@ export function registerPrincyVisualUnlock(
 }
 
 function isForceVisualUnlockEnabled(): boolean {
-	return vscode.workspace.getConfiguration('princyai').get<boolean>('ui.forceVisualUnlock', true);
+	const princy = vscode.workspace.getConfiguration('princyai');
+	if (princy.get<boolean>('ui.neverLockLayout', true)) {
+		return true;
+	}
+	return princy.get<boolean>('ui.forceVisualUnlock', true);
 }
 
 export async function runGlobalVisualUnlock(

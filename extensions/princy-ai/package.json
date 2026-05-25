@@ -266,6 +266,7 @@
       "workbench.activityBar.location": "default",
       "princyai.ui.minimalWorkbench": false,
       "princyai.ui.forceVisualUnlock": true,
+      "princyai.ui.neverLockLayout": true,
       "princyai.chat.dockedRight": true,
       "editor.minimap.enabled": false,
       "editor.glyphMargin": false,
@@ -345,6 +346,11 @@
           "type": "boolean",
           "default": true,
           "description": "Reaplica layout desbloqueado e recarrega o painel chat periodicamente (evita visual antigo em cache)."
+        },
+        "princyai.ui.neverLockLayout": {
+          "type": "boolean",
+          "default": true,
+          "description": "Nunca bloqueia o layout (chat sempre dockado, editor sempre visivel). Desativa travas de maximize/readonly."
         },
         "princyai.chat.dockedRight": {
           "type": "boolean",
