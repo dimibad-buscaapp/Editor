@@ -26,14 +26,31 @@ if (-not (Test-Path $ProjectRoot)) {
 	}
 }
 
-$extJs = Join-Path $ProjectRoot "extensions\princy-ai\dist\extension.js"
+function Resolve-PrincyBrowserExtensionJs {
+	param([string]$Root)
+	$candidates = @(
+		(Join-Path $Root "extensions\princy-ai\dist\browser\extension.js"),
+		(Join-Path $Root "out\extensions\princy-ai\dist\browser\extension.js"),
+		(Join-Path $Root "extensions\princy-ai\dist\extension.js")
+	)
+	foreach ($p in $candidates) {
+		if (Test-Path $p) { return $p }
+	}
+	return $null
+}
+
+$extJs = Resolve-PrincyBrowserExtensionJs -Root $ProjectRoot
 $webClientJs = Join-Path $ProjectRoot "out\vs\server\node\webClientServer.js"
 
 Write-Host "[Build / marcadores]" -ForegroundColor Cyan
-if (-not (Test-Path $extJs)) {
-	$issues += "extension.js ausente — compile: cd extensions\princy-ai; npm run compile"
-	Write-Host "  extension.js: AUSENTE" -ForegroundColor Red
+if (-not $extJs) {
+	$issues += "princy-ai dist/browser/extension.js ausente — npm run compile-web (ou compile-princy-code-web-production)"
+	Write-Host "  dist/browser/extension.js: AUSENTE (extensions e out\extensions)" -ForegroundColor Red
+} elseif ($extJs -match '\\dist\\extension\.js$' -and $extJs -notmatch '\\browser\\') {
+	$issues += "so existe dist\extension.js (node) — Code Web precisa dist\browser\extension.js"
+	Write-Host "  AVISO: $($extJs) e node-only; rode compile-web" -ForegroundColor Yellow
 } else {
+	Write-Host "  bundle: $extJs" -ForegroundColor DarkGray
 	$extText = Get-Content $extJs -Raw -ErrorAction SilentlyContinue
 	$extOk = $true
 	foreach ($m in (Get-PrincyUiRevisionMarkers)) {
@@ -97,7 +114,7 @@ if (Test-Path $prodSettings) {
 		'"princyai.ui.openChatOnStartup": false',
 		'"princyai.ui.panelOpenOnStartup": false',
 		'"workbench.secondarySideBar.defaultVisibility": "hidden"',
-		'"princyai.agentEndpoint": "/princy-api"'
+		'"princyai.agentEndpoint": "https://princyai.com/princy-api"'
 	)) {
 		if ($raw -notmatch [regex]::Escape($line)) {
 			$settingsOk = $false
@@ -117,7 +134,7 @@ if (-not $SkipChatApi) {
 	Write-Host "[Chat API — delegar verify-princy-chat-api.ps1]" -ForegroundColor Cyan
 	$chatScript = Join-Path $PSScriptRoot "verify-princy-chat-api.ps1"
 	if (Test-Path $chatScript) {
-		& $chatScript -ProjectRoot $ProjectRoot -PublicHost $PublicHost -CodeWebPort $CodeWebPort
+		& $chatScript -ProjectRoot $ProjectRoot -PublicHost $PublicHost -CodeWebPort $CodeWebPort -SkipBuildCenterSmoke
 		if ($LASTEXITCODE -ne 0) {
 			$issues += "verify-princy-chat-api falhou"
 		}

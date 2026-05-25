@@ -247,7 +247,9 @@
       "princyai.ui.panelOpenOnStartup": false,
       "princyai.ui.defaultChat": true,
       "princyai.useSameOriginApi": true,
-      "princyai.agentEndpoint": "/princy-api",
+      "princyai.publicWebOrigin": "https://princyai.com",
+      "princyai.serverBasePath": "/webeditor",
+      "princyai.agentEndpoint": "https://princyai.com/princy-api",
       "princyai.chat.simpleMode": false,
       "princyai.actionRun.approvalRequired": true,
       "princyai.actionRun.autoCompileAfterApply": true,
@@ -290,13 +292,23 @@
       "properties": {
         "princyai.agentEndpoint": {
           "type": "string",
-          "default": "/princy-api",
-          "description": "URL da API do agent backend. Em producao use /princy-api (same-origin). URL absoluta opcional: https://princyai.com/princy-api."
+          "default": "https://princyai.com/princy-api",
+          "description": "URL da API do agent. Producao: https://princyai.com/princy-api (Caddy->3210) ou https://princyai.com/webeditor/princy-api (Code Web :3200->3210)."
+        },
+        "princyai.serverBasePath": {
+          "type": "string",
+          "default": "/webeditor",
+          "description": "Prefixo do Code Web no dominio (--server-base-path). Usado para montar .../webeditor/princy-api."
         },
         "princyai.useSameOriginApi": {
           "type": "boolean",
           "default": true,
           "description": "No navegador, tenta /princy-api no mesmo dominio do editor antes de localhost:3210."
+        },
+        "princyai.publicWebOrigin": {
+          "type": "string",
+          "default": "https://princyai.com",
+          "description": "Origem HTTPS publica do editor (ex.: https://princyai.com). Usada para resolver /princy-api quando location nao esta disponivel."
         },
         "princyai.apiToken": {
           "type": "string",

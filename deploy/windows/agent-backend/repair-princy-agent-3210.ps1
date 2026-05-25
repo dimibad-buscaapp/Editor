@@ -108,6 +108,14 @@ if (-not (Test-Path $envFile)) {
 } else {
 	Add-Ok ".env presente"
 	$envText = Get-Content $envFile -Raw
+	if ($envText -match 'APP_ORIGIN\s*=\s*"?https://princyai\.com') {
+		Add-Ok "APP_ORIGIN producao (https://princyai.com)"
+	} elseif ($envText -match 'APP_ORIGIN\s*=\s*"?http://127\.0\.0\.1') {
+		Add-Warn "APP_ORIGIN local (teste RDP) — em producao publica use https://princyai.com"
+	}
+	if ($envText -match 'PRINCY_CORS_RELAXED\s*=\s*"?true"?') {
+		Add-Issue "PRINCY_CORS_RELAXED=true — desative em producao"
+	}
 	if ($envText -notmatch 'DATABASE_URL\s*=') {
 		Add-Issue ".env sem DATABASE_URL"
 	}

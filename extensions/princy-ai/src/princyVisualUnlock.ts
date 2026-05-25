@@ -4,13 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { applyPrincySecondarySideBarVisibilitySetting, shouldOpenChatOnStartup } from './princyWorkbenchChat';
+import { applyPrincySecondarySideBarVisibilitySetting, migrateWebAgentEndpoint, shouldOpenChatOnStartup } from './princyWorkbenchChat';
 import { enforcePrincyEditorUnlocked } from './workbenchUi';
 import type { PrincyChatViewProvider } from './chatView';
 
-const UNLOCK_FAST_INTERVAL_MS = 8000;
-const UNLOCK_FAST_DURATION_MS = 600_000;
-const UNLOCK_SLOW_INTERVAL_MS = 30_000;
+/** Intervalos moderados — evita recarregar webview a cada poucos segundos (desconectava o chat). */
+const UNLOCK_FAST_INTERVAL_MS = 60_000;
+const UNLOCK_FAST_DURATION_MS = 300_000;
+const UNLOCK_SLOW_INTERVAL_MS = 120_000;
 
 /** Desbloqueio visual/ediciao global: layout + recarga do painel chat (cache webview). */
 export function registerPrincyVisualUnlock(
@@ -92,12 +93,10 @@ export async function runGlobalVisualUnlock(
 
 	const princy = vscode.workspace.getConfiguration('princyai');
 	await princy.update('useSameOriginApi', true, target);
-	if (vscode.env.uiKind === vscode.UIKind.Web) {
-		const endpoint = (princy.get<string>('agentEndpoint', '') ?? '').trim();
-		if (endpoint !== '/princy-api') {
-			await princy.update('agentEndpoint', '/princy-api', target);
-		}
-	}
+	await princy.update('ui.forceVisualUnlock', true, target);
+	await princy.update('ui.neverLockLayout', true, target);
+	// NUNCA repor agentEndpoint=/princy-api relativo — quebra fetch no worker e marca chat offline.
+	await migrateWebAgentEndpoint();
 
 	await enforcePrincyEditorUnlocked();
 	try {
@@ -112,7 +111,9 @@ export async function runGlobalVisualUnlock(
 			// optional
 		}
 	}
-	provider.forceReloadPanel();
+	if (showMessage) {
+		provider.forceReloadPanel();
+	}
 	try {
 		await vscode.commands.executeCommand('princyai.reconnectBackend');
 	} catch {

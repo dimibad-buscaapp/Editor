@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { clearAgentEndpointCache } from './agentClient';
 
 export const PRINCY_CHAT_VIEW_ID = 'workbench.view.extension.princyai';
 const PRINCY_CHAT_VIEW = PRINCY_CHAT_VIEW_ID;
@@ -118,13 +119,16 @@ export async function migrateWebAgentEndpoint(): Promise<void> {
 		|| /^https?:\/\/princyai\.com\/?$/i.test(current)
 		|| /^https?:\/\/[^/]+:3200$/i.test(current);
 	const wrongPublicApi = /^https:\/\/api\.princyai\.com/i.test(current);
-	if (!legacy.has(current) && !wrongProxyOn3210 && !wrongRoot3200 && !wrongPublicApi) {
-		return;
+	const wrongRelativeOnly = current === '/princy-api' || current.startsWith('/') && !current.startsWith('//');
+	const needsMigrate = legacy.has(current) || wrongProxyOn3210 || wrongRoot3200 || wrongPublicApi || wrongRelativeOnly;
+	if (needsMigrate) {
+		await princy.update('useSameOriginApi', true, vscode.ConfigurationTarget.Global);
+		await princy.update('publicWebOrigin', 'https://princyai.com', vscode.ConfigurationTarget.Global);
+		await princy.update('serverBasePath', '/webeditor', vscode.ConfigurationTarget.Global);
+		// URL absoluta HTTPS — evita fetch relativo no worker da extensao (offline falso).
+		await princy.update('agentEndpoint', 'https://princyai.com/princy-api', vscode.ConfigurationTarget.Global);
 	}
-
-	await princy.update('useSameOriginApi', true, vscode.ConfigurationTarget.Global);
-	// Same-origin relativo: fetch /princy-api/... (Caddy ou proxy :3200 no servidor).
-	await princy.update('agentEndpoint', '/princy-api', vscode.ConfigurationTarget.Global);
+	clearAgentEndpointCache();
 }
 
 function delay(ms: number): Promise<void> {

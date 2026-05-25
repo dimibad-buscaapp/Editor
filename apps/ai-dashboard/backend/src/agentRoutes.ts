@@ -212,14 +212,24 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 		chatPath: '/api/agent/chat'
 	}));
 
-	app.get('/api/agent/health', async () => ({
-		ok: true,
-		service: 'princy-agent-api',
-		build: '2026-05-fsm',
-		port: config.apiPort,
-		cors: 'dynamic',
-		streamJobs: true
-	}));
+	app.get('/api/agent/health', async () => {
+		const productionOrigin = config.appOrigin.startsWith('https://')
+			&& !config.corsRelaxed
+			&& config.apiHost !== '127.0.0.1';
+		return {
+			ok: true,
+			service: 'princy-agent-api',
+			build: '2026-05-fsm',
+			port: config.apiPort,
+			cors: config.corsRelaxed ? 'relaxed' : 'dynamic',
+			streamJobs: config.agentAsyncJobsEnabled,
+			environment: productionOrigin ? 'production' : 'development',
+			appOrigin: config.appOrigin,
+			codeWebUrl: config.codeWebUrl,
+			publicChat: config.publicChatEnabled,
+			simpleMode: config.simpleMode
+		};
+	});
 
 	app.get('/api/editor/runtime-log', async (request) => {
 		const query = request.query as { lines?: string };

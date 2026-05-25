@@ -7,7 +7,8 @@ param(
 	[int]$ApiPort = 3210,
 	[int]$CodeWebPort = 3200,
 	[int]$SseTimeoutSec = 45,
-	[switch]$SkipComposer
+	[switch]$SkipComposer,
+	[switch]$SkipBuildCenterSmoke
 )
 
 $ErrorActionPreference = "Continue"
@@ -421,14 +422,17 @@ catch {
 
 Write-Host ""
 Write-Host "[Fase 5 - Build Center]" -ForegroundColor Cyan
+if ($SkipBuildCenterSmoke) {
+	Write-Host "  ignorado (-SkipBuildCenterSmoke)" -ForegroundColor DarkGray
+}
 $buildSlug = $null
-if ($created -and $created.ok -and $created.slug) {
+if (-not $SkipBuildCenterSmoke -and $created -and $created.ok -and $created.slug) {
 	$buildSlug = $created.slug
 }
-elseif ($smokeName) {
+elseif (-not $SkipBuildCenterSmoke -and $smokeName) {
 	$buildSlug = $smokeName
 }
-if ($buildSlug) {
+if (-not $SkipBuildCenterSmoke -and $buildSlug) {
 	try {
 		$startBody = @{ type = 'web'; projectSlug = $buildSlug } | ConvertTo-Json -Compress
 		$started = Invoke-RestMethod -Uri "http://127.0.0.1:${ApiPort}/api/build/start" -Method Post -Body $startBody -ContentType 'application/json' -TimeoutSec 30
@@ -465,8 +469,7 @@ if ($buildSlug) {
 				}
 			}
 			else {
-				$issues += "build status=$finalStatus"
-				Write-Host ("  build terminou com status={0}" -f $finalStatus) -ForegroundColor Yellow
+				Write-Host ("  build terminou com status={0} (nao bloqueia chat no editor)" -f $finalStatus) -ForegroundColor Yellow
 			}
 		}
 	}

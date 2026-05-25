@@ -52,7 +52,7 @@ class PrincyLayoutUnlockContribution implements IWorkbenchContribution {
 
 	static readonly ID = 'workbench.contrib.princyLayoutUnlock';
 
-	private readonly unlockDelaysMs = [0, 200, 600, 1500, 3000, 6000, 12000, 25000, 60000, 120000, 300000, 600000];
+	private readonly unlockDelaysMs = [0, 400, 1500, 5000, 15000];
 	private periodicUnlockTimer: ReturnType<typeof setInterval> | undefined;
 
 	constructor(
@@ -62,13 +62,17 @@ class PrincyLayoutUnlockContribution implements IWorkbenchContribution {
 		for (const ms of this.unlockDelaysMs) {
 			setTimeout(() => this.applyUnlock(), ms);
 		}
-		this.periodicUnlockTimer = setInterval(() => this.applyUnlock(), 30_000);
-		setTimeout(() => {
-			if (this.periodicUnlockTimer) {
-				clearInterval(this.periodicUnlockTimer);
-				this.periodicUnlockTimer = undefined;
-			}
-		}, 900_000);
+		const neverLock = this.configurationService.getValue<boolean>(PRINCY_NEVER_LOCK_LAYOUT) === true;
+		if (neverLock) {
+			// So desmaximiza auxiliary bar; nao reabre painel/chat periodicamente.
+			this.periodicUnlockTimer = setInterval(() => this.applyUnlock(), 120_000);
+			setTimeout(() => {
+				if (this.periodicUnlockTimer) {
+					clearInterval(this.periodicUnlockTimer);
+					this.periodicUnlockTimer = undefined;
+				}
+			}, 600_000);
+		}
 	}
 
 	private applyUnlock(): void {

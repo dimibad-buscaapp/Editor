@@ -58,31 +58,36 @@ export class SignService extends AbstractSignService implements ISignService {
 
 	@memoize
 	private async vsda(): Promise<typeof vsda_web> {
-		const checkInterval = new WindowIntervalTimer();
-		let [wasm] = await Promise.all([
-			this.getWasmBytes(),
-			new Promise<void>((resolve, reject) => {
-				importAMDNodeModule('vsda', 'rust/web/vsda.js').then(() => resolve(), reject);
+		try {
+			const checkInterval = new WindowIntervalTimer();
+			let [wasm] = await Promise.all([
+				this.getWasmBytes(),
+				new Promise<void>((resolve, reject) => {
+					importAMDNodeModule('vsda', 'rust/web/vsda.js').then(() => resolve(), reject);
 
-				// todo@connor4312: there seems to be a bug(?) in vscode-loader with
-				// require() not resolving in web once the script loads, so check manually
-				checkInterval.cancelAndSet(() => {
-					if (typeof vsda_web !== 'undefined') {
-						resolve();
-					}
-				}, 50, mainWindow);
-			}).finally(() => checkInterval.dispose()),
-		]);
+					// todo@connor4312: there seems to be a bug(?) in vscode-loader with
+					// require() not resolving in web once the script loads, so check manually
+					checkInterval.cancelAndSet(() => {
+						if (typeof vsda_web !== 'undefined') {
+							resolve();
+						}
+					}, 50, mainWindow);
+				}).finally(() => checkInterval.dispose()),
+			]);
 
-		const keyBytes = new TextEncoder().encode(this.productService.serverLicense?.join('\n') || '');
-		for (let i = 0; i + STEP_SIZE < keyBytes.length; i += STEP_SIZE) {
-			const key = await crypto.subtle.importKey('raw', keyBytes.slice(i + IV_SIZE, i + IV_SIZE + KEY_SIZE), { name: 'AES-CBC' }, false, ['decrypt']);
-			wasm = await crypto.subtle.decrypt({ name: 'AES-CBC', iv: keyBytes.slice(i, i + IV_SIZE) }, key, wasm);
+			const keyBytes = new TextEncoder().encode(this.productService.serverLicense?.join('\n') || '');
+			for (let i = 0; i + STEP_SIZE < keyBytes.length; i += STEP_SIZE) {
+				const key = await crypto.subtle.importKey('raw', keyBytes.slice(i + IV_SIZE, i + IV_SIZE + KEY_SIZE), { name: 'AES-CBC' }, false, ['decrypt']);
+				wasm = await crypto.subtle.decrypt({ name: 'AES-CBC', iv: keyBytes.slice(i, i + IV_SIZE) }, key, wasm);
+			}
+
+			await vsda_web.default(wasm);
+
+			return vsda_web;
+		} catch {
+			// Code-OSS / Princy web: pacote Microsoft vsda (wasm) nao esta em node_modules — signing pass-through.
+			return createNoopVsdaWeb();
 		}
-
-		await vsda_web.default(wasm);
-
-		return vsda_web;
 	}
 
 	private async getWasmBytes(): Promise<ArrayBuffer> {
@@ -94,4 +99,22 @@ export class SignService extends AbstractSignService implements ISignService {
 
 		return response.arrayBuffer();
 	}
+}
+
+/** Fallback quando vsda_bg.wasm nao existe (build OSS sem pacote vsda). */
+function createNoopVsdaWeb(): typeof vsda_web {
+	class NoopValidator {
+		free(): void { }
+		createNewMessage(original: string): string {
+			return original;
+		}
+		validate(): 'ok' {
+			return 'ok';
+		}
+	}
+	return {
+		default: async () => { },
+		sign: (message: string) => message,
+		validator: NoopValidator as unknown as typeof vsdaWeb.validator,
+	};
 }

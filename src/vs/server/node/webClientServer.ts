@@ -130,10 +130,12 @@ export async function serveFile(filePath: string, cacheControl: CacheControl, lo
 			});
 		});
 	} catch (error) {
+		const normalizedPath = filePath.replace(/\\/g, '/');
+		const isVsdaAsset = normalizedPath.includes('/vsda/') || normalizedPath.includes('/node_modules/vsda');
 		if (error.code !== 'ENOENT') {
 			logService.error(error);
 			console.error(error.toString());
-		} else {
+		} else if (!isVsdaAsset) {
 			console.error(`File not found: ${filePath}`);
 		}
 

@@ -319,6 +319,68 @@ const SAME_ORIGIN_PROXY_PATH = '/princy-api';
 
 let cachedAgentEndpoint: string | undefined;
 
+/** Limpa cache apos migrate de settings (evita endpoint antigo :3210 ou localhost errado). */
+export function clearAgentEndpointCache(): void {
+	cachedAgentEndpoint = undefined;
+}
+
+function isLocalDevHostname(hostname: string | undefined): boolean {
+	if (!hostname) {
+		return false;
+	}
+	const h = hostname.toLowerCase();
+	return h === 'localhost' || h === '127.0.0.1' || h.endsWith('.local');
+}
+
+function getConfiguredPublicWebOrigin(): string | undefined {
+	const raw = (vscode.workspace.getConfiguration('princyai').get<string>('publicWebOrigin', '') ?? '').trim();
+	if (raw) {
+		return raw.replace(/\/+$/, '');
+	}
+	if (vscode.env.uiKind === vscode.UIKind.Web) {
+		return 'https://princyai.com';
+	}
+	return undefined;
+}
+
+function getConfiguredServerBasePath(): string {
+	const raw = (vscode.workspace.getConfiguration('princyai').get<string>('serverBasePath', '/webeditor') ?? '').trim();
+	if (!raw || raw === '/') {
+		return '';
+	}
+	return raw.startsWith('/') ? raw.replace(/\/+$/, '') : `/${raw.replace(/\/+$/, '')}`;
+}
+
+/** URLs HTTPS absolutas para o proxy editor (:3200) e Caddy (/princy-api -> :3210). */
+function getPreferredWebApiBases(): readonly string[] {
+	const origin = getConfiguredPublicWebOrigin();
+	if (!origin) {
+		return [];
+	}
+	const basePath = getConfiguredServerBasePath();
+	const bases: string[] = [];
+	if (basePath) {
+		bases.push(`${origin}${basePath}${SAME_ORIGIN_PROXY_PATH}`);
+	}
+	bases.push(`${origin}${SAME_ORIGIN_PROXY_PATH}`);
+	return bases;
+}
+
+function shouldCacheWebEndpoint(base: string): boolean {
+	if (vscode.env.uiKind !== vscode.UIKind.Web) {
+		return true;
+	}
+	const abs = toAbsoluteAgentEndpoint(base.replace(/\/+$/, ''));
+	if (/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?/i.test(abs)) {
+		return false;
+	}
+	const pageProtocol = (globalThis as { location?: { protocol?: string } }).location?.protocol;
+	if (pageProtocol === 'https:' && abs.startsWith('http://')) {
+		return false;
+	}
+	return true;
+}
+
 function sanitizeWebAgentEndpoint(endpoint: string): string {
 	const trimmed = endpoint.replace(/\/+$/, '');
 	if (vscode.env.uiKind !== vscode.UIKind.Web) {
@@ -343,7 +405,10 @@ export class AgentClient {
 	}
 
 	private rememberEndpoint(base: string, note: string): string {
-		const endpoint = sanitizeWebAgentEndpoint(base.replace(/\/+$/, ''));
+		let endpoint = sanitizeWebAgentEndpoint(base.replace(/\/+$/, ''));
+		if (vscode.env.uiKind === vscode.UIKind.Web) {
+			endpoint = toAbsoluteAgentEndpoint(endpoint);
+		}
 		cachedAgentEndpoint = endpoint;
 		this.lastProbeNote = note;
 		return endpoint;
@@ -363,12 +428,21 @@ export class AgentClient {
 		if (configured.startsWith('/') && useSameOrigin) {
 			const relative = configured.replace(/\/+$/, '') || SAME_ORIGIN_PROXY_PATH;
 			if (vscode.env.uiKind === vscode.UIKind.Web) {
-				const candidates = [relative, ...buildWebApiCandidates().filter(c => c.replace(/\/+$/, '') !== relative)];
+				const candidates = [
+					...getPreferredWebApiBases(),
+					...buildWebApiCandidates().filter(c => c.replace(/\/+$/, '') !== relative),
+					relative
+				];
 				for (const base of candidates) {
+					if (!shouldCacheWebEndpoint(base)) {
+						continue;
+					}
 					if (await this.probeEndpoint(base)) {
 						return this.rememberEndpoint(base, `probe ok: ${base}`);
 					}
 				}
+				const fallback = getPreferredWebApiBases()[0] ?? toAbsoluteAgentEndpoint(relative);
+				return this.rememberEndpoint(fallback, 'web fallback apos probe (3200->3210 via /princy-api)');
 			}
 			return this.rememberEndpoint(relative, `configured relative: ${relative}`);
 		}
@@ -379,14 +453,17 @@ export class AgentClient {
 
 		if (vscode.env.uiKind === vscode.UIKind.Web) {
 			if (useSameOrigin) {
-				const candidates = buildWebApiCandidates();
+				const candidates = [...getPreferredWebApiBases(), ...buildWebApiCandidates()];
 				for (const base of candidates) {
+					if (!shouldCacheWebEndpoint(base)) {
+						continue;
+					}
 					if (await this.probeEndpoint(base)) {
 						return this.rememberEndpoint(base, `probe ok: ${base}`);
 					}
 				}
-				// Mesmo se o probe falhar no boot, use proxy relativo (porta 3200 -> 3210 no servidor)
-				return this.rememberEndpoint(SAME_ORIGIN_PROXY_PATH, 'web fallback: /princy-api (probe failed)');
+				const fallback = getPreferredWebApiBases()[0] ?? toAbsoluteAgentEndpoint(SAME_ORIGIN_PROXY_PATH);
+				return this.rememberEndpoint(fallback, 'web fallback HTTPS (proxy 3200->3210)');
 			}
 		} else if (await this.probeEndpoint(DEFAULT_AGENT_ENDPOINT)) {
 			return this.rememberEndpoint(DEFAULT_AGENT_ENDPOINT, `probe ok: ${DEFAULT_AGENT_ENDPOINT}`);
@@ -407,13 +484,27 @@ export class AgentClient {
 
 	private async probeEndpoint(base: string): Promise<boolean> {
 		const normalized = toAbsoluteAgentEndpoint(base.replace(/\/+$/, ''));
-		const paths = ['/api/agent/health', '/api/health', '/'];
+		const paths = ['/api/agent/health', '/api/health'];
 		for (const path of paths) {
 			try {
-				const response = await fetch(`${normalized}${path}`, { method: 'GET' });
-				if (response.ok) {
-					return true;
+				const fetchUrl = await toFetchableAgentUrl(normalized, path);
+				const response = await fetch(fetchUrl, {
+					method: 'GET',
+					cache: 'no-store',
+					credentials: 'omit'
+				});
+				if (!response.ok) {
+					continue;
 				}
+				const contentType = response.headers.get('content-type') ?? '';
+				if (contentType.includes('application/json')) {
+					const body = await response.json() as { readonly ok?: boolean };
+					if (body?.ok !== false) {
+						return true;
+					}
+					continue;
+				}
+				return true;
 			} catch {
 				// try next path
 			}
@@ -856,10 +947,13 @@ export class AgentClient {
 		}
 
 		try {
-			const response = await fetch(`${endpoint}${path}`, {
+			const fetchUrl = await toFetchableAgentUrl(endpoint, path);
+			const response = await fetch(fetchUrl, {
 				method: init.method,
 				headers,
-				body: init.body
+				body: init.body,
+				cache: 'no-store',
+				credentials: 'omit'
 			});
 
 			if (!response.ok) {
@@ -889,12 +983,27 @@ function detectServerBasePath(): string {
 	return '';
 }
 
+/** Code Web: asExternalUri para fetch no worker da extensao (mesmo dominio HTTPS). */
+async function toFetchableAgentUrl(endpoint: string, path: string): Promise<string> {
+	const url = `${endpoint.replace(/\/+$/, '')}${path.startsWith('/') ? path : `/${path}`}`;
+	if (vscode.env.uiKind !== vscode.UIKind.Web) {
+		return url;
+	}
+	try {
+		const external = await vscode.env.asExternalUri(vscode.Uri.parse(url));
+		return external.toString(true);
+	} catch {
+		return url;
+	}
+}
+
 function toAbsoluteAgentEndpoint(endpoint: string): string {
 	const trimmed = endpoint.replace(/\/+$/, '');
 	if (!trimmed.startsWith('/')) {
 		return trimmed;
 	}
-	const origin = (globalThis as { location?: { origin?: string } }).location?.origin;
+	const origin = (globalThis as { location?: { origin?: string } }).location?.origin
+		?? getConfiguredPublicWebOrigin();
 	if (!origin) {
 		return trimmed;
 	}
@@ -902,33 +1011,39 @@ function toAbsoluteAgentEndpoint(endpoint: string): string {
 }
 
 function buildWebApiCandidates(): readonly string[] {
-	const candidates: string[] = [];
-	const location = (globalThis as { location?: { origin?: string; hostname?: string } }).location;
-	const basePath = detectServerBasePath();
+	const candidates: string[] = [...getPreferredWebApiBases()];
+	const location = (globalThis as { location?: { origin?: string; hostname?: string; protocol?: string } }).location;
+	const basePath = detectServerBasePath() || getConfiguredServerBasePath();
+	const remotePublic = Boolean(
+		location?.hostname
+		&& !isLocalDevHostname(location.hostname)
+		&& (location.protocol === 'https:' || location.hostname.includes('.'))
+	);
 
-	if (location?.origin) {
-		// Caddy expõe /princy-api na raiz do domínio; /webeditor/princy-api só existe no proxy :3200.
-		candidates.push(`${location.origin}${SAME_ORIGIN_PROXY_PATH}`);
+	const pushOrigin = (origin: string) => {
+		const o = origin.replace(/\/+$/, '');
 		if (basePath) {
-			candidates.push(`${location.origin}${basePath}${SAME_ORIGIN_PROXY_PATH}`);
+			candidates.push(`${o}${basePath}${SAME_ORIGIN_PROXY_PATH}`);
 		}
+		candidates.push(`${o}${SAME_ORIGIN_PROXY_PATH}`);
+	};
+
+	if (location?.origin && !candidates.some(c => c.startsWith(location.origin))) {
+		pushOrigin(location.origin);
 	}
 
-	candidates.push(SAME_ORIGIN_PROXY_PATH);
-
-	if (location?.hostname) {
-		const host = location.hostname;
+	if (!remotePublic) {
+		candidates.push(SAME_ORIGIN_PROXY_PATH);
+		const host = location?.hostname ?? '127.0.0.1';
 		if (basePath) {
 			candidates.push(`http://${host}:3200${basePath}${SAME_ORIGIN_PROXY_PATH}`);
-			candidates.push(`https://${host}${basePath}${SAME_ORIGIN_PROXY_PATH}`);
 		}
 		candidates.push(`http://${host}:3200${SAME_ORIGIN_PROXY_PATH}`);
-		candidates.push(`https://${host}${SAME_ORIGIN_PROXY_PATH}`);
-	}
-	candidates.push(`http://108.181.169.40:3200${SAME_ORIGIN_PROXY_PATH}`);
-	candidates.push(`http://127.0.0.1:3200${SAME_ORIGIN_PROXY_PATH}`);
-	if (basePath) {
-		candidates.push(`http://127.0.0.1:3200${basePath}${SAME_ORIGIN_PROXY_PATH}`);
+		candidates.push(`http://127.0.0.1:3200${SAME_ORIGIN_PROXY_PATH}`);
+		if (basePath) {
+			candidates.push(`http://127.0.0.1:3200${basePath}${SAME_ORIGIN_PROXY_PATH}`);
+		}
+		candidates.push(`http://108.181.169.40:3200${SAME_ORIGIN_PROXY_PATH}`);
 	}
 
 	return [...new Set(candidates)];

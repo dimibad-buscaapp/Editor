@@ -117,8 +117,7 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 		webviewView.onDidChangeVisibility(() => {
 			if (webviewView.visible) {
 				void migrateWebAgentEndpoint();
-				this.forceReloadPanel();
-				void this.initializeChatPanel();
+				void this.refreshBackendStatusLazy();
 				webviewView.webview.postMessage({ type: 'reloadPanel' });
 			}
 		});
@@ -413,14 +412,13 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 	}
 
 	private async initializeChatPanel(): Promise<void> {
-		this.client.clearEndpointCache();
 		this.pushSessionState();
 		const wsName = vscode.workspace.name ?? vscode.workspace.workspaceFolders?.[0]?.name ?? 'Workspace';
 		this.view?.webview.postMessage({ type: 'workspaceInfo', name: wsName });
 		const defaultAgent = vscode.workspace.getConfiguration('princyai').get<AgentModel>('defaultAgent', 'princy');
 		this.view?.webview.postMessage({ type: 'defaultAgent', agent: defaultAgent });
-		this.view?.webview.postMessage({ type: 'status', text: 'Pronto' });
-		void setPrincyAiStatus({ kind: 'ready', label: labelForPrincyAiStatus('ready') });
+		this.view?.webview.postMessage({ type: 'status', text: 'A ligar ao backend…' });
+		void setPrincyAiStatus({ kind: 'thinking', label: 'IA: A ligar…' });
 
 		try {
 			const models = await this.client.models();

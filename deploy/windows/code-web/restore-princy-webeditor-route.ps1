@@ -40,8 +40,7 @@ catch {
 }
 
 Write-Host ""
-Write-Host "Para remover faixa verde no editor: compile-incremental + reiniciar Code Web:" -ForegroundColor Yellow
-Write-Host "  npm run compile-incremental" -ForegroundColor DarkGray
-Write-Host "  Restart-Service PrincyAiCodeWeb" -ForegroundColor DarkGray
+Write-Host "Faixa verde: rode fix-princy-editor-agora.ps1 (PROD+bundle; NAO incremental isolado apos bundle):" -ForegroundColor Yellow
+Write-Host "  pwsh -File deploy\windows\code-web\fix-princy-editor-agora.ps1 -ProjectRoot $ProjectRoot" -ForegroundColor DarkGray
 Write-Host ""
 Write-Host "Editor: https://princyai.com/webeditor/" -ForegroundColor Cyan

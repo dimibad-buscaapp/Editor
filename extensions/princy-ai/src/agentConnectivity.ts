@@ -76,10 +76,17 @@ export function formatConnectivityError(endpoint: string, error: unknown): strin
 	if (lower.includes('failed to fetch') || lower.includes('networkerror') || lower.includes('network request failed')) {
 		return [
 			`Nao foi possivel conectar ao backend em ${endpoint}.`,
-			'1) Inicie o agent backend: deploy\\windows\\agent-backend\\start-princy-agent-backend.ps1',
-			'2) Confirme APP_ORIGIN=http://127.0.0.1:3200 no .env do backend (CORS).',
-			'3) Se o editor for HTTPS, use proxy HTTPS para a porta 3210 ou princyai.agentEndpoint apontando para URL segura.',
-			'4) Verifique firewall/antivirus bloqueando localhost:3210.'
+			'Editor HTTPS: use princyai.agentEndpoint = https://princyai.com/princy-api (nao :3210 nem 127.0.0.1).',
+			'VPS: teste deploy\\windows\\code-web\\test-princy-3200-3210-proxy.ps1',
+			'Servicos: PrincyAiAgentBackend (:3210) + PrincyAiCodeWeb (:3200) + proxy /princy-api.'
+		].join(' ');
+	}
+
+	if (lower.includes('princy agent backend unreachable') || lower.includes('502')) {
+		return [
+			`Proxy Code Web (:3200) nao alcanca o agent (:3210) em ${endpoint}.`,
+			'Restart-Service PrincyAiAgentBackend; depois PrincyAiCodeWeb.',
+			'Teste: http://127.0.0.1:3200/princy-api/api/agent/health'
 		].join(' ');
 	}
 

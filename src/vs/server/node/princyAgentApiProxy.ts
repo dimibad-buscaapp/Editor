@@ -62,7 +62,7 @@ export function handlePrincyAgentApiProxy(
 	);
 
 	proxyReq.on('error', error => {
-		logService.warn(`[Princy API proxy] ${req.method} ${pathname} -> ${DEFAULT_TARGET_HOST}:${DEFAULT_TARGET_PORT}${targetPath}: ${error.message}`);
+		logService.error(`[Princy API proxy] ${req.method} ${pathname} -> ${DEFAULT_TARGET_HOST}:${DEFAULT_TARGET_PORT}${targetPath}: ${error.message}`);
 		writeCorsHeaders(res, requestOrigin);
 		res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
 		res.end(JSON.stringify({
