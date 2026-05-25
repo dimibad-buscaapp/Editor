@@ -26,7 +26,6 @@ export function getPrincySecondarySideBarDefaultVisibility(): 'visible' | 'hidde
 /** Aplica visibilidade default da barra direita conforme openChatOnStartup. */
 export async function applyPrincySecondarySideBarVisibilitySetting(): Promise<void> {
 	const target = vscode.ConfigurationTarget.Global;
-	const workbench = vscode.workspace.getConfiguration('workbench');
 	await safeConfigUpdate('workbench', 'secondarySideBar.defaultVisibility', getPrincySecondarySideBarDefaultVisibility(), target);
 	await safeConfigUpdate('workbench', 'secondarySideBar.forceMaximized', false, target);
 }

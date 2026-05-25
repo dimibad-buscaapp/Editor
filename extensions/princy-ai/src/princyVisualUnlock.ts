@@ -93,7 +93,6 @@ export async function runGlobalVisualUnlock(
 	}
 
 	const target = vscode.ConfigurationTarget.Global;
-	const files = vscode.workspace.getConfiguration('files');
 
 	await applyPrincySecondarySideBarVisibilitySetting();
 	await safeConfigUpdate('files', 'readonlyInclude', {}, target);

@@ -10,6 +10,7 @@ interface FetchResponse {
 	readonly ok: boolean;
 	readonly status: number;
 	readonly headers: { get(name: string): string | null };
+	readonly body?: { getReader(): { read(): Promise<{ done: boolean; value?: Uint8Array }> } } | null;
 	text(): Promise<string>;
 	json(): Promise<unknown>;
 }

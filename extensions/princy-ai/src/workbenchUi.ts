@@ -47,8 +47,6 @@ async function applyPrincyWorkbenchLayout(): Promise<void> {
 export async function applyPremiumWorkbench(): Promise<void> {
 	const target = vscode.ConfigurationTarget.Global;
 	const wb = vscode.workspace.getConfiguration('workbench');
-	const win = vscode.workspace.getConfiguration('window');
-	const files = vscode.workspace.getConfiguration('files');
 	const princy = vscode.workspace.getConfiguration('princyai');
 
 	// Desativa travas de layout / visual antigo
@@ -87,8 +85,6 @@ export async function applyPremiumWorkbench(): Promise<void> {
 /** Ajustes opcionais compactos (so apos premium unlock). */
 async function applyMinimalWorkbenchExtras(): Promise<void> {
 	const target = vscode.ConfigurationTarget.Global;
-	const ed = vscode.workspace.getConfiguration('editor');
-	const bc = vscode.workspace.getConfiguration('breadcrumbs');
 
 	await safeConfigUpdate('editor', 'minimap.enabled', false, target);
 	await safeConfigUpdate('editor', 'glyphMargin', false, target);
