@@ -856,10 +856,10 @@ export class AgentClient {
 
 }
 
-/** Ex.: /webeditor quando o Code Web usa --server-base-path /webeditor */
+/** Ex.: /webeditor ou /webeditor-live (--server-base-path). */
 function detectServerBasePath(): string {
 	const pathname = (globalThis as { location?: { pathname?: string } }).location?.pathname ?? '';
-	const webeditor = pathname.match(/^(\/webeditor)(?:\/|$)/i);
+	const webeditor = pathname.match(/^(\/webeditor(?:-live)?)(?:\/|$)/i);
 	if (webeditor) {
 		return webeditor[1];
 	}

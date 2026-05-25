@@ -32,7 +32,7 @@ const PRINCY_CHAT_LIVE_HTML = `<!DOCTYPE html>
   .hint { font-size:12px; opacity:.85; }
 </style>
 </head>
-<body data-princy-ui-rev="cursor-agent-2026.05.25-r6" class="cursor-agent-ui">
+<body data-princy-ui-rev="cursor-agent-2026.05.25-r7" class="cursor-agent-ui">
 <header>
   <h1>Princy Chat Live</h1>
   <span id="status">A testar API...</span>

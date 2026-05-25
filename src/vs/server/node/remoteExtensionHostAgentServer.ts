@@ -40,7 +40,7 @@ import { IServerEnvironmentService, ServerParsedArgs } from './serverEnvironment
 import { IServerLifetimeService } from './serverLifetimeService.js';
 import { setupServerServices, SocketServer } from './serverServices.js';
 import { handlePrincyAgentApiProxy, isPrincyAgentApiProxyPath } from './princyAgentApiProxy.js';
-import { CacheControl, serveError, serveFile, WebClientServer, isPrincyLiveMode, princyDisallowsLongLivedCache } from './webClientServer.js';
+import { CacheControl, serveError, serveFile, WebClientServer, isPrincyEditorDeploy, isPrincyLiveMode, princyDisallowsLongLivedCache } from './webClientServer.js';
 const require = createRequire(import.meta.url);
 
 declare namespace vsda {
@@ -186,7 +186,7 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 			if (isPrincyLiveMode(req)) {
 				responseHeaders['Cache-Control'] = 'no-store, no-cache, must-revalidate';
 				responseHeaders['Pragma'] = 'no-cache';
-			} else if (this._environmentService.isBuilt) {
+			} else if (this._environmentService.isBuilt && !isPrincyEditorDeploy()) {
 				const underExtensions = isEqualOrParent(filePath, this._environmentService.builtinExtensionsPath, !platform.isLinux)
 					|| isEqualOrParent(filePath, this._environmentService.extensionsPath, !platform.isLinux);
 				if (underExtensions && !princyDisallowsLongLivedCache(filePath, req)) {
@@ -194,6 +194,9 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 				} else if (princyDisallowsLongLivedCache(filePath, req)) {
 					responseHeaders['Cache-Control'] = 'no-cache, must-revalidate';
 				}
+			} else if (isPrincyEditorDeploy() || princyDisallowsLongLivedCache(filePath, req)) {
+				responseHeaders['Cache-Control'] = 'no-store, no-cache, must-revalidate';
+				responseHeaders['Pragma'] = 'no-cache';
 			}
 
 			// Allow cross origin requests from the web worker extension host

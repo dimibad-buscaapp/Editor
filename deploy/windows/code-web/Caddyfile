@@ -55,7 +55,12 @@ princyai.com, www.princyai.com {
 
 	@webeditor_root path /webeditor
 	handle @webeditor_root {
-		redir /webeditor/ permanent
+		redir /webeditor-live/ permanent
+	}
+
+	# /webeditor/* antigo -> LIVE (evita cache 1 ano no browser)
+	handle /webeditor/* {
+		redir /webeditor-live{uri} permanent
 	}
 
 	# Code Web LIVE — sem cache agressivo (porta 3201, user-data separado)
@@ -75,15 +80,6 @@ princyai.com, www.princyai.com {
 	# Chat live — testa API sem workbench (agent :3210)
 	handle /princy-chat-live* {
 		reverse_proxy 127.0.0.1:3210 {
-			header_up Host {host}
-			header_up X-Forwarded-Host {host}
-			header_up X-Forwarded-Proto {scheme}
-		}
-	}
-
-	# Code Web — path completo /webeditor/... (NAO usar handle_path)
-	handle /webeditor* {
-		reverse_proxy 127.0.0.1:3200 {
 			header_up Host {host}
 			header_up X-Forwarded-Host {host}
 			header_up X-Forwarded-Proto {scheme}

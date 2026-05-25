@@ -19,7 +19,8 @@ import { registerWorkspaceIndexing } from './workspaceIndexService';
 import { registerPrincyWorkbenchUi } from './workbenchUi';
 import { registerPrincyStatusBar } from './princyStatusBar';
 import { registerPrincyChatIsolation } from './princyChatIsolation';
-import { registerPrincyDefaultChat } from './princyWorkbenchChat';
+import { migrateWebAgentEndpoint, registerPrincyDefaultChat } from './princyWorkbenchChat';
+import { PRINCY_CHAT_UI_REVISION } from './princyDesignTokens';
 import { registerPrincyCreateSidebar } from './princyCreateSidebar';
 import { registerPrincyVisualUnlock } from './princyVisualUnlock';
 import { ChatSessionManager } from './chatSessions';
@@ -127,7 +128,28 @@ export function activate(context: vscode.ExtensionContext): void {
 	registerPrincyVisualUnlock(context, provider);
 	void ensurePrincyRulesTemplate();
 
-	output.appendLine('Princy Ai view provider registered.');
+	output.appendLine(`Princy Ai view provider registered. UI rev=${PRINCY_CHAT_UI_REVISION}`);
+
+	if (vscode.env.uiKind === vscode.UIKind.Web) {
+		void (async () => {
+			await migrateWebAgentEndpoint();
+			client.clearEndpointCache();
+			const endpoint = await client.resolveEndpoint();
+			const status = await checkAgentBackend(client);
+			output.appendLine(`Web boot: rev=${PRINCY_CHAT_UI_REVISION} endpoint=${endpoint} online=${status.online}`);
+			output.show(true);
+			const summary = status.online
+				? `Princy ${PRINCY_CHAT_UI_REVISION} — API OK (${endpoint}). Painel Chat (✦) à direita.`
+				: `Princy ${PRINCY_CHAT_UI_REVISION} — API OFFLINE em ${endpoint}. Teste https://princyai.com/princy-chat-live/`;
+			if (status.online) {
+				void vscode.window.showInformationMessage(summary);
+			} else {
+				void vscode.window.showErrorMessage(summary);
+			}
+			await provider.refreshBackendStatus();
+			provider.forceReloadPanel();
+		})();
+	}
 }
 
 export function deactivate(): void {

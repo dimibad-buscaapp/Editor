@@ -49,8 +49,16 @@ export const enum CacheControl {
 	NO_CACHING, ETAG, NO_EXPIRY
 }
 
+/** VPS Princy (C:\\Apps\\Editor): nunca cache 1 ano em ficheiros estaticos. */
+export function isPrincyEditorDeploy(): boolean {
+	return Boolean(process.env['PRINCY_EDITOR_ROOT']);
+}
+
 /** Modo live: zero cache no browser (rota /webeditor-live, env PRINCY_LIVE_MODE=1). */
 export function isPrincyLiveMode(req?: http.IncomingMessage): boolean {
+	if (isPrincyEditorDeploy()) {
+		return true;
+	}
 	if (process.env['PRINCY_LIVE_MODE'] === '1' || process.env['PRINCY_LIVE_MODE'] === 'true') {
 		return true;
 	}
@@ -487,6 +495,18 @@ export class WebClientServer {
 				'out/vs/code/browser/workbench/workbench.css',
 				`out/vs/code/browser/workbench/workbench.css?v=${cacheBust}`
 			);
+			if (!data.includes('princy-deploy-strip')) {
+				const strip = [
+					`<!-- PRINCY_UI_REV:${cacheBust} -->`,
+					'<div id="princy-deploy-strip" style="position:fixed;bottom:0;left:0;right:0;z-index:2147483646;',
+					'background:#1a7f37;color:#fff;font:12px/1.4 system-ui,sans-serif;padding:8px 12px;text-align:center;',
+					'pointer-events:auto;box-shadow:0 -2px 8px rgba(0,0,0,.4)">',
+					`Princy ${cacheBust} — abra o painel <strong>Chat</strong> (ícone ✦) na barra direita · API <code>/princy-api</code>`,
+					' · <a href="/webeditor-live/" style="color:#9cdcfe">/webeditor-live</a>',
+					' · <a href="/princy-chat-live/" style="color:#9cdcfe">testar chat</a></div>'
+				].join('');
+				data = data.replace('<body', `${strip}<body`);
+			}
 		} catch (e) {
 			res.writeHead(404, { 'Content-Type': 'text/plain' });
 			return void res.end('Not found');
@@ -577,8 +597,12 @@ export class WebClientServer {
 				continue;
 			}
 			try {
-				const packageJSON = JSON.parse((await promises.readFile(packageJSONPath)).toString()) as IExtensionManifest;
-				this._logService.info(`[WebClientServer] Builtin web: princy-ai (${browserMainPath})`);
+				const raw = JSON.parse((await promises.readFile(packageJSONPath)).toString()) as IExtensionManifest;
+				const rev = process.env['PRINCY_UI_REVISION'] || '';
+				const packageJSON = rev
+					? { ...raw, version: `${raw.version ?? '0.0.0'}+${rev}` }
+					: raw;
+				this._logService.info(`[WebClientServer] Builtin web: princy-ai (${browserMainPath}) rev=${rev || 'n/a'}`);
 				return [{ extensionPath: 'princy-ai', packageJSON }];
 			} catch (error) {
 				this._logService.warn(`[WebClientServer] Falha ao ler princy-ai: ${error}`);
