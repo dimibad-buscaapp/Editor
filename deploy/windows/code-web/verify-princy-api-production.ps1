@@ -36,10 +36,33 @@ function Test-HealthUrl {
 
 function Get-EnvValue {
 	param([string]$Text, [string]$Key)
-	if ($Text -match "(?m)^\s*$([regex]::Escape($Key))\s*=\s*[`"']?([^`"'\r\n#]+)") {
-		return $Matches[2].Trim()
+	if ([string]::IsNullOrWhiteSpace($Text)) {
+		return $null
 	}
-	return $null
+	$pattern = "(?m)^\s*$([regex]::Escape($Key))\s*=\s*(?:[`"']?)([^`"'\r\n#]+)"
+	$m = [regex]::Match($Text, $pattern)
+	if (-not $m.Success) {
+		return $null
+	}
+	$v = $m.Groups[1].Value.Trim().Trim('"').Trim("'")
+	if ([string]::IsNullOrWhiteSpace($v)) {
+		return $null
+	}
+	return $v
+}
+
+function Set-EnvValue {
+	param([string]$Path, [string]$Key, [string]$Value)
+	$text = if (Test-Path $Path) { Get-Content $Path -Raw } else { '' }
+	$line = "$Key=`"$Value`""
+	if ($text -match "(?m)^\s*$([regex]::Escape($Key))\s*=") {
+		$text = [regex]::Replace($text, "(?m)^\s*$([regex]::Escape($Key))\s*=.*", $line)
+	} else {
+		if ($text -and -not $text.EndsWith("`n")) { $text += "`r`n" }
+		$text += "$line`r`n"
+	}
+	Set-Content -Path $Path -Value $text.TrimEnd() -Encoding UTF8 -NoNewline
+	Add-Ok "Atualizado .env: $Key=$Value"
 }
 
 Write-Host "=== Verificacao princy-api PRODUCAO + 3200->3210 ===" -ForegroundColor Cyan
@@ -64,6 +87,21 @@ if (-not (Test-Path $envFile)) {
 } else {
 	Add-Ok ".env presente"
 	$envText = Get-Content $envFile -Raw
+	if ($FixSettings -and (Test-Path $prodExample)) {
+		$ex = Get-Content $prodExample -Raw
+		if (-not (Get-EnvValue $envText 'APP_ORIGIN') -and (Get-EnvValue $ex 'APP_ORIGIN')) {
+			Set-EnvValue $envFile 'APP_ORIGIN' (Get-EnvValue $ex 'APP_ORIGIN')
+			$envText = Get-Content $envFile -Raw
+		}
+		if (-not (Get-EnvValue $envText 'CODE_WEB_URL') -and (Get-EnvValue $ex 'CODE_WEB_URL')) {
+			Set-EnvValue $envFile 'CODE_WEB_URL' (Get-EnvValue $ex 'CODE_WEB_URL')
+			$envText = Get-Content $envFile -Raw
+		}
+		if (-not (Get-EnvValue $envText 'API_HOST') -and (Get-EnvValue $ex 'API_HOST')) {
+			Set-EnvValue $envFile 'API_HOST' (Get-EnvValue $ex 'API_HOST')
+			$envText = Get-Content $envFile -Raw
+		}
+	}
 	$appOrigin = Get-EnvValue $envText 'APP_ORIGIN'
 	$apiHost = Get-EnvValue $envText 'API_HOST'
 	$corsRelaxed = Get-EnvValue $envText 'PRINCY_CORS_RELAXED'
@@ -143,8 +181,9 @@ if ($FixSettings -and (Test-Path $prodSettings)) {
 }
 if (Test-Path $userSettings) {
 	$us = Get-Content $userSettings -Raw
-	if ($us -match '"princyai\.agentEndpoint"\s*:\s*"(https://[^"]+/princy-api)"') {
-		Add-Ok "agentEndpoint HTTPS: $($Matches[1])"
+	$epMatch = [regex]::Match($us, '"princyai\.agentEndpoint"\s*:\s*"(https://[^"]+/princy-api)"')
+	if ($epMatch.Success) {
+		Add-Ok "agentEndpoint HTTPS: $($epMatch.Groups[1].Value)"
 	} elseif ($us -match '"princyai\.agentEndpoint"\s*:\s*"/princy-api"') {
 		Add-Warn 'agentEndpoint relativo "/princy-api" - use https://princyai.com/princy-api apos git pull'
 	} elseif ($us -match ':3210') {
