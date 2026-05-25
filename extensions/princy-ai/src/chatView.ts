@@ -333,6 +333,10 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 			case 'reconnectBackend':
 				await vscode.commands.executeCommand('princyai.reconnectBackend');
 				break;
+			case 'panelReady':
+				this.panelReadyHandled = true;
+				void this.initializeChatPanel();
+				break;
 			case 'readFileForDiff':
 				await this.replyFileDiff(message);
 				break;
@@ -418,9 +422,6 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 		this.view?.webview.postMessage({ type: 'workspaceInfo', name: wsName });
 		const defaultAgent = vscode.workspace.getConfiguration('princyai').get<AgentModel>('defaultAgent', 'princy');
 		this.view?.webview.postMessage({ type: 'defaultAgent', agent: defaultAgent });
-		this.view?.webview.postMessage({ type: 'status', text: 'A ligar ao backend…' });
-		void setPrincyAiStatus({ kind: 'thinking', label: 'IA: A ligar…' });
-
 		try {
 			const models = await this.client.models();
 			this.view?.webview.postMessage({ type: 'agents', models });
@@ -455,6 +456,18 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 	}
 
 	private async refreshBackendStatusLazy(): Promise<void> {
+		if (this.refreshBackendInFlight) {
+			return this.refreshBackendInFlight;
+		}
+		this.refreshBackendInFlight = this.runBackendStatusCheck().finally(() => {
+			this.refreshBackendInFlight = undefined;
+		});
+		return this.refreshBackendInFlight;
+	}
+
+	private async runBackendStatusCheck(): Promise<void> {
+		this.view?.webview.postMessage({ type: 'status', text: 'A ligar ao backend…' });
+		void setPrincyAiStatus({ kind: 'thinking', label: 'IA: A ligar…' });
 		try {
 			await this.client.resolveEndpoint();
 			const status = await checkAgentBackend(this.client);
