@@ -640,10 +640,6 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 		}
 	}
 
-	private postToWebview(payload: Record<string, unknown>): void {
-		this.view?.webview.postMessage(payload);
-	}
-
 	private async handleSendMessage(
 		text: string,
 		agent: AgentModel | 'auto',
