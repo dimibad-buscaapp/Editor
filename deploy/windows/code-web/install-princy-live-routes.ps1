@@ -1,6 +1,5 @@
 # Instala rotas alternativas LIVE (sem cache) + chat direto.
 # Editor live: https://princyai.com/webeditor-live/
-# Chat live:   https://princyai.com/princy-chat-live/
 #
 # pwsh -ExecutionPolicy Bypass -File deploy\windows\code-web\install-princy-live-routes.ps1 -ProjectRoot C:\Apps\Editor
 
@@ -64,7 +63,6 @@ if (Test-Path $caddySrc) {
 Write-Host "`n[5] Probes ..." -ForegroundColor Cyan
 $probes = @(
 	@{ L = "Editor LIVE"; U = "https://princyai.com/webeditor-live/" },
-	@{ L = "Chat LIVE"; U = "https://princyai.com/princy-chat-live/" },
 	@{ L = "API health"; U = "https://princyai.com/princy-api/api/agent/health" }
 )
 foreach ($p in $probes) {
@@ -79,6 +77,6 @@ foreach ($p in $probes) {
 
 Write-Host ""
 Write-Host "=== USE ESTAS URLs (nao /webeditor/ antigo) ===" -ForegroundColor Green
-Write-Host "  Editor (visual novo, sem cache 1 ano): https://princyai.com/webeditor-live/" -ForegroundColor Cyan
-Write-Host "  Chat isolado (testar API):            https://princyai.com/princy-chat-live/" -ForegroundColor Cyan
+Write-Host "  Editor opcional live: https://princyai.com/webeditor-live/" -ForegroundColor Cyan
+Write-Host "  Editor principal:     https://princyai.com/webeditor/" -ForegroundColor Cyan
 Write-Host "  Console chat: document.body.dataset.princyUiRev = $RevMarker" -ForegroundColor DarkGray

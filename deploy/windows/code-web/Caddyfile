@@ -72,15 +72,6 @@ princyai.com, www.princyai.com {
 		}
 	}
 
-	# Chat live — testa API sem workbench (agent :3210)
-	handle /princy-chat-live* {
-		reverse_proxy 127.0.0.1:3210 {
-			header_up Host {host}
-			header_up X-Forwarded-Host {host}
-			header_up X-Forwarded-Proto {scheme}
-		}
-	}
-
 	# Code Web — URL principal https://princyai.com/webeditor/ (porta 3200)
 	handle /webeditor* {
 		reverse_proxy 127.0.0.1:3200 {

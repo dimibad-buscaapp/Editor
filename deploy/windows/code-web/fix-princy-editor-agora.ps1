@@ -29,7 +29,7 @@ if (Test-Path $caddySrc) {
 Write-Host ""
 Write-Host "=== CHECKLIST NO BROWSER ===" -ForegroundColor Yellow
 Write-Host "1. https://princyai.com/webeditor/  (URL principal, sem redirect)" -ForegroundColor Cyan
-Write-Host "2. https://princyai.com/princy-chat-live/ -> Backend OK + enviar mensagem" -ForegroundColor Cyan
+Write-Host "2. Sem faixa verde no rodape do editor" -ForegroundColor Cyan
 Write-Host "3. Painel direito: icone Chat (sparkle) — NAO o chat azul do VS Code" -ForegroundColor Cyan
 Write-Host "4. Console do painel chat: document.body.dataset.princyUiRev = '$RevMarker'" -ForegroundColor Cyan
 Write-Host "5. Ctrl+Shift+Delete + Ctrl+F5 se visual antigo" -ForegroundColor Cyan

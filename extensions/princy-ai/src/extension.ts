@@ -137,14 +137,11 @@ export function activate(context: vscode.ExtensionContext): void {
 			const endpoint = await client.resolveEndpoint();
 			const status = await checkAgentBackend(client);
 			output.appendLine(`Web boot: rev=${PRINCY_CHAT_UI_REVISION} endpoint=${endpoint} online=${status.online}`);
-			output.show(true);
-			const summary = status.online
-				? `Princy ${PRINCY_CHAT_UI_REVISION} — API OK (${endpoint}). Painel Chat (✦) à direita.`
-				: `Princy ${PRINCY_CHAT_UI_REVISION} — API OFFLINE em ${endpoint}. Teste https://princyai.com/princy-chat-live/`;
-			if (status.online) {
-				void vscode.window.showInformationMessage(summary);
-			} else {
-				void vscode.window.showErrorMessage(summary);
+			if (!status.online) {
+				output.show(true);
+				void vscode.window.showErrorMessage(
+					`Princy API offline em ${endpoint}. Verifique o agent na porta 3210 e /princy-api.`
+				);
 			}
 			await provider.refreshBackendStatus();
 			provider.forceReloadPanel();

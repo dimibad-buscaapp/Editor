@@ -492,6 +492,9 @@ export class WebClientServer {
 				'out/vs/code/browser/workbench/workbench.css',
 				`out/vs/code/browser/workbench/workbench.css?v=${cacheBust}`
 			);
+			// Remover faixa verde de deploy antiga (HTML em cache ou build anterior).
+			data = data.replace(/<!-- PRINCY_UI_REV:[^>]*-->\s*/gi, '');
+			data = data.replace(/<div id="princy-deploy-strip"[^>]*>[\s\S]*?<\/div>\s*/gi, '');
 		} catch (e) {
 			res.writeHead(404, { 'Content-Type': 'text/plain' });
 			return void res.end('Not found');

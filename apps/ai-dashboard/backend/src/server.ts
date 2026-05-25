@@ -15,7 +15,6 @@ import { registerBuildRoutes } from './buildRoutes.js';
 import { registerAgentRoutes } from './agentRoutes.js';
 import { registerProjectRoutes } from './projectRoutes.js';
 import { registerLogviewRoutes } from './logviewRoutes.js';
-import { registerPrincyChatLiveRoutes } from './princyChatLiveRoutes.js';
 import { registerApiStudioRoutes } from './apiStudio/apiStudioRoutes.js';
 import { registerAutomationStudioRoutes } from './automationStudio/automationStudioRoutes.js';
 import { registerSiteRoutes, registerSiteStatic } from './sites/siteRoutes.js';
@@ -93,7 +92,6 @@ await registerSiteRoutes(app);
 await registerApiStudioRoutes(app);
 await registerAutomationStudioRoutes(app);
 await registerLogviewRoutes(app);
-await registerPrincyChatLiveRoutes(app);
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const frontendDist = path.resolve(currentDir, '../../dist/frontend');
@@ -109,7 +107,6 @@ if (fs.existsSync(frontendDist)) {
 			return !url.startsWith('/api/')
 				&& !url.startsWith('/v1/')
 				&& !url.startsWith('/logview')
-				&& !url.startsWith('/princy-chat-live')
 				&& !url.startsWith('/princy-sites')
 				&& !url.startsWith('/princy-sites-preview');
 		}

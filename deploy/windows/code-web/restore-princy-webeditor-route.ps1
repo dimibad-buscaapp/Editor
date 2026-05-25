@@ -40,4 +40,8 @@ catch {
 }
 
 Write-Host ""
+Write-Host "Para remover faixa verde no editor: compile-incremental + reiniciar Code Web:" -ForegroundColor Yellow
+Write-Host "  npm run compile-incremental" -ForegroundColor DarkGray
+Write-Host "  Restart-Service PrincyAiCodeWeb" -ForegroundColor DarkGray
+Write-Host ""
 Write-Host "Editor: https://princyai.com/webeditor/" -ForegroundColor Cyan
