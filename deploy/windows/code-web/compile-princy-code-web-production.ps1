@@ -108,10 +108,19 @@ foreach ($rel in $required) {
 	}
 	Write-Host ("OK: " + $rel) -ForegroundColor Green
 }
-if (-not (Test-PrincyCodeWebProdBuild -ProjectRoot $ProjectRoot)) {
-	throw "Bundle PROD incompleto: precisa workbench.js E workbench.css (browser) em out\vs\code\browser\workbench\"
+$wbInfo = Get-PrincyWorkbenchBundleInfo -ProjectRoot $ProjectRoot
+if (-not $wbInfo.IsBundled) {
+	throw "workbench.js apos bundle tem apenas $($wbInfo.JsBytes) bytes (min 800000). Nao rode compile-incremental depois deste script."
 }
-Write-Host "OK: bundle producao (CSS ou JS do workbench)" -ForegroundColor Green
+if (-not (Test-PrincyCodeWebProdBuild -ProjectRoot $ProjectRoot)) {
+	throw "Bundle PROD incompleto: workbench.html + workbench.js bundled + workbench.css"
+}
+Write-Host ("OK: bundle producao (workbench.js {0} bytes)" -f $wbInfo.JsBytes) -ForegroundColor Green
+
+$patchMeta = Join-Path $PSScriptRoot "patch-workbench-princy-meta.ps1"
+if (Test-Path $patchMeta) {
+	& pwsh -NoProfile -ExecutionPolicy Bypass -File $patchMeta -ProjectRoot $ProjectRoot
+}
 
 . (Join-Path $PSScriptRoot "..\princy-ui-revision.ps1")
 $RevMarker = Get-PrincyUiRevision

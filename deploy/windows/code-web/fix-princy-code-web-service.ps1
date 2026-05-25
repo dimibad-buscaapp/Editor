@@ -82,7 +82,16 @@ $workbenchHtml = Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench
 . (Join-Path $PSScriptRoot "Princy-CodeWeb-Build.ps1")
 $logsDir = Join-Path $ProjectRoot "logs"
 
+$wbInfo = Get-PrincyWorkbenchBundleInfo -ProjectRoot $ProjectRoot
 $hasProd = Test-PrincyCodeWebProdBuild -ProjectRoot $ProjectRoot
+
+if ($wbInfo.JsBytes -gt 0 -and -not $wbInfo.IsBundled) {
+	Write-Host "ERRO: workbench.js existe mas tem apenas $($wbInfo.JsBytes) bytes (nao e bundle esbuild)." -ForegroundColor Red
+	Write-Host "  Isto causa PAGINA EM BRANCO no browser." -ForegroundColor Red
+	Write-Host "  Corrija ANTES de iniciar o servico:" -ForegroundColor Yellow
+	Write-Host "    pwsh -File deploy\windows\code-web\fix-webeditor-blank-page.ps1 -ProjectRoot $ProjectRoot" -ForegroundColor Yellow
+	exit 1
+}
 
 if (-not (Test-Path $serverMain)) {
 	Write-Host "ERRO: falta out\server-main.js (compile ou bundle incompleto)." -ForegroundColor Red
@@ -183,8 +192,11 @@ if ($LiveMode) {
 	$envExtra += "PRINCY_LIVE_MODE=1"
 }
 if (-not $hasProd) {
-	Write-Host "Modo DEV forcado (sem bundle prod) - adicionando VSCODE_DEV=1" -ForegroundColor Yellow
+	Write-Host "AVISO: bundle PROD incompleto — modo DEV (pode dar pagina em branco)." -ForegroundColor Yellow
+	Write-Host "  Rode: deploy\windows\code-web\compile-princy-code-web-production.ps1" -ForegroundColor Yellow
 	$envExtra += "VSCODE_DEV=1", "NODE_ENV=development"
+} else {
+	Write-Host "Modo PRODUCAO: workbench.js bundled ($([math]::Round($wbInfo.JsBytes/1MB, 2)) MB), sem VSCODE_DEV" -ForegroundColor Green
 }
 & $nssm set $ServiceName AppEnvironmentExtra $envExtra
 

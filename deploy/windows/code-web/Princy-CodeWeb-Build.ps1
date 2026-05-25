@@ -43,27 +43,43 @@ function Invoke-PrincyDeployScript {
 	return [int]$exitCode
 }
 
+# workbench.js do esbuild (PROD) costuma ter > 800 KB; tsc parcial fica < 200 KB e causa tela branca.
+$script:PrincyWorkbenchBundledMinBytes = 800000
+
+function Get-PrincyWorkbenchBundleInfo {
+	param([string]$ProjectRoot = "C:\Apps\Editor")
+	$wbJs = Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench.js"
+	$wbCss = Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench.css"
+	$wbHtml = Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench.html"
+	$jsBytes = if (Test-Path $wbJs) { (Get-Item $wbJs).Length } else { 0 }
+	$bundled = $jsBytes -ge $script:PrincyWorkbenchBundledMinBytes
+	$hasCss = (Test-Path $wbCss) -or (Test-Path (Join-Path $ProjectRoot "out\vs\workbench\workbench.web.main.css"))
+	@{
+		JsPath = $wbJs
+		JsBytes = $jsBytes
+		IsBundled = $bundled
+		HasHtml = Test-Path $wbHtml
+		HasCss = $hasCss
+	}
+}
+
 function Test-PrincyCodeWebProdBuild {
 	param([string]$ProjectRoot = "C:\Apps\Editor")
-	$wbHtml = Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench.html"
-	if (-not (Test-Path $wbHtml)) {
-		return $false
-	}
-	$hasJs = Test-Path (Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench.js")
-	$hasCss = (Test-Path (Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench.css")) -or
-		(Test-Path (Join-Path $ProjectRoot "out\vs\workbench\workbench.web.main.css"))
-	# JS sozinho (tsc parcial) nao basta: workbench.html referencia workbench.css
-	return ($hasJs -and $hasCss)
+	$info = Get-PrincyWorkbenchBundleInfo -ProjectRoot $ProjectRoot
+	return ($info.HasHtml -and $info.IsBundled -and $info.HasCss)
 }
 
 function Get-PrincyCodeWebProdBuildStatus {
 	param([string]$ProjectRoot = "C:\Apps\Editor")
+	$info = Get-PrincyWorkbenchBundleInfo -ProjectRoot $ProjectRoot
 	@{
 		ServerMain = Test-Path (Join-Path $ProjectRoot "out\server-main.js")
 		WorkbenchDev = Test-Path (Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench-dev.html")
-		WorkbenchHtml = Test-Path (Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench.html")
-		WorkbenchCss = Test-Path (Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench.css")
-		WorkbenchJs = Test-Path (Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench.js")
+		WorkbenchHtml = $info.HasHtml
+		WorkbenchCss = $info.HasCss
+		WorkbenchJs = $info.JsBytes -gt 0
+		WorkbenchJsBytes = $info.JsBytes
+		WorkbenchBundled = $info.IsBundled
 		WorkbenchCssLegacy = Test-Path (Join-Path $ProjectRoot "out\vs\workbench\workbench.web.main.css")
 		HasProd = (Test-PrincyCodeWebProdBuild -ProjectRoot $ProjectRoot)
 	}
