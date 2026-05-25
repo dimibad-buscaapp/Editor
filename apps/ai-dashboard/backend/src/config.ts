@@ -98,6 +98,11 @@ export const config = {
 	agentTestDrivenEnabled: (process.env.PRINCY_AGENT_TDA_ENABLED ?? 'true').toLowerCase() !== 'false',
 	agentAsyncJobsEnabled: simpleMode ? false : (process.env.PRINCY_AGENT_ASYNC_JOBS ?? 'true').toLowerCase() !== 'false',
 	agentStreamTokens: (process.env.PRINCY_AGENT_STREAM_TOKENS ?? 'true').toLowerCase() !== 'false',
+	agentJobsPersisted: envFlag('PRINCY_AGENT_JOBS_PERSIST', true),
+	swarmEnabled: envFlag('PRINCY_SWARM_ENABLED', !simpleMode),
+	swarmConcurrency: Number(process.env.PRINCY_SWARM_CONCURRENCY ?? '3'),
+	memoryGraphEnabled: envFlag('PRINCY_MEMORY_GRAPH', !simpleMode),
+	reviewerEnabled: envFlag('PRINCY_REVIEWER_AGENT', !simpleMode),
 	agentApiToken: process.env.AGENT_API_TOKEN ?? '',
 	/** Permite chat no dashboard (3210) sem Bearer quando AGENT_API_TOKEN estiver definido. */
 	publicChatEnabled: envFlag('PRINCY_PUBLIC_CHAT', true),

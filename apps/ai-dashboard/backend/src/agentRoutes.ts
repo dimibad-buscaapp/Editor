@@ -4,8 +4,10 @@ import { agentConfigs, createChatCompletion, createChatCompletionDetailed, type 
 import {
 	approveAgentJob,
 	continueAgentJob,
+	executePlanJob,
 	getAgentActionRun,
 	getAgentJobSnapshot,
+	getAgentJobSnapshotAsync,
 	rejectAgentJob,
 	startAgentJob
 } from './agentJob/runner.js';
@@ -22,6 +24,9 @@ import { readRuntimeLogs } from './editorRuntimeLog.js';
 import { probeEditorStack } from './editorProbes.js';
 import { runStarterChecklist, streamStarterChecklist } from './starterCheck.js';
 import { buildRagSystemPrompt, indexAgentFile, retrieveAgentRelevantChunks } from './rag.js';
+import { getMemoryContextForWorkspace, resolveWorkspaceId } from './memoryGraph/memoryGraphService.js';
+import { getSwarmGraph, startSwarmJob } from './swarm/swarmOrchestrator.js';
+import { listActiveJobs } from './agentJob/store.js';
 
 const agentModelSchema = z.enum(['princy', 'deepseek', 'qwen', 'codellama', 'llama3', 'mistral', 'openai']);
 const segmentSchema = z.enum(['LOGIC', 'FRONTEND', 'BACKEND', 'DEBUG']);
@@ -65,9 +70,10 @@ const chatSchema = z.object({
 		content: z.string()
 	})).optional(),
 	rulesText: z.string().max(50000).optional(),
-	mode: z.enum(['chat', 'composer', 'agent', 'builder']).optional(),
+	mode: z.enum(['chat', 'composer', 'agent', 'builder', 'plan']).optional(),
 	actionOnlyExplain: z.boolean().optional(),
-	skipPostApply: z.boolean().optional()
+	skipPostApply: z.boolean().optional(),
+	workspaceId: z.string().optional()
 });
 
 const buildTargetSchema = z.enum(['web', 'api', 'exe', 'apk']);
@@ -155,6 +161,10 @@ const repairAfterCommandSchema = z.object({
 	codeGraph: z.unknown().optional()
 });
 
+const swarmRequestSchema = chatSchema.extend({
+	concurrency: z.number().int().min(1).max(8).optional()
+});
+
 const openAiChatMessageSchema = z.object({
 	role: z.enum(['system', 'user', 'assistant']),
 	content: z.union([
@@ -180,7 +190,8 @@ const publicAgentPathsWhenDashboardChat = new Set([
 	'/api/agent/chat/stream',
 	'/api/agent/composer-plan',
 	'/api/agent/jobs',
-	'/api/agent/build'
+	'/api/agent/build',
+	'/api/agent/swarm'
 ]);
 
 export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
@@ -191,7 +202,8 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 		}
 		if (config.publicChatEnabled && (
 			publicAgentPathsWhenDashboardChat.has(path) ||
-			path.startsWith('/api/agent/jobs/')
+			path.startsWith('/api/agent/jobs/') ||
+			path.startsWith('/api/agent/swarm/')
 		)) {
 			return;
 		}
@@ -209,7 +221,14 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 		aiProvider: config.aiProvider,
 		chatModel: config.aiProvider === 'groq' ? config.groqChatModel : config.ollamaChatModel,
 		streamPath: '/api/agent/chat/stream',
-		chatPath: '/api/agent/chat'
+		chatPath: '/api/agent/chat',
+		features: {
+			durableJobs: config.agentJobsPersisted,
+			planMode: true,
+			reviewerAgent: config.reviewerEnabled,
+			memoryGraph: config.memoryGraphEnabled,
+			swarm: config.swarmEnabled
+		}
 	}));
 
 	app.get('/api/agent/health', async () => {
@@ -219,10 +238,13 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 		return {
 			ok: true,
 			service: 'princy-agent-api',
-			build: '2026-05-fsm',
+			build: '2026-05-swarm',
 			port: config.apiPort,
 			cors: config.corsRelaxed ? 'relaxed' : 'dynamic',
 			streamJobs: config.agentAsyncJobsEnabled,
+			durableJobs: config.agentJobsPersisted,
+			swarmEnabled: config.swarmEnabled,
+			activeJobs: listActiveJobs().length,
 			environment: productionOrigin ? 'production' : 'development',
 			appOrigin: config.appOrigin,
 			codeWebUrl: config.codeWebUrl,
@@ -408,9 +430,14 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 		};
 	});
 
+	app.post('/api/agent/jobs/:jobId/execute-plan', async request => {
+		const params = z.object({ jobId: z.string().min(1) }).parse(request.params);
+		return executePlanJob(params.jobId);
+	});
+
 	app.get('/api/agent/jobs/:jobId', async request => {
 		const params = z.object({ jobId: z.string().min(1) }).parse(request.params);
-		const snapshot = getAgentJobSnapshot(params.jobId);
+		const snapshot = await getAgentJobSnapshotAsync(params.jobId);
 		if (!snapshot) {
 			return { ok: false, message: 'Agent job not found' };
 		}
@@ -471,6 +498,8 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 		let lastState = '';
 		let lastPhase = '';
 		let lastPlanJson = '';
+		let lastPlanDagJson = '';
+		let lastReviewerJson = '';
 
 		reply.raw.writeHead(200, {
 			'Content-Type': 'text/event-stream',
@@ -482,8 +511,8 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 			reply.raw.write(`data: ${JSON.stringify(payload)}\n\n`);
 		};
 
-		const poll = () => {
-			const snapshot = getAgentJobSnapshot(params.jobId);
+		const poll = async () => {
+			const snapshot = await getAgentJobSnapshotAsync(params.jobId);
 			const actionRun = getAgentActionRun(params.jobId);
 			if (!snapshot) {
 				send({ type: 'error', message: 'Agent job not found' });
@@ -513,6 +542,26 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 				}
 			}
 
+			if (snapshot.planDag) {
+				const dagJson = JSON.stringify(snapshot.planDag);
+				if (dagJson !== lastPlanDagJson) {
+					send({ type: 'planDag', planDag: snapshot.planDag });
+					lastPlanDagJson = dagJson;
+				}
+			}
+
+			if (snapshot.reviewerReport) {
+				const revJson = JSON.stringify(snapshot.reviewerReport);
+				if (revJson !== lastReviewerJson) {
+					send({ type: 'reviewerReport', reviewerReport: snapshot.reviewerReport });
+					lastReviewerJson = revJson;
+				}
+			}
+
+			if (snapshot.swarmJobId) {
+				send({ type: 'swarmRef', swarmJobId: snapshot.swarmJobId });
+			}
+
 			if (actionRun?.tasks?.length) {
 				send({ type: 'tasks', tasks: actionRun.tasks });
 			}
@@ -523,7 +572,33 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 			}
 
 			if (snapshot.state === 'AWAITING_APPROVAL') {
-				setTimeout(poll, 180);
+				if (snapshot.mode === 'plan' || snapshot.planOnly) {
+					send({
+						type: 'done',
+						response: snapshot.response ?? {
+							content: snapshot.content,
+							message: snapshot.content,
+							plan: snapshot.plan,
+							metadata: {
+								segment_used: 'LOGIC',
+								primary_engine: 'planner',
+								fallback_engines: [],
+								execution_time: '0.0s',
+								status: 'COMPLETED',
+								vps_compile_status: 'SKIPPED',
+								consensus_applied: false,
+								phase: 'completed',
+								timestamp: Date.now()
+							}
+						},
+						actionRun,
+						resultSummary: snapshot.resultSummary,
+						planDag: snapshot.planDag
+					});
+					reply.raw.end();
+					return;
+				}
+				setTimeout(() => void poll(), 180);
 				return;
 			}
 
@@ -548,7 +623,84 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 			setTimeout(poll, 180);
 		};
 
-		poll();
+		void poll();
+	});
+
+	app.post('/api/agent/swarm', async (request, reply) => {
+		if (!config.swarmEnabled) {
+			return reply.code(503).send({ ok: false, message: 'Swarm desativado (PRINCY_SWARM_ENABLED=false)' });
+		}
+		const body = swarmRequestSchema.parse(request.body);
+		const graph = await startSwarmJob({
+			agent: body.agent,
+			message: body.message,
+			context: body.context,
+			force_segment: (body.force_segment ?? body.segment) as ModelSegment | undefined,
+			priority: body.priority,
+			trigger_compile: body.trigger_compile,
+			filePath: body.filePath,
+			selectedText: body.selectedText,
+			shadowContext: body.shadowContext,
+			codeGraph: body.codeGraph,
+			rulesText: body.rulesText,
+			workspaceId: body.workspaceId
+		}, body.concurrency ?? config.swarmConcurrency);
+		return { ok: true, swarmJobId: graph.swarmJobId, graph };
+	});
+
+	app.get('/api/agent/swarm/:swarmJobId/graph', async request => {
+		const params = z.object({ swarmJobId: z.string().min(1) }).parse(request.params);
+		const graph = await getSwarmGraph(params.swarmJobId);
+		if (!graph) {
+			return { ok: false, message: 'Swarm job not found' };
+		}
+		return { ok: true, graph };
+	});
+
+	app.get('/api/agent/swarm/:swarmJobId/stream', async (request, reply) => {
+		const params = z.object({ swarmJobId: z.string().min(1) }).parse(request.params);
+		let lastGraphJson = '';
+
+		reply.raw.writeHead(200, {
+			'Content-Type': 'text/event-stream',
+			'Cache-Control': 'no-cache',
+			Connection: 'keep-alive'
+		});
+
+		const send = (payload: unknown) => {
+			reply.raw.write(`data: ${JSON.stringify(payload)}\n\n`);
+		};
+
+		const poll = async () => {
+			const graph = await getSwarmGraph(params.swarmJobId);
+			if (!graph) {
+				send({ type: 'error', message: 'Swarm job not found' });
+				reply.raw.end();
+				return;
+			}
+
+			const graphJson = JSON.stringify(graph);
+			if (graphJson !== lastGraphJson) {
+				send({ type: 'swarmGraph', graph });
+				lastGraphJson = graphJson;
+			}
+
+			if (graph.status === 'COMPLETED' || graph.status === 'FAILED') {
+				send({ type: 'done', graph });
+				reply.raw.end();
+				return;
+			}
+
+			setTimeout(() => void poll(), 400);
+		};
+
+		void poll();
+	});
+
+	app.get('/api/agent/memory/:workspaceId', async request => {
+		const params = z.object({ workspaceId: z.string().min(1) }).parse(request.params);
+		const context = await getMemoryContextForWorkspace(params.workspaceId, 30);
+		return { ok: true, workspaceId: params.workspaceId, context };
 	});
 
 	app.post('/api/agent/index-workspace', async () => {

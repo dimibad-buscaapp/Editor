@@ -18,7 +18,10 @@ import { startDevServer } from '../apiStudio/devProcessManager.js';
 import { defaultSmokeTests, runEndpointTests } from '../apiStudio/endpointTester.js';
 import { syncPreview, publishSite } from '../sites/webSiteService.js';
 import { resolveProjectPath } from '../projectCreatorService.js';
-import { appendThinking, createJob, getJob, toActionRunSnapshot, toSnapshot, updateJob } from './store.js';
+import { generatePlanDag } from './planDagGenerator.js';
+import { runReviewerAgent } from './reviewerService.js';
+import { recordJobMemory, resolveWorkspaceId } from '../memoryGraph/memoryGraphService.js';
+import { appendThinking, createJob, getJob, getJobAsync, toActionRunSnapshot, toSnapshot, updateJob } from './store.js';
 import type { AgentJobRecord, AgentJobSnapshot } from './types.js';
 
 type ContinuePayload = {
@@ -45,18 +48,24 @@ function syncActionPhase(jobId: string): void {
 
 export function startAgentJob(request: AgentChatRequest): AgentJobSnapshot {
 	const mode = request.mode ?? 'agent';
+	const workspaceId = resolveWorkspaceId(request);
 	const job = createJob({
 		id: newJobId(),
 		createdAt: Date.now(),
 		updatedAt: Date.now(),
 		state: 'THINKING',
 		status: 'IN_PROGRESS',
-		request,
+		request: { ...request, workspaceId },
 		mode,
+		workspaceId,
 		plan: [],
 		content: '',
 		thinkingLog: ['Job criado. Iniciando orquestracao...'],
-		approvalStatus: mode === 'agent' || mode === 'composer' ? 'pending' : undefined
+		approvalStatus: mode === 'agent' || mode === 'composer' || mode === 'plan' ? 'pending' : undefined,
+		planOnly: mode === 'plan',
+		swarmJobId: request.swarmJobId,
+		swarmRole: request.swarmRole,
+		worktreePath: request.worktreePath
 	});
 
 	void runAgentJobPipeline(job.id).catch(error => {
@@ -75,6 +84,11 @@ export function startAgentJob(request: AgentChatRequest): AgentJobSnapshot {
 
 export function getAgentJobSnapshot(jobId: string): AgentJobSnapshot | undefined {
 	const job = getJob(jobId);
+	return job ? toSnapshot(job) : undefined;
+}
+
+export async function getAgentJobSnapshotAsync(jobId: string): Promise<AgentJobSnapshot | undefined> {
+	const job = getJob(jobId) ?? await getJobAsync(jobId);
 	return job ? toSnapshot(job) : undefined;
 }
 
@@ -169,6 +183,11 @@ async function runAgentJobPipeline(jobId: string): Promise<void> {
 		return;
 	}
 
+	if (mode === 'plan') {
+		await runPlanModeJob(jobId, job, segment);
+		return;
+	}
+
 	if (mode === 'agent' || mode === 'composer' || mode === 'builder') {
 		await runActionPipelineJob(jobId, job, segment, mode);
 		return;
@@ -230,6 +249,84 @@ async function runChatExplainJob(jobId: string, job: AgentJobRecord, segment: Mo
 	syncActionPhase(jobId);
 }
 
+async function runPlanModeJob(jobId: string, job: AgentJobRecord, segment: ModelSegment): Promise<void> {
+	updateJob(jobId, { state: 'THINKING' });
+	appendThinking(jobId, `Modo Plan (readonly) | Segmento: ${segment}`);
+	syncActionPhase(jobId);
+
+	if (config.projectRagIndexingEnabled) {
+		appendThinking(jobId, 'Indexando contexto do projeto...');
+		const indexedFiles = await indexEditorProject(config.projectRagMaxFiles);
+		updateJob(jobId, { indexedFiles });
+	}
+
+	const plan = await generateExecutionPlan({
+		message: job.request.message,
+		segment,
+		agent: job.request.agent
+	});
+	updateJob(jobId, { plan });
+	appendThinking(jobId, `Passos: ${plan.join(' | ')}`);
+
+	updateJob(jobId, { state: 'PLANNING' });
+	appendThinking(jobId, 'Gerando roadmap DAG...');
+	syncActionPhase(jobId);
+
+	const planDag = await generatePlanDag({
+		message: job.request.message,
+		agent: job.request.agent
+	});
+	const dagContent = [
+		`## ${planDag.summary}`,
+		'',
+		...planDag.nodes.map(node => `- [${node.role ?? 'task'}] ${node.label}${node.dependsOn.length ? ` (depende: ${node.dependsOn.join(', ')})` : ''}`)
+	].join('\n');
+
+	updateJob(jobId, {
+		planDag,
+		content: dagContent,
+		state: 'AWAITING_APPROVAL',
+		approvalStatus: 'pending',
+		planOnly: true,
+		resultSummary: 'Plano pronto — revise o roadmap e clique Executar plano para aplicar.'
+	});
+	appendThinking(jobId, `Roadmap com ${planDag.nodes.length} nos. Aguardando execucao.`);
+	syncActionPhase(jobId);
+}
+
+export function executePlanJob(jobId: string): { readonly ok: boolean; readonly message?: string; readonly snapshot?: AgentJobSnapshot } {
+	const job = getJob(jobId);
+	if (!job) {
+		return { ok: false, message: 'Job not found' };
+	}
+	if (job.mode !== 'plan' && !job.planOnly) {
+		return { ok: false, message: 'Job nao esta em modo plan' };
+	}
+	if (job.state !== 'AWAITING_APPROVAL') {
+		return { ok: false, message: `Estado invalido para executar plano: ${job.state}` };
+	}
+
+	updateJob(jobId, {
+		mode: 'agent',
+		planOnly: false,
+		approvalStatus: 'approved',
+		state: 'THINKING'
+	});
+	appendThinking(jobId, 'Executar plano — convertendo para pipeline agent...');
+	syncActionPhase(jobId);
+
+	void runAgentJobPipeline(jobId).catch(error => {
+		updateJob(jobId, {
+			state: 'FAILED',
+			status: 'FAILED',
+			error: error instanceof Error ? error.message : String(error)
+		});
+	});
+
+	const snapshot = getJob(jobId);
+	return { ok: true, snapshot: snapshot ? toSnapshot(snapshot) : undefined };
+}
+
 async function runActionPipelineJob(
 	jobId: string,
 	job: AgentJobRecord,
@@ -270,6 +367,25 @@ async function runActionPipelineJob(
 		shadowContext: job.request.shadowContext,
 		codeGraph: job.request.codeGraph
 	});
+
+	updateJob(jobId, { state: 'REVIEWING' });
+	appendThinking(jobId, 'Reviewer Agent a validar plano...');
+	syncActionPhase(jobId);
+
+	let reviewerReport = job.reviewerReport;
+	if (config.reviewerEnabled) {
+		reviewerReport = await runReviewerAgent({
+			instruction,
+			composerPlan,
+			agent: job.request.agent
+		});
+		updateJob(jobId, { reviewerReport });
+		appendThinking(jobId, reviewerReport.approved
+			? `Reviewer: aprovado — ${reviewerReport.summary}`
+			: `Reviewer: atencao — ${reviewerReport.summary}`);
+	} else {
+		appendThinking(jobId, 'Reviewer desativado — pulando validacao.');
+	}
 
 	const affected = composerPlan.affectedFiles.length > 0
 		? composerPlan.affectedFiles
@@ -495,6 +611,18 @@ async function finishAfterApply(
 	});
 	appendThinking(jobId, resultSummary);
 	syncActionPhase(jobId);
+
+	const workspaceId = job.workspaceId ?? resolveWorkspaceId(job.request);
+	void recordJobMemory({
+		workspaceId,
+		intent: job.request.message,
+		decisions: [
+			composerPlan.summary,
+			...(job.reviewerReport?.suggestions ?? [])
+		],
+		files: composerPlan.affectedFiles,
+		metadata: { jobId, segment: job.segment }
+	});
 }
 
 function buildPreviewResponse(

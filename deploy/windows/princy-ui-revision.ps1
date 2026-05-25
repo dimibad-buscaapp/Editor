@@ -1,6 +1,6 @@
 # Revisao unica do visual chat Princy — scripts de deploy leem daqui (nao duplicar string).
 function Get-PrincyUiRevision {
-	return 'cursor-agent-2026.05.25-r12b'
+	return 'cursor-agent-2026.05.25-r13b-fix-api'
 }
 
 function Get-PrincyUiRevisionMarkers {

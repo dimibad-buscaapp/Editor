@@ -122,6 +122,17 @@ try {
 }
 
 Write-Host ""
+Write-Host "[3a] Build agent backend (Prisma + TypeScript) ..." -ForegroundColor Cyan
+$buildAgent = Join-Path $ProjectRoot "deploy\windows\agent-backend\build-princy-agent-backend.ps1"
+if (Test-Path $buildAgent) {
+	& powershell -ExecutionPolicy Bypass -File $buildAgent -ProjectRoot $ProjectRoot
+	if ($LASTEXITCODE -ne 0) {
+		Write-Host "  AVISO: build agent backend falhou" -ForegroundColor Red
+	}
+} else {
+	Write-Host "  AVISO: ausente build-princy-agent-backend.ps1" -ForegroundColor Yellow
+}
+
 Write-Host "[3b] Repair agent :3210 + proxy ..." -ForegroundColor Cyan
 $repairAgent = Join-Path $ProjectRoot "deploy\windows\agent-backend\repair-princy-agent-3210.ps1"
 if (Test-Path $repairAgent) {

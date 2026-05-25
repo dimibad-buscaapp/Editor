@@ -21,6 +21,7 @@
 	"princyai.ui.openChatOnStartup": false,
 	"princyai.ui.panelOpenOnStartup": false,
 	"princyai.chat.dockedRight": true,
+	"princyai.swarm.concurrency": 3,
 	"workbench.colorTheme": "Princy Black",
 	"workbench.preferredDarkColorTheme": "Princy Black",
 	"workbench.secondarySideBar.defaultVisibility": "hidden",

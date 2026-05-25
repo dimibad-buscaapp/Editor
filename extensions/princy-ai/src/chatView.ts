@@ -46,6 +46,7 @@ type WebviewMessage =
 	| { readonly type: 'readFileForDiff'; readonly operationId: string; readonly filePath: string; readonly operation: import('./agentClient').ComposerOperation }
 	| { readonly type: 'approveActionRun'; readonly jobId: string; readonly instruction: string; readonly agent: AgentModel; readonly plan: ComposerPlan }
 	| { readonly type: 'rejectActionRun'; readonly jobId: string }
+	| { readonly type: 'executePlan'; readonly jobId: string }
 	| { readonly type: 'verifyComposer'; readonly jobId: string; readonly instruction: string; readonly agent: AgentModel; readonly plan: ComposerPlan }
 	| { readonly type: 'startBuilder'; readonly target: import('./agentClient').BuildTarget }
 	| { readonly type: 'startBuildCenter'; readonly target: import('./agentClient').BuildTarget; readonly projectSlug?: string; readonly note?: string }
@@ -188,6 +189,10 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 				if (message.chatMode === 'creator') {
 					break;
 				}
+				if (message.chatMode === 'swarm') {
+					await this.handleSwarmMessage(text, message.agent, message.segmentMode, message.priority);
+					break;
+				}
 				await this.handleSendMessage(text, message.agent, message.segmentMode, message.priority, message.chatMode);
 				break;
 			}
@@ -205,6 +210,9 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 				break;
 			case 'verifyComposer':
 				await this.handleVerifyComposer(message);
+				break;
+			case 'executePlan':
+				await this.handleExecutePlan(message.jobId);
 				break;
 			case 'startBuilder':
 				await this.runBuildCenter(undefined, message.target);
@@ -553,7 +561,7 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 	}
 
 	private shouldUseAgentJob(chatMode?: ChatMode): boolean {
-		if (chatMode === 'agent' || chatMode === 'chat') {
+		if (chatMode === 'agent' || chatMode === 'chat' || chatMode === 'plan' || chatMode === 'swarm') {
 			return true;
 		}
 		if (chatMode === 'composer' || chatMode === 'builder' || chatMode === 'buildCenter' || chatMode === 'apiStudio' || chatMode === 'automationStudio' || chatMode === 'creator') {
@@ -562,11 +570,76 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 		return !this.isSimpleChatMode();
 	}
 
-	private apiModeForChat(chatMode?: ChatMode): 'chat' | 'composer' | 'agent' | undefined {
-		if (chatMode === 'chat' || chatMode === 'agent') {
+	private apiModeForChat(chatMode?: ChatMode): 'chat' | 'composer' | 'agent' | 'plan' | undefined {
+		if (chatMode === 'chat' || chatMode === 'agent' || chatMode === 'plan') {
 			return chatMode;
 		}
 		return undefined;
+	}
+
+	private async handleExecutePlan(jobId: string): Promise<void> {
+		this.view?.webview.postMessage({ type: 'status', text: 'A executar plano...' });
+		const result = await this.client.executePlanJob(jobId);
+		if (!result.ok) {
+			throw new Error(result.message ?? 'Falha ao executar plano');
+		}
+		this.view?.webview.postMessage({ type: 'status', text: 'Plano em execucao...' });
+		const snapshot = await this.client.getAgentJob(jobId);
+		if (snapshot.response) {
+			this.view?.webview.postMessage({ type: 'streamEnd', text: snapshot.response.content ?? '', suggestedCommands: [] });
+		}
+	}
+
+	private async handleSwarmMessage(
+		text: string,
+		agent: AgentModel | 'auto',
+		forceSegment?: ModelSegment,
+		priority: 'normal' | 'high' = 'normal'
+	): Promise<void> {
+		if (!text.trim()) {
+			return;
+		}
+		const resolvedAgent = this.resolveAgentChoice(agent);
+		const editor = vscode.window.activeTextEditor;
+		const selectedText = editor && !editor.selection.isEmpty ? editor.document.getText(editor.selection) : undefined;
+		const workspaceContext = vscode.workspace.workspaceFolders?.[0]?.name;
+
+		this.recordTurn('user', text);
+		this.view?.webview.postMessage({ type: 'append', role: 'user', text });
+		this.view?.webview.postMessage({ type: 'streamStart' });
+		this.view?.webview.postMessage({ type: 'status', text: 'A iniciar swarm...' });
+		this.view?.webview.postMessage({ type: 'actionRun', phase: 'planning', resultSummary: 'A decompor tarefa em agentes...' });
+
+		const nativeContext = await this.collectNativeContext();
+		const mentionResult = await resolveContextMentions(text, nativeContext.shadowContext);
+		const cleanMessage = mentionResult.cleanMessage || text;
+		const rulesText = await loadPrincyRules();
+
+		const started = await this.client.startSwarmJob({
+			agent: resolvedAgent,
+			message: cleanMessage,
+			context: workspaceContext,
+			force_segment: forceSegment,
+			priority,
+			filePath: editor?.document.uri.toString(),
+			selectedText,
+			shadowContext: nativeContext.shadowContext,
+			codeGraph: nativeContext.codeGraph,
+			contextAttachments: mentionResult.attachments,
+			rulesText: rulesText || undefined
+		}, vscode.workspace.getConfiguration('princyai').get<number>('swarm.concurrency', 3));
+
+		this.view?.webview.postMessage({ type: 'swarmGraph', graph: started.graph });
+		void this.client.subscribeSwarmStream(started.swarmJobId, graph => {
+			this.view?.webview.postMessage({ type: 'swarmGraph', graph });
+		}, () => {
+			this.view?.webview.postMessage({ type: 'status', text: 'Swarm concluido' });
+		}).catch(() => undefined);
+
+		const reply = `Swarm delegado — ${started.graph.nodes.length} sub-tarefas em paralelo. ID: ${started.swarmJobId}`;
+		this.recordTurn('assistant', reply);
+		this.view?.webview.postMessage({ type: 'streamEnd', text: reply, suggestedCommands: [] });
+		this.view?.webview.postMessage({ type: 'status', text: 'Pronto' });
 	}
 
 	private async requestComposerPlan(text: string, agent: AgentModel): Promise<void> {
@@ -1203,7 +1276,15 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 							text: `[Princy IA] ${state} | Gerando...`
 						});
 						if (state === 'AWAITING_APPROVAL') {
-							void this.tryShowApprovalFromSnapshot(jobId, instruction, agent);
+							if (chatMode === 'plan') {
+								void this.client.getAgentJob(jobId).then(snap => {
+									if (snap.planDag) {
+										this.view?.webview.postMessage({ type: 'planDag', planDag: snap.planDag, jobId });
+									}
+								});
+							} else {
+								void this.tryShowApprovalFromSnapshot(jobId, instruction, agent);
+							}
 						}
 					},
 					onPhase: (phase, actionRun) => {
@@ -1218,6 +1299,17 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 						} else {
 							this.view?.webview.postMessage({ type: 'composerPlan', instruction, agent, plan });
 						}
+					},
+					onPlanDag: planDag => {
+						this.view?.webview.postMessage({ type: 'planDag', planDag, jobId });
+					},
+					onReviewerReport: reviewerReport => {
+						this.view?.webview.postMessage({ type: 'reviewerReport', reviewerReport });
+					},
+					onSwarmRef: swarmJobId => {
+						void this.client.getSwarmGraph(swarmJobId).then(graph => {
+							this.view?.webview.postMessage({ type: 'swarmGraph', graph });
+						}).catch(() => undefined);
 					},
 					onTasks: tasks => {
 						if (tasks?.length) {
@@ -1288,6 +1380,25 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 			}
 
 			this.postThinkingForState(snapshot.state, Boolean(snapshot.content?.length));
+
+			if (snapshot.state === 'AWAITING_APPROVAL' && snapshot.planDag && chatMode === 'plan') {
+				this.view?.webview.postMessage({ type: 'planDag', planDag: snapshot.planDag, jobId });
+				return {
+					content: snapshot.content,
+					message: snapshot.content,
+					metadata: snapshot.response?.metadata ?? {
+						segment_used: 'LOGIC',
+						primary_engine: 'planner',
+						fallback_engines: [],
+						execution_time: '0.0s',
+						status: 'COMPLETED',
+						vps_compile_status: 'SKIPPED',
+						consensus_applied: false,
+						phase: 'completed',
+						timestamp: Date.now()
+					}
+				};
+			}
 
 			if (snapshot.state === 'AWAITING_APPROVAL' && snapshot.composerPlan && (chatMode === 'agent' || chatMode === 'composer')) {
 				this.showActionRunApproval(jobId, instruction, agent, snapshot.composerPlan);

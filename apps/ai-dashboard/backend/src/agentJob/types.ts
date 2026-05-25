@@ -8,6 +8,7 @@ export type AgentJobState =
 	| 'IDLE'
 	| 'THINKING'
 	| 'PLANNING'
+	| 'REVIEWING'
 	| 'AWAITING_APPROVAL'
 	| 'APPLYING'
 	| 'GENERATING'
@@ -18,6 +19,28 @@ export type AgentJobState =
 	| 'FAILED';
 
 export type AgentJobStatus = 'IN_PROGRESS' | 'COMPLETED' | 'FAILED';
+
+export type AgentRole = 'planner' | 'frontend' | 'backend' | 'qa' | 'docs' | 'research' | 'reviewer';
+
+export type PlanDagNode = {
+	readonly id: string;
+	readonly label: string;
+	readonly role?: AgentRole;
+	readonly dependsOn: readonly string[];
+	readonly state: 'pending' | 'active' | 'done' | 'failed';
+};
+
+export type PlanDag = {
+	readonly nodes: readonly PlanDagNode[];
+	readonly summary: string;
+};
+
+export type ReviewerReport = {
+	readonly approved: boolean;
+	readonly checklist: readonly { readonly item: string; readonly passed: boolean }[];
+	readonly summary: string;
+	readonly suggestions: readonly string[];
+};
 
 export type AgentJobRecord = {
 	id: string;
@@ -36,13 +59,20 @@ export type AgentJobRecord = {
 	buildJobId?: string;
 	testOutput?: string;
 	indexedFiles?: number;
-	mode?: ActionRunMode;
+	mode?: ActionRunMode | 'plan';
 	actionPhase?: string;
 	composerPlan?: ComposerPlan;
 	approvalStatus?: ApprovalStatus;
 	appliedPaths?: string[];
 	resultSummary?: string;
 	skipPostApply?: boolean;
+	planOnly?: boolean;
+	planDag?: PlanDag;
+	reviewerReport?: ReviewerReport;
+	workspaceId?: string;
+	swarmJobId?: string;
+	swarmRole?: AgentRole;
+	worktreePath?: string;
 };
 
 export type AgentJobSnapshot = {
@@ -58,10 +88,33 @@ export type AgentJobSnapshot = {
 	readonly buildJobId?: string;
 	readonly testOutput?: string;
 	readonly indexedFiles?: number;
-	readonly mode?: ActionRunMode;
+	readonly mode?: ActionRunMode | 'plan';
 	readonly actionPhase?: string;
 	readonly composerPlan?: ComposerPlan;
 	readonly approvalStatus?: ApprovalStatus;
 	readonly appliedPaths?: readonly string[];
 	readonly resultSummary?: string;
+	readonly planOnly?: boolean;
+	readonly planDag?: PlanDag;
+	readonly reviewerReport?: ReviewerReport;
+	readonly swarmJobId?: string;
+};
+
+export type SwarmGraphNode = {
+	readonly id: string;
+	readonly role: AgentRole;
+	readonly label: string;
+	readonly state: string;
+	readonly status: string;
+	readonly dependsOn: readonly string[];
+	readonly agentJobId?: string;
+	readonly worktreePath?: string;
+};
+
+export type SwarmGraph = {
+	readonly swarmJobId: string;
+	readonly status: string;
+	readonly prompt: string;
+	readonly nodes: readonly SwarmGraphNode[];
+	readonly edges: readonly { readonly from: string; readonly to: string }[];
 };

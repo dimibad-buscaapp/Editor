@@ -3,6 +3,7 @@ import { buildAgentChatResponse, type AgentChatResponse } from './agentMetadata.
 import { validateVpsEnvironment } from './compileService.js';
 import { config } from './config.js';
 import { buildRagSystemPrompt, retrieveAgentRelevantChunks } from './rag.js';
+import { getMemoryContextForWorkspace, resolveWorkspaceId } from './memoryGraph/memoryGraphService.js';
 import { detectSegment, isHighComplexity } from './orchestrator/segments.js';
 import { runDebugAutoHeal } from './orchestrator/orchestrator.js';
 import type { ModelSegment } from './orchestrator/types.js';
@@ -29,12 +30,16 @@ export type AgentChatRequest = {
 	readonly codeGraph?: unknown;
 	readonly contextAttachments?: readonly ContextAttachmentInput[];
 	readonly rulesText?: string;
-	readonly mode?: 'chat' | 'composer' | 'agent' | 'builder';
+	readonly mode?: 'chat' | 'composer' | 'agent' | 'builder' | 'plan';
 	readonly actionOnlyExplain?: boolean;
 	readonly skipPostApply?: boolean;
 	readonly buildTarget?: 'web' | 'api' | 'exe' | 'apk';
 	readonly autoPublish?: boolean;
 	readonly projectSlug?: string;
+	readonly workspaceId?: string;
+	readonly swarmJobId?: string;
+	readonly swarmRole?: import('./agentJob/types.js').AgentRole;
+	readonly worktreePath?: string;
 };
 
 function resolveSegment(body: AgentChatRequest): ModelSegment {
@@ -47,7 +52,7 @@ function resolveSegment(body: AgentChatRequest): ModelSegment {
 	);
 }
 
-function buildMessages(body: AgentChatRequest, chunks: Awaited<ReturnType<typeof retrieveAgentRelevantChunks>>): ChatMessage[] {
+function buildMessages(body: AgentChatRequest, chunks: Awaited<ReturnType<typeof retrieveAgentRelevantChunks>>, memoryContext = ''): ChatMessage[] {
 	const selectedContext = body.selectedText ? `\n\nSelecao atual:\n${body.selectedText}` : '';
 	const silentContext = config.shadowContext ? buildSilentContext(body.shadowContext, body.codeGraph) : '';
 	const contextLine = body.context ? `Contexto do projeto: ${body.context}\n\n` : '';
@@ -61,7 +66,7 @@ function buildMessages(body: AgentChatRequest, chunks: Awaited<ReturnType<typeof
 	return [
 		{
 			role: 'system',
-			content: `${buildRagSystemPrompt(chunks)}${rulesBlock}\n\nAgente selecionado: ${agentConfigs[body.agent].label}.\nSe sugerir comandos de terminal, coloque cada comando em uma linha começando com COMMAND:.`
+			content: `${buildRagSystemPrompt(chunks)}${memoryContext}${rulesBlock}\n\nAgente selecionado: ${agentConfigs[body.agent].label}.\nSe sugerir comandos de terminal, coloque cada comando em uma linha começando com COMMAND:.`
 		},
 		{
 			role: 'user',
@@ -81,8 +86,10 @@ export async function generateAgentChatCore(
 }> {
 	const startedAt = Date.now();
 	const segment = resolveSegment(body);
+	const workspaceId = resolveWorkspaceId(body);
+	const memoryContext = await getMemoryContextForWorkspace(workspaceId);
 	const chunks = config.ragEnabled ? await retrieveAgentRelevantChunks(body.message) : [];
-	const messages = buildMessages(body, chunks);
+	const messages = buildMessages(body, chunks, memoryContext);
 	const completion = await createChatCompletionDetailed(messages, body.agent, {
 		segment,
 		filePath: body.filePath,

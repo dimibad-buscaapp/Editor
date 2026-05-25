@@ -8,6 +8,7 @@
 import * as vscode from 'vscode';
 import { ComposerOperation, TerminalCommandResult } from './agentClient';
 import { TerminalRunner } from './terminalRunner';
+import { mapWorkspacePathToWorktree, resolveActiveWorktreePath } from './worktreePathMapping';
 
 export interface ComposerApplyResult {
 	readonly appliedFiles: readonly string[];
@@ -82,8 +83,16 @@ function resolveWorkspaceUri(filePath: string): vscode.Uri {
 		throw new Error('Nenhum workspace aberto para aplicar o Composer.');
 	}
 
+	const worktreePath = resolveActiveWorktreePath();
 	const segments = filePath.split(/[\\/]/).filter(Boolean);
-	return vscode.Uri.joinPath(workspace.uri, ...segments);
+	const workspaceUri = vscode.Uri.joinPath(workspace.uri, ...segments);
+
+	if (worktreePath) {
+		const mapped = mapWorkspacePathToWorktree(worktreePath, workspaceUri.fsPath);
+		return vscode.Uri.file(mapped);
+	}
+
+	return workspaceUri;
 }
 
 async function readText(uri: vscode.Uri): Promise<string> {

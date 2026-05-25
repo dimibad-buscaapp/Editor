@@ -130,3 +130,92 @@ model FileChunk {
 	@@index([workspaceId])
 	@@index([workspaceId, filePath])
 }
+
+enum MemoryNodeKind {
+	decision
+	file
+	intent
+}
+
+model MemoryNode {
+	id          String         @id @default(cuid())
+	workspaceId String
+	kind        MemoryNodeKind
+	title       String
+	content     String
+	filePath    String?
+	metadata    Json?
+	createdAt   DateTime       @default(now())
+	updatedAt   DateTime       @updatedAt
+
+	@@index([workspaceId])
+	@@index([workspaceId, kind])
+}
+
+model AgentJob {
+	id             String   @id
+	workspaceId    String?
+	state          String
+	status         String
+	mode           String?
+	request        Json
+	plan           Json     @default("[]")
+	content        String   @default("")
+	thinkingLog    Json     @default("[]")
+	error          String?
+	response       Json?
+	segment        String?
+	composerPlan   Json?
+	approvalStatus String?
+	appliedPaths   Json?
+	resultSummary  String?
+	compileJobId   String?
+	buildJobId     String?
+	testOutput     String?
+	indexedFiles   Int?
+	actionPhase    String?
+	skipPostApply  Boolean  @default(false)
+	reviewerReport Json?
+	planDag        Json?
+	swarmJobId     String?
+	createdAt      DateTime @default(now())
+	updatedAt      DateTime @updatedAt
+
+	@@index([status])
+	@@index([workspaceId])
+	@@index([swarmJobId])
+}
+
+model SwarmJob {
+	id          String        @id
+	workspaceId String?
+	prompt      String
+	status      String
+	graph       Json
+	concurrency Int           @default(3)
+	createdAt   DateTime      @default(now())
+	updatedAt   DateTime      @updatedAt
+	subJobs     SwarmSubJob[]
+
+	@@index([status])
+}
+
+model SwarmSubJob {
+	id           String   @id
+	swarmJobId   String
+	role         String
+	status       String
+	state        String
+	dependsOn    Json     @default("[]")
+	worktreePath String?
+	agentJobId   String?
+	request      Json?
+	result       Json?
+	error        String?
+	createdAt    DateTime @default(now())
+	updatedAt    DateTime @updatedAt
+	swarmJob     SwarmJob @relation(fields: [swarmJobId], references: [id], onDelete: Cascade)
+
+	@@index([swarmJobId])
+	@@index([status])
+}

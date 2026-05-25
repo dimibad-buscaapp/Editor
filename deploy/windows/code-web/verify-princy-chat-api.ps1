@@ -108,6 +108,23 @@ Test-JsonHealth "API direta :3210 /api/health" "http://127.0.0.1:${ApiPort}/api/
 Test-JsonHealth "Code Web proxy /api/health" "http://127.0.0.1:${CodeWebPort}/princy-api/api/health" | Out-Null
 Test-JsonHealth "HTTPS Caddy /api/health" "https://${PublicHost}/princy-api/api/health" | Out-Null
 
+try {
+	$agentHealth = Invoke-RestMethod -Uri "http://127.0.0.1:${ApiPort}/api/agent/health" -Method Get -TimeoutSec 15
+	if ($agentHealth.durableJobs -eq $true) {
+		Write-Host ("  agent/health: durableJobs=true build={0}" -f $agentHealth.build) -ForegroundColor Green
+	}
+	else {
+		Write-Host ("  agent/health: durableJobs ausente (build={0})" -f $agentHealth.build) -ForegroundColor Yellow
+	}
+	if ($agentHealth.swarmEnabled -eq $true) {
+		Write-Host '  agent/health: swarmEnabled=true' -ForegroundColor Green
+	}
+}
+catch {
+	$issues += "GET /api/agent/health - $($_.Exception.Message)"
+	Write-Host "  agent/health: FALHA" -ForegroundColor Red
+}
+
 Write-Host ""
 Write-Host "[HTTP /api/agent/health]" -ForegroundColor Cyan
 Test-JsonHealth "API direta :3210 agent" "http://127.0.0.1:${ApiPort}/api/agent/health" | Out-Null

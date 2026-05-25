@@ -88,11 +88,14 @@ export function formatConnectivityError(endpoint: string, error: unknown): strin
 	const lower = detail.toLowerCase();
 
 	if (lower.includes('failed to fetch') || lower.includes('networkerror') || lower.includes('network request failed')) {
+		const fixEndpoint = endpoint.includes('/webeditor/princy-api')
+			? 'Corrija: princyai.agentEndpoint = https://princyai.com/princy-api (NAO /webeditor/princy-api).'
+			: 'Editor HTTPS: use princyai.agentEndpoint = https://princyai.com/princy-api (nao :3210 nem 127.0.0.1).';
 		return [
 			`Nao foi possivel conectar ao backend em ${endpoint}.`,
-			'Editor HTTPS: use princyai.agentEndpoint = https://princyai.com/princy-api (nao :3210 nem 127.0.0.1).',
+			fixEndpoint,
 			'VPS: teste deploy\\windows\\code-web\\test-princy-3200-3210-proxy.ps1',
-			'Servicos: PrincyAiAgentBackend (:3210) + PrincyAiCodeWeb (:3200) + proxy /princy-api.'
+			'Servicos: PrincyAiAgentBackend (:3210) + PrincyAiCodeWeb (:3200) + Caddy /princy-api.'
 		].join(' ');
 	}
 

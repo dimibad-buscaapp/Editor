@@ -20,6 +20,9 @@ export interface AgentJobStreamHandlers {
 	readonly onState?: (state: string) => void;
 	readonly onPhase?: (phase: string, actionRun?: ActionRunSnapshot) => void;
 	readonly onComposerPlan?: (plan: ComposerPlan) => void;
+	readonly onPlanDag?: (planDag: import('./agentClient').PlanDag) => void;
+	readonly onReviewerReport?: (report: import('./agentClient').ReviewerReport) => void;
+	readonly onSwarmRef?: (swarmJobId: string) => void;
 	readonly onTasks?: (tasks: ActionRunSnapshot['tasks']) => void;
 	readonly onAwaitingApproval?: (actionRun?: ActionRunSnapshot) => void;
 	readonly onDone: (response: ChatResponse) => void;
@@ -84,6 +87,9 @@ export async function subscribeAgentJobStream(
 				readonly message?: string;
 				readonly response?: ChatResponse;
 				readonly plan?: ComposerPlan;
+				readonly planDag?: import('./agentClient').PlanDag;
+				readonly reviewerReport?: import('./agentClient').ReviewerReport;
+				readonly swarmJobId?: string;
 				readonly actionRun?: ActionRunSnapshot;
 				readonly tasks?: ActionRunSnapshot['tasks'];
 			};
@@ -105,6 +111,15 @@ export async function subscribeAgentJobStream(
 			}
 			if (payload.type === 'composerPlan' && payload.plan) {
 				handlers.onComposerPlan?.(payload.plan);
+			}
+			if (payload.type === 'planDag' && payload.planDag) {
+				handlers.onPlanDag?.(payload.planDag);
+			}
+			if (payload.type === 'reviewerReport' && payload.reviewerReport) {
+				handlers.onReviewerReport?.(payload.reviewerReport);
+			}
+			if (payload.type === 'swarmRef' && payload.swarmJobId) {
+				handlers.onSwarmRef?.(payload.swarmJobId);
 			}
 			if (payload.type === 'tasks' && payload.tasks) {
 				handlers.onTasks?.(payload.tasks);

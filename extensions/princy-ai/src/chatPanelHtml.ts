@@ -643,6 +643,134 @@ export function buildChatPanelHtml(cspSource: string, nonce: string, styleUri?: 
 			box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
 			animation: chat-turn-enter var(--princy-transition-panel);
 		}
+		.plan-dag {
+			padding: 12px;
+			border-radius: 10px;
+			border: 1px dashed var(--princy-border-strong);
+			background: var(--princy-panel-soft);
+			margin: 8px 0;
+		}
+		.plan-dag-node {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			padding: 6px 8px;
+			margin: 4px 0;
+			border-radius: 6px;
+			font-size: 12px;
+			border-left: 3px solid var(--princy-muted);
+		}
+		.plan-dag-node.active { border-left-color: var(--princy-success); background: rgba(137, 209, 133, 0.08); }
+		.plan-dag-node.done { border-left-color: var(--princy-success); opacity: 0.85; }
+		.plan-dag-node.pending { border-left-color: var(--princy-muted); }
+		.plan-dag-node.failed { border-left-color: var(--princy-danger); }
+		.reviewer-report {
+			margin-top: 8px;
+			padding: 8px 10px;
+			border-radius: 8px;
+			font-size: 11px;
+			background: rgba(255, 255, 255, 0.04);
+			border: 1px solid var(--princy-border);
+		}
+		.swarm-dashboard {
+			display: none;
+			flex-direction: column;
+			gap: 10px;
+			padding: 12px;
+			margin-bottom: 8px;
+			border-radius: 10px;
+			border: 1px solid var(--princy-border);
+			background: linear-gradient(180deg, rgba(255,255,255,0.03), transparent);
+		}
+		.swarm-dashboard.visible { display: flex; }
+		.swarm-header {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 8px;
+		}
+		.swarm-title {
+			font-size: 12px;
+			font-weight: 600;
+			color: var(--princy-text-strong);
+		}
+		.swarm-orb-row {
+			display: flex;
+			gap: 6px;
+			flex-wrap: wrap;
+		}
+		.swarm-agent-orb {
+			width: 28px;
+			height: 28px;
+			border-radius: 50%;
+			display: grid;
+			place-items: center;
+			font-size: 9px;
+			font-weight: 700;
+			text-transform: uppercase;
+			border: 1px solid var(--princy-border);
+			background: var(--princy-elevated);
+			transition: transform 0.3s ease, box-shadow 0.3s ease;
+		}
+		.swarm-agent-orb.active {
+			animation: swarmPulse 1.6s ease-in-out infinite;
+			box-shadow: 0 0 16px var(--princy-glow-soft);
+		}
+		.swarm-agent-orb.done { opacity: 0.7; border-color: var(--princy-success); }
+		.swarm-agent-orb.failed { border-color: var(--princy-danger); }
+		@keyframes swarmPulse {
+			0%, 100% { transform: scale(1); }
+			50% { transform: scale(1.12); }
+		}
+		.swarm-kanban {
+			display: grid;
+			grid-template-columns: repeat(3, 1fr);
+			gap: 6px;
+		}
+		.swarm-kanban-col {
+			padding: 6px;
+			border-radius: 6px;
+			background: var(--princy-surface);
+			min-height: 48px;
+		}
+		.swarm-kanban-col h4 {
+			font-size: 10px;
+			text-transform: uppercase;
+			color: var(--princy-muted);
+			margin-bottom: 4px;
+		}
+		.swarm-kanban-card {
+			font-size: 11px;
+			padding: 4px 6px;
+			margin: 2px 0;
+			border-radius: 4px;
+			background: var(--princy-elevated);
+		}
+		.swarm-graph-edges {
+			height: 2px;
+			background: linear-gradient(90deg, transparent, var(--princy-glow-soft), transparent);
+			margin: 4px 0;
+		}
+		.princy-live-cursor {
+			position: fixed;
+			pointer-events: none;
+			width: 2px;
+			height: 18px;
+			background: var(--princy-success);
+			box-shadow: 0 0 8px var(--princy-success);
+			opacity: 0;
+			transition: opacity 0.2s;
+			z-index: 9999;
+			animation: liveCursorBlink 1s step-end infinite;
+		}
+		.princy-live-cursor.visible { opacity: 0.85; }
+		@keyframes liveCursorBlink {
+			0%, 100% { opacity: 0.85; }
+			50% { opacity: 0.2; }
+		}
+		body.princy-phase-planning .princy-live-cursor { background: #7c92ff; box-shadow: 0 0 8px #7c92ff; }
+		body.princy-phase-editing .princy-live-cursor { background: var(--princy-success); }
+		body.princy-phase-testing .princy-live-cursor { background: #ffb347; box-shadow: 0 0 8px #ffb347; }
 		.plan > strong {
 			display: block;
 			margin-bottom: 8px;
@@ -730,10 +858,12 @@ export function buildChatPanelHtml(cspSource: string, nonce: string, styleUri?: 
 			</div>
 			<button type="button" class="chat-offline-reconnect" id="reconnectBackend">Reconectar</button>
 		</div>
-		<div class="chat-mode-bar cursor-hidden-modes" aria-hidden="true">
+		<div class="chat-mode-bar" aria-label="Modos">
 			<button type="button" class="chat-mode-pill" data-mode="chat">Chat</button>
-			<button type="button" class="chat-mode-pill" data-mode="composer">Composer</button>
+			<button type="button" class="chat-mode-pill" data-mode="plan">Plan</button>
 			<button type="button" class="chat-mode-pill" data-mode="agent">Agent</button>
+			<button type="button" class="chat-mode-pill" data-mode="composer">Composer</button>
+			<button type="button" class="chat-mode-pill" data-mode="swarm">Swarm</button>
 			<button type="button" class="chat-mode-pill" data-mode="buildCenter">Build Center</button>
 			<button type="button" class="chat-mode-pill" data-mode="apiStudio">API Studio</button>
 			<button type="button" class="chat-mode-pill" data-mode="automationStudio">Automations</button>
@@ -857,10 +987,20 @@ export function buildChatPanelHtml(cspSource: string, nonce: string, styleUri?: 
 		</details>
 		<div class="chat-scroll" id="scroll">
 			<div class="action-run-panel cursor-agent-track" id="actionRunPanel" aria-live="polite">
-				<div class="action-run-title">Agent</div>
+				<div class="action-run-title" id="actionRunTitle">Agent</div>
 				<div class="action-run-steps" id="actionRunSteps"></div>
 				<div class="action-run-result" id="actionRunResult"></div>
 			</div>
+			<div class="swarm-dashboard" id="swarmDashboard" aria-live="polite">
+				<div class="swarm-header">
+					<span class="swarm-title">Swarm — agentes em paralelo</span>
+					<span class="chat-header-sub" id="swarmStatus">aguardando</span>
+				</div>
+				<div class="swarm-orb-row" id="swarmOrbs"></div>
+				<div class="swarm-graph-edges" id="swarmEdges"></div>
+				<div class="swarm-kanban" id="swarmKanban"></div>
+			</div>
+			<div class="princy-live-cursor" id="liveCursor" aria-hidden="true"></div>
 			<div class="chat-welcome" id="empty">
 				<div class="chat-welcome-icon">◇</div>
 				<h2>Ask anything</h2>
@@ -894,6 +1034,8 @@ export function buildChatPanelHtml(cspSource: string, nonce: string, styleUri?: 
 					<div class="chat-toolbar-left">
 						<div class="cursor-composer-modes" role="tablist" aria-label="Modo">
 							<button type="button" class="cursor-mode-pill active" data-mode="agent" role="tab" aria-selected="true">Agent</button>
+							<button type="button" class="cursor-mode-pill" data-mode="plan" role="tab">Plan</button>
+							<button type="button" class="cursor-mode-pill" data-mode="swarm" role="tab">Swarm</button>
 							<button type="button" class="cursor-mode-pill" data-mode="chat" role="tab">Chat</button>
 							<button type="button" class="cursor-mode-pill" data-mode="composer" role="tab">Composer</button>
 							<select id="toolsModeSelect" class="cursor-tools-select" title="Ferramentas">
@@ -965,6 +1107,8 @@ function getChatPanelScript(): string {
 
 		const MODE_PLACEHOLDERS = {
 			chat: 'Ask a question…',
+			plan: 'Describe what to build — roadmap only, no apply…',
+			swarm: 'Delegate to parallel agents (frontend, backend, QA)…',
 			composer: 'Describe multi-file edits…',
 			agent: 'Plan, search, build anything…',
 			builder: 'Optional build note…',
@@ -983,8 +1127,14 @@ function getChatPanelScript(): string {
 		let projectTemplates = [];
 		let lastCreatedProject = null;
 		const actionRunPanel = document.getElementById('actionRunPanel');
+		const actionRunTitle = document.getElementById('actionRunTitle');
 		const actionRunSteps = document.getElementById('actionRunSteps');
 		const actionRunResult = document.getElementById('actionRunResult');
+		const swarmDashboard = document.getElementById('swarmDashboard');
+		const swarmOrbs = document.getElementById('swarmOrbs');
+		const swarmKanban = document.getElementById('swarmKanban');
+		const swarmStatus = document.getElementById('swarmStatus');
+		const liveCursor = document.getElementById('liveCursor');
 		const buildCenterPanel = document.getElementById('buildCenterPanel');
 		const apiStudioPanel = document.getElementById('apiStudioPanel');
 		const asProject = document.getElementById('asProject');
@@ -1128,12 +1278,16 @@ function getChatPanelScript(): string {
 			if (creatorPanel) creatorPanel.style.display = mode === 'creator' ? 'flex' : 'none';
 			if (input && mode === 'creator') input.placeholder = MODE_PLACEHOLDERS.creator;
 			if (actionRunPanel) {
-				if (mode === 'agent' || mode === 'composer') {
+				if (mode === 'agent' || mode === 'composer' || mode === 'plan') {
 					actionRunPanel.style.display = 'flex';
 					actionRunPanel.classList.add('cursor-agent-track');
+					if (actionRunTitle) actionRunTitle.textContent = mode === 'plan' ? 'Plan (readonly)' : 'Agent';
 				} else {
 					actionRunPanel.style.display = 'none';
 				}
+			}
+			if (swarmDashboard) {
+				swarmDashboard.classList.toggle('visible', mode === 'swarm');
 			}
 			if (!fromHost) {
 				vscode.postMessage({ type: 'setChatMode', mode });
@@ -1564,9 +1718,101 @@ function getChatPanelScript(): string {
 			}
 		}
 
+		function setLiveCursorPhase(phase) {
+			document.body.classList.remove('princy-phase-planning', 'princy-phase-editing', 'princy-phase-testing');
+			if (phase === 'planning' || phase === 'understanding') document.body.classList.add('princy-phase-planning');
+			else if (phase === 'applying' || phase === 'generating') document.body.classList.add('princy-phase-editing');
+			else if (phase === 'testing' || phase === 'compiling') document.body.classList.add('princy-phase-testing');
+			if (liveCursor) {
+				liveCursor.classList.toggle('visible', phase && phase !== 'idle' && phase !== 'completed' && phase !== 'done');
+				if (liveCursor.classList.contains('visible')) {
+					liveCursor.style.left = (12 + Math.random() * 40) + 'px';
+					liveCursor.style.top = (80 + Math.random() * 120) + 'px';
+				}
+			}
+		}
+
+		function renderSwarmGraph(graph) {
+			if (!graph || !swarmDashboard) return;
+			swarmDashboard.classList.add('visible');
+			if (swarmStatus) swarmStatus.textContent = graph.status || 'IN_PROGRESS';
+			if (swarmOrbs) {
+				swarmOrbs.innerHTML = '';
+				for (const node of graph.nodes || []) {
+					const orb = document.createElement('div');
+					const state = node.state || 'pending';
+					orb.className = 'swarm-agent-orb ' + state;
+					orb.title = node.label || node.role;
+					orb.textContent = (node.role || '?').slice(0, 2);
+					swarmOrbs.appendChild(orb);
+				}
+			}
+			if (swarmKanban) {
+				swarmKanban.innerHTML = '';
+				const cols = { pending: [], active: [], done: [] };
+				for (const node of graph.nodes || []) {
+					const bucket = node.state === 'done' ? 'done' : node.state === 'active' ? 'active' : 'pending';
+					cols[bucket].push(node);
+				}
+				for (const [key, label] of [['pending', 'Fila'], ['active', 'Ativo'], ['done', 'Feito']]) {
+					const col = document.createElement('div');
+					col.className = 'swarm-kanban-col';
+					const h = document.createElement('h4');
+					h.textContent = label;
+					col.appendChild(h);
+					for (const node of cols[key]) {
+						const card = document.createElement('div');
+						card.className = 'swarm-kanban-card';
+						card.textContent = node.label || node.role;
+						col.appendChild(card);
+					}
+					swarmKanban.appendChild(col);
+				}
+			}
+		}
+
+		function renderPlanDag(planDag, jobId) {
+			if (!planDag) return;
+			hideEmpty();
+			const wrapper = document.createElement('div');
+			wrapper.className = 'plan plan-readonly';
+			const title = document.createElement('strong');
+			title.textContent = planDag.summary || 'Roadmap';
+			wrapper.appendChild(title);
+			const dag = document.createElement('div');
+			dag.className = 'plan-dag';
+			for (const node of planDag.nodes || []) {
+				const row = document.createElement('div');
+				row.className = 'plan-dag-node ' + (node.state || 'pending');
+				row.textContent = '[' + (node.role || 'task') + '] ' + node.label;
+				dag.appendChild(row);
+			}
+			wrapper.appendChild(dag);
+			const actions = document.createElement('div');
+			actions.className = 'plan-actions';
+			const execBtn = document.createElement('button');
+			execBtn.className = 'primary';
+			execBtn.textContent = 'Executar plano';
+			execBtn.onclick = () => vscode.postMessage({ type: 'executePlan', jobId });
+			actions.appendChild(execBtn);
+			wrapper.appendChild(actions);
+			messages.appendChild(wrapper);
+			scrollBottom();
+		}
+
+		function renderReviewerReport(report) {
+			if (!report) return;
+			const box = document.createElement('div');
+			box.className = 'reviewer-report';
+			box.textContent = (report.approved ? '✓ Reviewer: ' : '⚠ Reviewer: ') + (report.summary || '');
+			messages.appendChild(box);
+			scrollBottom();
+		}
+
 		function renderActionRunPanel(phase, actionRun, resultSummary) {
+			setLiveCursorPhase(phase);
 			if (!actionRunPanel || !actionRunSteps) return;
-			actionRunPanel.style.display = (currentMode === 'agent' || currentMode === 'composer') ? 'flex' : 'none';
+			actionRunPanel.style.display = (currentMode === 'agent' || currentMode === 'composer' || currentMode === 'plan') ? 'flex' : 'none';
 			actionRunSteps.innerHTML = '';
 			let tasks = (actionRun && actionRun.tasks) || [];
 			if (!tasks.length && phase && phase !== 'idle') {
@@ -2007,6 +2253,15 @@ function getChatPanelScript(): string {
 				hideEmpty();
 				renderComposerPlan(message.instruction, message.agent, message.plan, message.jobId, message.showApproval);
 				scrollBottom();
+			}
+			if (message.type === 'planDag') {
+				renderPlanDag(message.planDag, message.jobId);
+			}
+			if (message.type === 'reviewerReport') {
+				renderReviewerReport(message.reviewerReport);
+			}
+			if (message.type === 'swarmGraph') {
+				renderSwarmGraph(message.graph);
 			}
 			if (message.type === 'context') renderContext(message);
 			if (message.type === 'mentionSuggestions') renderMentionMenu(message.items || []);

@@ -175,9 +175,10 @@ export interface ChatRequest {
 	readonly codeGraph?: CodeGraphContext;
 	readonly contextAttachments?: readonly ContextAttachmentPayload[];
 	readonly rulesText?: string;
-	readonly mode?: 'chat' | 'composer' | 'agent' | 'builder';
+	readonly mode?: 'chat' | 'composer' | 'agent' | 'builder' | 'plan';
 	readonly actionOnlyExplain?: boolean;
 	readonly skipPostApply?: boolean;
+	readonly workspaceId?: string;
 }
 
 export interface ChatMetadata {
@@ -221,7 +222,7 @@ export interface ActionTask {
 
 export interface ActionRunSnapshot {
 	readonly runId: string;
-	readonly mode: 'chat' | 'composer' | 'agent' | 'builder';
+	readonly mode: 'chat' | 'composer' | 'agent' | 'builder' | 'plan';
 	readonly phase: string;
 	readonly planSummary?: string;
 	readonly planSteps?: readonly string[];
@@ -235,6 +236,48 @@ export interface ActionRunSnapshot {
 	readonly approvalRequired: boolean;
 	readonly approvalStatus?: 'pending' | 'approved' | 'rejected';
 	readonly tasks?: readonly ActionTask[];
+	readonly planDag?: PlanDag;
+	readonly reviewerReport?: ReviewerReport;
+	readonly swarmJobId?: string;
+}
+
+export interface PlanDagNode {
+	readonly id: string;
+	readonly label: string;
+	readonly role?: string;
+	readonly dependsOn: readonly string[];
+	readonly state: 'pending' | 'active' | 'done' | 'failed';
+}
+
+export interface PlanDag {
+	readonly nodes: readonly PlanDagNode[];
+	readonly summary: string;
+}
+
+export interface ReviewerReport {
+	readonly approved: boolean;
+	readonly checklist: readonly { readonly item: string; readonly passed: boolean }[];
+	readonly summary: string;
+	readonly suggestions: readonly string[];
+}
+
+export interface SwarmGraphNode {
+	readonly id: string;
+	readonly role: string;
+	readonly label: string;
+	readonly state: string;
+	readonly status: string;
+	readonly dependsOn: readonly string[];
+	readonly agentJobId?: string;
+	readonly worktreePath?: string;
+}
+
+export interface SwarmGraph {
+	readonly swarmJobId: string;
+	readonly status: string;
+	readonly prompt: string;
+	readonly nodes: readonly SwarmGraphNode[];
+	readonly edges: readonly { readonly from: string; readonly to: string }[];
 }
 
 export interface AgentJobSnapshot {
@@ -252,6 +295,9 @@ export interface AgentJobSnapshot {
 	readonly approvalStatus?: 'pending' | 'approved' | 'rejected';
 	readonly actionRun?: ActionRunSnapshot;
 	readonly resultSummary?: string;
+	readonly planDag?: PlanDag;
+	readonly reviewerReport?: ReviewerReport;
+	readonly swarmJobId?: string;
 }
 
 export interface BuildJobSnapshot {
@@ -388,19 +434,27 @@ function getConfiguredServerBasePath(): string {
 	return raw.startsWith('/') ? raw.replace(/\/+$/, '') : `/${raw.replace(/\/+$/, '')}`;
 }
 
-/** URLs HTTPS absolutas para o proxy editor (:3200) e Caddy (/princy-api -> :3210). */
+/** URLs HTTPS absolutas — Caddy /princy-api (3210) primeiro; /webeditor/princy-api so fallback. */
 function getPreferredWebApiBases(): readonly string[] {
 	const origin = getConfiguredPublicWebOrigin();
 	if (!origin) {
 		return [];
 	}
 	const basePath = getConfiguredServerBasePath();
-	const bases: string[] = [];
+	const bases: string[] = [`${origin}${SAME_ORIGIN_PROXY_PATH}`];
 	if (basePath) {
 		bases.push(`${origin}${basePath}${SAME_ORIGIN_PROXY_PATH}`);
 	}
-	bases.push(`${origin}${SAME_ORIGIN_PROXY_PATH}`);
 	return bases;
+}
+
+function normalizeProductionAgentEndpoint(endpoint: string): string {
+	const trimmed = endpoint.replace(/\/+$/, '');
+	// /webeditor/princy-api nao existe no Caddy — rota correta e /princy-api na raiz
+	if (/\/webeditor\/princy-api$/i.test(trimmed)) {
+		return trimmed.replace(/\/webeditor\/princy-api$/i, '/princy-api');
+	}
+	return trimmed;
 }
 
 function shouldCacheWebEndpoint(base: string): boolean {
@@ -472,8 +526,22 @@ export class AgentClient {
 		}
 
 		const configuration = vscode.workspace.getConfiguration('princyai');
-		const configured = (configuration.get<string>('agentEndpoint', '') ?? '').trim();
+		const configuredRaw = (configuration.get<string>('agentEndpoint', '') ?? '').trim();
+		const configured = normalizeProductionAgentEndpoint(configuredRaw);
 		const useSameOrigin = configuration.get<boolean>('useSameOriginApi', true);
+
+		// Endpoint absoluto configurado — validar com probe no browser (evita /webeditor/princy-api morto).
+		if (configured && configured !== 'auto' && !configured.startsWith('/')) {
+			if (vscode.env.uiKind === vscode.UIKind.Web) {
+				if (await this.probeEndpoint(configured)) {
+					return this.rememberEndpoint(configured, `probe ok (configured): ${configured}`, shouldCacheWebEndpoint(configured));
+				}
+			} else if (configured !== DEFAULT_AGENT_ENDPOINT) {
+				if (await this.probeEndpoint(configured)) {
+					return this.rememberEndpoint(configured, `configured: ${configured}`);
+				}
+			}
+		}
 
 		// Endpoint relativo (/princy-api) — valida com probe; se falhar tenta outros candidatos (Caddy vs :3200).
 		if (configured.startsWith('/') && useSameOrigin) {
@@ -492,10 +560,6 @@ export class AgentClient {
 				return this.webFallbackEndpoint(relative);
 			}
 			return this.rememberEndpoint(relative, `configured relative: ${relative}`);
-		}
-
-		if (configured && configured !== 'auto' && configured !== DEFAULT_AGENT_ENDPOINT) {
-			return this.rememberEndpoint(configured, `configured: ${configured}`);
 		}
 
 		if (vscode.env.uiKind === vscode.UIKind.Web) {
@@ -633,6 +697,61 @@ export class AgentClient {
 
 	public async rejectAgentJob(jobId: string): Promise<{ readonly ok: boolean; readonly message?: string }> {
 		return this.post<{ readonly ok: boolean; readonly message?: string }>(`/api/agent/jobs/${encodeURIComponent(jobId)}/reject`, {});
+	}
+
+	public async executePlanJob(jobId: string): Promise<{ readonly ok: boolean; readonly message?: string }> {
+		return this.post<{ readonly ok: boolean; readonly message?: string }>(`/api/agent/jobs/${encodeURIComponent(jobId)}/execute-plan`, {});
+	}
+
+	public async startSwarmJob(request: ChatRequest, concurrency?: number): Promise<{ readonly swarmJobId: string; readonly graph: SwarmGraph }> {
+		return this.post<{ readonly ok: boolean; readonly swarmJobId: string; readonly graph: SwarmGraph }>('/api/agent/swarm', { ...request, concurrency });
+	}
+
+	public async getSwarmGraph(swarmJobId: string): Promise<SwarmGraph> {
+		const result = await this.get<{ readonly ok: boolean; readonly graph: SwarmGraph }>(`/api/agent/swarm/${encodeURIComponent(swarmJobId)}/graph`);
+		return result.graph;
+	}
+
+	public async subscribeSwarmStream(swarmJobId: string, onGraph: (graph: SwarmGraph) => void, onDone?: () => void): Promise<void> {
+		const token = vscode.workspace.getConfiguration('princyai').get<string>('apiToken', '');
+		const headers: Record<string, string> = {};
+		if (token) {
+			headers.Authorization = `Bearer ${token}`;
+		}
+		const endpoint = await this.resolveEndpoint();
+		const response = await fetch(`${endpoint}/api/agent/swarm/${encodeURIComponent(swarmJobId)}/stream`, { headers });
+		if (!response.ok) {
+			throw new Error(await response.text());
+		}
+		const reader = response.body?.getReader();
+		if (!reader) {
+			throw new Error('Swarm SSE unavailable');
+		}
+		const decoder = new TextDecoder();
+		let buffer = '';
+		while (true) {
+			const { done, value } = await reader.read();
+			if (done) {
+				break;
+			}
+			buffer += decoder.decode(value);
+			const events = buffer.split('\n\n');
+			buffer = events.pop() ?? '';
+			for (const event of events) {
+				const line = event.split('\n').find(entry => entry.startsWith('data:'));
+				if (!line) {
+					continue;
+				}
+				const payload = JSON.parse(line.slice(5).trim()) as { readonly type: string; readonly graph?: SwarmGraph };
+				if (payload.type === 'swarmGraph' && payload.graph) {
+					onGraph(payload.graph);
+				}
+				if (payload.type === 'done') {
+					onDone?.();
+					return;
+				}
+			}
+		}
 	}
 
 	public async continueAgentJob(jobId: string, appliedPaths: readonly string[]): Promise<{ readonly ok: boolean; readonly message?: string }> {
@@ -1078,10 +1197,10 @@ function buildWebApiCandidates(): readonly string[] {
 
 	const pushOrigin = (origin: string) => {
 		const o = origin.replace(/\/+$/, '');
+		candidates.push(`${o}${SAME_ORIGIN_PROXY_PATH}`);
 		if (basePath) {
 			candidates.push(`${o}${basePath}${SAME_ORIGIN_PROXY_PATH}`);
 		}
-		candidates.push(`${o}${SAME_ORIGIN_PROXY_PATH}`);
 	};
 
 	const pageOrigin = location?.origin;

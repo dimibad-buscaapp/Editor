@@ -113,12 +113,13 @@ export async function migrateWebAgentEndpoint(): Promise<void> {
 		'http://108.181.169.40:3210'
 	]);
 	const wrongProxyOn3210 = /:3210\/princy-api\/?$/i.test(current);
+	const wrongWebeditorProxy = /\/webeditor\/princy-api\/?$/i.test(current);
 	const wrongRoot3200 = /^https?:\/\/[^/]+:3200\/?$/i.test(current)
 		|| /^https?:\/\/princyai\.com\/?$/i.test(current)
 		|| /^https?:\/\/[^/]+:3200$/i.test(current);
 	const wrongPublicApi = /^https:\/\/api\.princyai\.com/i.test(current);
 	const wrongRelativeOnly = current === '/princy-api' || current.startsWith('/') && !current.startsWith('//');
-	const needsMigrate = legacy.has(current) || wrongProxyOn3210 || wrongRoot3200 || wrongPublicApi || wrongRelativeOnly;
+	const needsMigrate = legacy.has(current) || wrongProxyOn3210 || wrongWebeditorProxy || wrongRoot3200 || wrongPublicApi || wrongRelativeOnly;
 	if (needsMigrate) {
 		await princy.update('useSameOriginApi', true, vscode.ConfigurationTarget.Global);
 		await princy.update('publicWebOrigin', 'https://princyai.com', vscode.ConfigurationTarget.Global);

@@ -13,7 +13,7 @@ export type ActionPhase =
 	| 'failed'
 	| 'cancelled';
 
-export type ActionRunMode = 'chat' | 'composer' | 'agent' | 'builder';
+export type ActionRunMode = 'chat' | 'composer' | 'agent' | 'builder' | 'plan';
 
 export type BuildTarget = 'web' | 'api' | 'exe' | 'apk';
 
@@ -41,6 +41,9 @@ export type ActionRunSnapshot = {
 	readonly approvalRequired: boolean;
 	readonly approvalStatus?: ApprovalStatus;
 	readonly tasks?: readonly ActionTask[];
+	readonly planDag?: import('../agentJob/types.js').PlanDag;
+	readonly reviewerReport?: import('../agentJob/types.js').ReviewerReport;
+	readonly swarmJobId?: string;
 };
 
 export function agentStateToActionPhase(state: string, approvalStatus?: ApprovalStatus): ActionPhase {
@@ -48,6 +51,8 @@ export function agentStateToActionPhase(state: string, approvalStatus?: Approval
 		case 'THINKING':
 			return 'understanding';
 		case 'PLANNING':
+			return 'planning';
+		case 'REVIEWING':
 			return 'planning';
 		case 'AWAITING_APPROVAL':
 			return approvalStatus === 'approved' ? 'preview' : 'awaiting_approval';

@@ -20,6 +20,8 @@ import { registerAutomationStudioRoutes } from './automationStudio/automationStu
 import { registerSiteRoutes, registerSiteStatic } from './sites/siteRoutes.js';
 import { recordRequest } from './requestLog.js';
 import { registerRoutes } from './routes.js';
+import { initAgentJobStore } from './agentJob/store.js';
+import { loadSwarmJobsFromDb } from './swarm/swarmOrchestrator.js';
 
 const app = Fastify({
 	logger: true
@@ -81,6 +83,9 @@ app.addHook('onRequest', async request => {
 
 ensureBuildStorageLayout();
 recoverInterruptedBuilds();
+
+await initAgentJobStore();
+await loadSwarmJobsFromDb();
 
 await registerSiteStatic(app);
 
