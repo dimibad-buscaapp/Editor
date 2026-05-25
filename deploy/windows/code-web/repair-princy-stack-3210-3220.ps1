@@ -85,7 +85,9 @@ Test-PortHealth "Index local" "http://127.0.0.1:3220/" -AllowHtml | Out-Null
 Write-Host "`n[Agent :3210]" -ForegroundColor Cyan
 $repairAgent = Join-Path $ProjectRoot "deploy\windows\agent-backend\repair-princy-agent-3210.ps1"
 if (Test-Path $repairAgent) {
-	& powershell -ExecutionPolicy Bypass -File $repairAgent -ProjectRoot $ProjectRoot -SkipBuild:$SkipBuild
+	$repairArgs = @('-ExecutionPolicy', 'Bypass', '-File', $repairAgent, '-ProjectRoot', $ProjectRoot)
+	if ($SkipBuild.IsPresent) { $repairArgs += '-SkipBuild' }
+	& powershell @repairArgs
 	if ($LASTEXITCODE -ne 0) {
 		$issues.Add("repair-princy-agent-3210.ps1 exit $LASTEXITCODE")
 	}

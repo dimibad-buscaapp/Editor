@@ -60,6 +60,7 @@ async function applyPrincyDefaultChat(): Promise<void> {
 	await chat.update('titleBar.signIn.enabled', false, target);
 	await chat.update('agentHost.enabled', false, target);
 
+	const workbench = vscode.workspace.getConfiguration('workbench');
 	await applyPrincySecondarySideBarVisibilitySetting();
 	await workbench.update('layoutControl.enabled', true, target);
 	await workbench.update('startupEditor', 'none', target);
