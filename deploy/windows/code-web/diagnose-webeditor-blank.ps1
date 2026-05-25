@@ -54,6 +54,15 @@ if (-not (Test-Path $extJs)) {
 	Write-Host "  princy-ai extension.js: OK" -ForegroundColor Green
 }
 
+$wbHtmlDisk = Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench.html"
+if (Test-Path $wbHtmlDisk) {
+	$diskHtml = Get-Content $wbHtmlDisk -Raw
+	if ($diskHtml -match 'princyai\.serverBasePath' -and $diskHtml -notmatch '\{\{WORKBENCH_BUILTIN_EXTENSIONS\}\}') {
+		Add-Issue "out/workbench.html corrompido no disco (JSON baked sem placeholder)"
+		Add-Fix "pwsh -File deploy\windows\code-web\restore-workbench-html-placeholder.ps1"
+	}
+}
+
 # --- Servico NSSM / modo DEV ---
 Write-Host "`n[2] Servico PrincyAiCodeWeb" -ForegroundColor Cyan
 $svc = Get-Service PrincyAiCodeWeb -ErrorAction SilentlyContinue
@@ -99,6 +108,11 @@ foreach ($pair in @(
 			if (-not $meta) {
 				$ok = $false
 				Add-Issue "HTML sem meta vscode-workbench-web-configuration (servidor errado ou 403?)"
+			}
+			if ($r.Content -match '<body[^>]*>([\s\S]*?)</body>' -and $Matches[1] -match 'princyai\.|extensionPath') {
+				$ok = $false
+				Add-Issue "HTML corrompido: JSON do package.json visivel no body (patch meta antigo quebrou workbench.html)"
+				Add-Fix "pwsh -File deploy\windows\code-web\fix-workbench-html-corruption.ps1 -ProjectRoot $ProjectRoot"
 			}
 			if ($r.Content -match 'src="([^"]*workbench\.js[^"]*)"') {
 				Write-Host ("  script no HTML: {0}" -f $Matches[1]) -ForegroundColor DarkGray

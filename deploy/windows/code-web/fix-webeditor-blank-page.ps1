@@ -28,6 +28,12 @@ if (Test-Path $diag) {
 
 if ($DiagnoseOnly) { exit $LASTEXITCODE }
 
+$restore = Join-Path $PSScriptRoot "restore-workbench-html-placeholder.ps1"
+if (Test-Path $restore) {
+	Write-Host "`n[Restore] workbench.html placeholders (corrige JSON visivel na pagina) ..." -ForegroundColor Cyan
+	& pwsh -NoProfile -ExecutionPolicy Bypass -File $restore -ProjectRoot $ProjectRoot
+}
+
 Write-Host "`n[Rebuild PROD] incremental -> compile-web -> bundle (bundle SEMPRE por ultimo) ..." -ForegroundColor Cyan
 $prodScript = Join-Path $PSScriptRoot "compile-princy-code-web-production.ps1"
 $prodArgs = @{ ProjectRoot = $ProjectRoot; SkipRestart = $true }
