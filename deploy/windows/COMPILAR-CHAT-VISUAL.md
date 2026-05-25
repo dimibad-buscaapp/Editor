@@ -2,9 +2,20 @@
 
 O browser **nao** usa `src/`. Precisa deste compile na maquina onde corre o servico (`C:\Apps\Editor` na VPS).
 
-## Comando unico (recomendado)
+## Chat nao funciona apos git pull? (OBRIGATORIO compile-web)
 
-PowerShell 7 na VPS:
+O ficheiro `extensions/princy-ai/dist/browser/extension.js` **nao esta no Git**. O `git pull` so traz o codigo fonte; sem `npm run compile-web` no VPS o chat continua **offline** ou com UI antiga.
+
+### Comando rapido — so chat (~2-5 min)
+
+```powershell
+cd C:\Apps\Editor
+pwsh -ExecutionPolicy Bypass -File .\deploy\windows\code-web\compile-princy-chat-only.ps1 -ProjectRoot C:\Apps\Editor
+```
+
+Isto faz: `git pull` + `compile-web` + sync + settings HTTPS + restart + teste 3200->3210.
+
+### Comando completo (editor + workbench, 15-45 min)
 
 ```powershell
 cd C:\Apps\Editor
@@ -15,8 +26,6 @@ pwsh -ExecutionPolicy Bypass -File .\deploy\windows\code-web\fix-princy-browser-
 Restart-Service PrincyAiCodeWeb, PrincyAiAgentBackend, PrincyCaddy
 pwsh -ExecutionPolicy Bypass -File .\deploy\windows\code-web\verify-princy-visual-and-chat.ps1 -ProjectRoot "C:\Apps\Editor"
 ```
-
-Tempo: **15 a 45 minutos**.
 
 ## O que este compile gera
 
@@ -31,13 +40,13 @@ Tempo: **15 a 45 minutos**.
 ```
 OK: Chat bundle (extension.js)
 OK: Chat UI track (extension.js)
-OK: extension.js com revisao cursor-agent-2026.05.25-r8
+OK: extension.js com revisao cursor-agent-2026.05.25-r9
 OK: princyLayoutUnlock em out/
 ```
 
 No browser (Ctrl+F5):
 
-- `document.body.dataset.princyUiRev` = **`cursor-agent-2026.05.25-r8`**
+- `document.body.dataset.princyUiRev` = **`cursor-agent-2026.05.25-r9`**
 - Painel inferior e chat **fechados** ao carregar; ao abrir o chat: visual Cursor (nao fullscreen)
 
 ## Forcar visual AGORA (browser ainda antigo)
