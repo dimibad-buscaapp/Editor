@@ -22,8 +22,35 @@ declare const fetch: (
 		readonly body?: string;
 		readonly cache?: string;
 		readonly credentials?: string;
+		readonly signal?: AbortSignal;
 	}
 ) => Promise<FetchResponse>;
+
+const AGENT_FETCH_TIMEOUT_MS = 15_000;
+
+async function fetchAgent(
+	url: string,
+	init?: {
+		readonly method?: string;
+		readonly headers?: Record<string, string>;
+		readonly body?: string;
+		readonly cache?: string;
+		readonly credentials?: string;
+	}
+): Promise<FetchResponse> {
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), AGENT_FETCH_TIMEOUT_MS);
+	try {
+		return await fetch(url, { ...init, signal: controller.signal });
+	} catch (error) {
+		if (error instanceof Error && error.name === 'AbortError') {
+			throw new Error(`Timeout (${AGENT_FETCH_TIMEOUT_MS}ms) em ${url}`);
+		}
+		throw error;
+	} finally {
+		clearTimeout(timer);
+	}
+}
 
 export type AgentModel = 'princy' | 'deepseek' | 'qwen' | 'codellama' | 'llama3' | 'mistral' | 'openai';
 
@@ -504,7 +531,7 @@ export class AgentClient {
 		for (const path of paths) {
 			try {
 				const fetchUrl = await toFetchableAgentUrl(normalized, path);
-				const response = await fetch(fetchUrl, {
+				const response = await fetchAgent(fetchUrl, {
 					method: 'GET',
 					cache: 'no-store',
 					credentials: 'omit'
@@ -964,7 +991,7 @@ export class AgentClient {
 
 		try {
 			const fetchUrl = await toFetchableAgentUrl(endpoint, path);
-			const response = await fetch(fetchUrl, {
+			const response = await fetchAgent(fetchUrl, {
 				method: init.method,
 				headers,
 				body: init.body,

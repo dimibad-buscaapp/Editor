@@ -42,6 +42,7 @@ type WebviewMessage =
 	| { readonly type: 'setChatMode'; readonly mode: ChatMode }
 	| { readonly type: 'openSettings' }
 	| { readonly type: 'reconnectBackend' }
+	| { readonly type: 'panelReady' }
 	| { readonly type: 'readFileForDiff'; readonly operationId: string; readonly filePath: string; readonly operation: import('./agentClient').ComposerOperation }
 	| { readonly type: 'approveActionRun'; readonly jobId: string; readonly instruction: string; readonly agent: AgentModel; readonly plan: ComposerPlan }
 	| { readonly type: 'rejectActionRun'; readonly jobId: string }
@@ -91,6 +92,8 @@ type PendingActionRun = {
 export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 	public static readonly viewType = 'princyai.chat';
 	private view: vscode.WebviewView | undefined;
+	private refreshBackendInFlight: Promise<void> | undefined;
+	private panelReadyHandled = false;
 	private pendingActionRun: PendingActionRun | undefined;
 
 	public constructor(
@@ -115,15 +118,12 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 		this.reloadWebviewHtml(webviewView.webview);
 		webviewView.webview.onDidReceiveMessage(message => this.handleMessage(message as WebviewMessage));
 		webviewView.onDidChangeVisibility(() => {
-			if (webviewView.visible) {
+			if (webviewView.visible && this.panelReadyHandled) {
 				void migrateWebAgentEndpoint();
 				void this.refreshBackendStatusLazy();
-				webviewView.webview.postMessage({ type: 'reloadPanel' });
 			}
 		});
 		void migrateWebAgentEndpoint();
-		void this.initializeChatPanel();
-		void vscode.commands.executeCommand('princyai.reconnectBackend');
 		vscode.window.onDidChangeActiveTextEditor(() => this.pushEditorContext());
 		vscode.window.onDidChangeTextEditorSelection(() => this.pushEditorContext());
 	}
@@ -140,8 +140,8 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 		if (!this.view) {
 			return;
 		}
+		this.panelReadyHandled = false;
 		this.reloadWebviewHtml(this.view.webview);
-		void this.initializeChatPanel();
 	}
 
 	public async focusComposer(): Promise<void> {
@@ -365,6 +365,7 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 	}
 
 	private reloadWebviewHtml(webview: vscode.Webview): void {
+		this.panelReadyHandled = false;
 		webview.html = this.getHtml(webview);
 	}
 
@@ -429,7 +430,7 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 
 		void this.loadCreatorTemplates();
 
-		void this.refreshBackendStatusLazy();
+		await this.refreshBackendStatusLazy();
 	}
 
 	private postBackendStatus(status: BackendStatus): void {

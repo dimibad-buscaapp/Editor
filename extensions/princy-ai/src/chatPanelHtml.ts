@@ -1854,14 +1854,16 @@ function getChatPanelScript(): string {
 					}
 				}
 			}
-			if (message.type === 'backendStatus' && backendDot) {
+			if (message.type === 'backendStatus') {
 				backendOnline = Boolean(message.online);
 				if (sendBtn) {
 					sendBtn.disabled = !backendOnline;
 					sendBtn.title = backendOnline ? '' : 'Backend offline — use Reconectar ou aguarde';
 				}
-				backendDot.classList.toggle('online', backendOnline);
-				backendDot.title = (message.online ? 'Backend online' : 'Backend offline') + (message.endpoint ? ' — ' + message.endpoint : '');
+				if (backendDot) {
+					backendDot.classList.toggle('online', backendOnline);
+					backendDot.title = (message.online ? 'Backend online' : 'Backend offline') + (message.endpoint ? ' — ' + message.endpoint : '');
+				}
 				const sub = document.getElementById('chatHeaderSub');
 				const banner = document.getElementById('offlineBanner');
 				const bannerText = document.getElementById('offlineBannerText');
@@ -2351,6 +2353,8 @@ function getChatPanelScript(): string {
 			line.textContent = text;
 			container.appendChild(line);
 		}
+
+		vscode.postMessage({ type: 'panelReady' });
 	})();
 	`;
 }
