@@ -9,11 +9,21 @@ import { subscribeAgentJobStream, type AgentJobStreamHandlers } from './agentJob
 interface FetchResponse {
 	readonly ok: boolean;
 	readonly status: number;
+	readonly headers: { get(name: string): string | null };
 	text(): Promise<string>;
 	json(): Promise<unknown>;
 }
 
-declare const fetch: (input: string, init?: { readonly method?: string; readonly headers?: Record<string, string>; readonly body?: string }) => Promise<FetchResponse>;
+declare const fetch: (
+	input: string,
+	init?: {
+		readonly method?: string;
+		readonly headers?: Record<string, string>;
+		readonly body?: string;
+		readonly cache?: string;
+		readonly credentials?: string;
+	}
+) => Promise<FetchResponse>;
 
 export type AgentModel = 'princy' | 'deepseek' | 'qwen' | 'codellama' | 'llama3' | 'mistral' | 'openai';
 
@@ -1047,8 +1057,9 @@ function buildWebApiCandidates(): readonly string[] {
 		candidates.push(`${o}${SAME_ORIGIN_PROXY_PATH}`);
 	};
 
-	if (location?.origin && !candidates.some(c => c.startsWith(location.origin))) {
-		pushOrigin(location.origin);
+	const pageOrigin = location?.origin;
+	if (pageOrigin && !candidates.some(c => c.startsWith(pageOrigin))) {
+		pushOrigin(pageOrigin);
 	}
 
 	if (!remotePublic) {

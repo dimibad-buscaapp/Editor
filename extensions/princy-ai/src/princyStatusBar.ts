@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { labelForPrincyAiStatus, type PrincyAiStatusSnapshot } from './princyAiStatus';
+import type { PrincyAiStatusSnapshot } from './princyAiStatus';
 
 let statusBarItem: vscode.StatusBarItem | undefined;
 let current: PrincyAiStatusSnapshot = { kind: 'thinking', label: 'IA: A ligar…' };
