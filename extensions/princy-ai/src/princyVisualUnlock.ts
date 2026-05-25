@@ -4,15 +4,17 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { shouldSkipPeriodicReconnect } from './agentConnectivity';
 import { applyPrincySecondarySideBarVisibilitySetting, migrateWebAgentEndpoint, shouldOpenChatOnStartup } from './princyWorkbenchChat';
 import { enforcePrincyEditorUnlocked } from './workbenchUi';
 import type { PrincyChatViewProvider } from './chatView';
 
-/** Intervalos moderados — evita recarregar webview a cada poucos segundos (desconectava o chat). */
-const UNLOCK_FAST_INTERVAL_MS = 60_000;
+/** Intervalos moderados — so layout/readonly; sem reconnect (evita chat preso em "A ligar"). */
+const UNLOCK_FAST_INTERVAL_MS = 120_000;
 const UNLOCK_FAST_DURATION_MS = 300_000;
-const UNLOCK_SLOW_INTERVAL_MS = 120_000;
+const UNLOCK_SLOW_INTERVAL_MS = 300_000;
+const UNLOCK_CONFIG_DEBOUNCE_MS = 2_000;
+
+let unlockConfigDebounceTimer: ReturnType<typeof setTimeout> | undefined;
 
 /** Desbloqueio visual/ediciao global: layout + recarga do painel chat (cache webview). */
 export function registerPrincyVisualUnlock(
@@ -30,7 +32,13 @@ export function registerPrincyVisualUnlock(
 				|| event.affectsConfiguration('workbench.secondarySideBar.defaultVisibility')
 				|| event.affectsConfiguration('files.readonlyInclude')
 			) {
-				void runGlobalVisualUnlock(provider, false);
+				if (unlockConfigDebounceTimer) {
+					clearTimeout(unlockConfigDebounceTimer);
+				}
+				unlockConfigDebounceTimer = setTimeout(() => {
+					unlockConfigDebounceTimer = undefined;
+					void runGlobalVisualUnlock(provider, false);
+				}, UNLOCK_CONFIG_DEBOUNCE_MS);
 			}
 		}),
 		vscode.window.onDidChangeWindowState(state => {
@@ -114,13 +122,6 @@ export async function runGlobalVisualUnlock(
 	}
 	if (showMessage) {
 		provider.forceReloadPanel();
-	}
-	if (!shouldSkipPeriodicReconnect()) {
-		try {
-			await vscode.commands.executeCommand('princyai.reconnectBackend');
-		} catch {
-			// reconnect optional during early activation
-		}
 	}
 
 	if (showMessage) {

@@ -80,8 +80,8 @@ export function activate(context: vscode.ExtensionContext): void {
 		shadowContext,
 		vscode.window.registerWebviewViewProvider(PrincyChatViewProvider.viewType, provider, {
 			webviewOptions: {
-				// false = evita DOM/JS antigo após compile-web (ids do painel mudaram)
-				retainContextWhenHidden: false
+				// Web: manter webview vivo evita perder panelReady/backendStatus ao ocultar barra lateral
+				retainContextWhenHidden: vscode.env.uiKind === vscode.UIKind.Web
 			}
 		})
 	);
@@ -96,8 +96,9 @@ export function activate(context: vscode.ExtensionContext): void {
 		vscode.commands.registerCommand('princyai.runSuggestedCommand', command => runSuggestedCommand(terminalRunner, shadowContext, command)),
 		vscode.commands.registerCommand('princyai.reconnectBackend', async () => {
 			client.clearEndpointCache();
-			const endpoint = await client.resolveEndpoint();
+			await migrateWebAgentEndpoint();
 			const status = await checkAgentBackend(client);
+			const endpoint = client.getAgentEndpoint();
 			const msg = status.online
 				? `Princy API online: ${endpoint}`
 				: `Princy API offline em ${endpoint}. ${status.message}`;
@@ -134,19 +135,8 @@ export function activate(context: vscode.ExtensionContext): void {
 	if (vscode.env.uiKind === vscode.UIKind.Web) {
 		void (async () => {
 			await migrateWebAgentEndpoint();
-			client.clearEndpointCache();
-			const endpoint = await client.resolveEndpoint();
-			const status = await checkAgentBackend(client);
-			const note = client.getLastProbeNote();
-			output.appendLine(`Web boot: rev=${PRINCY_CHAT_UI_REVISION} endpoint=${endpoint} online=${status.online}${note ? ` probe=${note}` : ''}`);
-			if (!status.online) {
-				output.show(true);
-				void vscode.window.showErrorMessage(
-					`Princy API offline em ${endpoint}. Verifique o agent na porta 3210 e /princy-api.`
-				);
-			}
-			await provider.refreshBackendStatus();
 			await ensureWebviewUiRevisionLoaded(context, provider);
+			output.appendLine(`Web boot: rev=${PRINCY_CHAT_UI_REVISION} — health check apos panelReady do chat`);
 		})();
 	}
 }

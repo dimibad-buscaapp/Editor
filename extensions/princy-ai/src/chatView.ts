@@ -89,11 +89,16 @@ type PendingActionRun = {
 	readonly plan: ComposerPlan;
 };
 
+const BACKEND_STATUS_TIMEOUT_MS = 20_000;
+
 export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 	public static readonly viewType = 'princyai.chat';
 	private view: vscode.WebviewView | undefined;
 	private refreshBackendInFlight: Promise<void> | undefined;
+	private initializeChatPanelInFlight: Promise<void> | undefined;
 	private panelReadyHandled = false;
+	private backendOnline = false;
+	private readonly pendingWebviewMessages: Record<string, unknown>[] = [];
 	private pendingActionRun: PendingActionRun | undefined;
 
 	public constructor(
@@ -118,10 +123,16 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 		this.reloadWebviewHtml(webviewView.webview);
 		webviewView.webview.onDidReceiveMessage(message => this.handleMessage(message as WebviewMessage));
 		webviewView.onDidChangeVisibility(() => {
-			if (webviewView.visible && this.panelReadyHandled) {
-				void migrateWebAgentEndpoint();
-				void this.refreshBackendStatusLazy();
+			if (!webviewView.visible) {
+				this.panelReadyHandled = false;
+				return;
 			}
+			if (!this.panelReadyHandled) {
+				this.reloadWebviewHtml(webviewView.webview);
+				return;
+			}
+			void migrateWebAgentEndpoint();
+			void this.refreshBackendStatusLazy(true);
 		});
 		void migrateWebAgentEndpoint();
 		vscode.window.onDidChangeActiveTextEditor(() => this.pushEditorContext());
@@ -301,7 +312,6 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 			case 'bootError':
 				if (this.view) {
 					this.reloadWebviewHtml(this.view.webview);
-					void this.initializeChatPanel();
 				}
 				break;
 			case 'newSession': {
@@ -335,6 +345,7 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 				break;
 			case 'panelReady':
 				this.panelReadyHandled = true;
+				this.flushPendingWebviewMessages();
 				void this.initializeChatPanel();
 				break;
 			case 'readFileForDiff':
@@ -351,13 +362,35 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 			updatedAt: s.updatedAt
 		}));
 		const active = this.chatSessions.getActive();
-		this.view?.webview.postMessage({
+		this.postToWebview({
 			type: 'sessionsState',
 			sessions,
 			activeId: this.chatSessions.getActiveId(),
 			messages: active?.messages ?? [],
 			activeMode: active?.mode ?? 'chat'
 		});
+	}
+
+	private postToWebview(message: Record<string, unknown>): void {
+		if (!this.view) {
+			return;
+		}
+		const needsReady = message.type !== 'focusInput' && message.type !== 'focusComposer';
+		if (needsReady && !this.panelReadyHandled) {
+			this.pendingWebviewMessages.push(message);
+			return;
+		}
+		void this.view.webview.postMessage(message);
+	}
+
+	private flushPendingWebviewMessages(): void {
+		if (!this.view || this.pendingWebviewMessages.length === 0) {
+			return;
+		}
+		const batch = this.pendingWebviewMessages.splice(0, this.pendingWebviewMessages.length);
+		for (const message of batch) {
+			void this.view.webview.postMessage(message);
+		}
 	}
 
 	private recordTurn(role: 'user' | 'assistant', text: string): void {
@@ -417,27 +450,39 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 	}
 
 	private async initializeChatPanel(): Promise<void> {
+		if (this.initializeChatPanelInFlight) {
+			return this.initializeChatPanelInFlight;
+		}
+		this.initializeChatPanelInFlight = this.runInitializeChatPanel().finally(() => {
+			this.initializeChatPanelInFlight = undefined;
+		});
+		return this.initializeChatPanelInFlight;
+	}
+
+	private async runInitializeChatPanel(): Promise<void> {
 		this.pushSessionState();
 		const wsName = vscode.workspace.name ?? vscode.workspace.workspaceFolders?.[0]?.name ?? 'Workspace';
-		this.view?.webview.postMessage({ type: 'workspaceInfo', name: wsName });
+		this.postToWebview({ type: 'workspaceInfo', name: wsName });
 		const defaultAgent = vscode.workspace.getConfiguration('princyai').get<AgentModel>('defaultAgent', 'princy');
-		this.view?.webview.postMessage({ type: 'defaultAgent', agent: defaultAgent });
+		this.postToWebview({ type: 'defaultAgent', agent: defaultAgent });
 		try {
 			const models = await this.client.models();
-			this.view?.webview.postMessage({ type: 'agents', models });
+			this.postToWebview({ type: 'agents', models });
 		} catch {
-			this.view?.webview.postMessage({ type: 'agents', models: defaultAgents });
+			this.postToWebview({ type: 'agents', models: defaultAgents });
 		}
 
 		void this.loadCreatorTemplates();
 
-		await this.refreshBackendStatusLazy();
+		await this.refreshBackendStatusLazy(false);
+		this.postToWebview({ type: 'reloadPanel' });
 	}
 
 	private postBackendStatus(status: BackendStatus): void {
 		const endpoint = status.endpoint;
+		this.backendOnline = status.online;
 		markBackendConnectivity(status.online);
-		this.view?.webview.postMessage({
+		this.postToWebview({
 			type: 'backendStatus',
 			online: status.online,
 			message: status.message,
@@ -445,32 +490,45 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 		});
 		if (!status.online) {
 			void setPrincyAiStatus({ kind: 'offline', label: labelForPrincyAiStatus('offline'), detail: status.message });
-			this.view?.webview.postMessage({
+			this.postToWebview({
 				type: 'status',
 				text: `Backend offline (${endpoint}) — use Reconectar ou verifique :3210 /princy-api`
 			});
 		} else {
 			void setPrincyAiStatus({ kind: 'ready', label: labelForPrincyAiStatus('ready'), detail: endpoint });
-			this.view?.webview.postMessage({ type: 'status', text: 'Pronto' });
+			this.postToWebview({ type: 'status', text: 'Pronto' });
 		}
 	}
 
-	private async refreshBackendStatusLazy(): Promise<void> {
+	public async refreshBackendStatus(): Promise<void> {
+		await this.refreshBackendStatusLazy(false);
+	}
+
+	private async refreshBackendStatusLazy(silentIfOnline: boolean): Promise<void> {
 		if (this.refreshBackendInFlight) {
 			return this.refreshBackendInFlight;
 		}
-		this.refreshBackendInFlight = this.runBackendStatusCheck().finally(() => {
+		this.refreshBackendInFlight = this.runBackendStatusCheck(silentIfOnline).finally(() => {
 			this.refreshBackendInFlight = undefined;
 		});
 		return this.refreshBackendInFlight;
 	}
 
-	private async runBackendStatusCheck(): Promise<void> {
-		this.view?.webview.postMessage({ type: 'status', text: 'A ligar ao backend…' });
-		void setPrincyAiStatus({ kind: 'thinking', label: 'IA: A ligar…' });
+	private async runBackendStatusCheck(silentIfOnline: boolean): Promise<void> {
+		if (!silentIfOnline || !this.backendOnline) {
+			this.postToWebview({ type: 'status', text: 'A ligar ao backend…' });
+			void setPrincyAiStatus({ kind: 'thinking', label: 'IA: A ligar…' });
+		}
 		try {
-			await this.client.resolveEndpoint();
-			const status = await checkAgentBackend(this.client);
+			const status = await Promise.race([
+				(async () => {
+					await this.client.resolveEndpoint();
+					return checkAgentBackend(this.client);
+				})(),
+				new Promise<BackendStatus>((_, reject) => {
+					setTimeout(() => reject(new Error(`Timeout (${BACKEND_STATUS_TIMEOUT_MS}ms) ao verificar backend`)), BACKEND_STATUS_TIMEOUT_MS);
+				})
+			]);
 			this.postBackendStatus(status);
 		} catch (error) {
 			const detail = error instanceof Error ? error.message : String(error);
@@ -831,10 +889,6 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 			this.view?.webview.postMessage({ type: 'status', text: errText });
 			void setPrincyAiStatus({ kind: 'error', label: labelForPrincyAiStatus('error') });
 		}
-	}
-
-	public async refreshBackendStatus(): Promise<void> {
-		await this.refreshBackendStatusLazy();
 	}
 
 	private async runBuildCenter(

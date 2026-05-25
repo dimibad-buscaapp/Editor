@@ -18,6 +18,8 @@ let lastBackendOnlineAt = 0;
 export function markBackendConnectivity(online: boolean): void {
 	if (online) {
 		lastBackendOnlineAt = Date.now();
+	} else {
+		lastBackendOnlineAt = 0;
 	}
 }
 
@@ -40,7 +42,6 @@ export async function checkAgentBackend(client: AgentClient): Promise<BackendSta
 	for (let attempt = 0; attempt < retryDelaysMs.length; attempt++) {
 		if (retryDelaysMs[attempt] > 0) {
 			await delay(retryDelaysMs[attempt]);
-			client.clearEndpointCache();
 		}
 
 		await client.resolveEndpoint();

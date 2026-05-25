@@ -1095,7 +1095,7 @@ function getChatPanelScript(): string {
 			streamingNode = null;
 			streamingBody = null;
 			showEmpty();
-			setStatus('Pronto');
+			setStatus(backendOnline ? 'Pronto' : 'Offline');
 			scrollBottom();
 		}
 
@@ -1711,7 +1711,13 @@ function getChatPanelScript(): string {
 		}
 
 		function setStatus(text) {
-			if (status) status.textContent = text || 'Pronto';
+			if (!status) return;
+			const t = text || '';
+			if (!backendOnline && (t === 'Pronto' || t.startsWith('A ligar'))) {
+				status.textContent = 'Offline';
+				return;
+			}
+			status.textContent = t || (backendOnline ? 'Pronto' : 'Offline');
 		}
 
 		function scheduleStreamReveal() {
@@ -2053,12 +2059,12 @@ function getChatPanelScript(): string {
 				if (content) {
 					appendAssistant(content, message.suggestedCommands);
 				}
-				if (sendBtn) sendBtn.disabled = false;
-				setStatus('Pronto');
+				if (sendBtn) sendBtn.disabled = !backendOnline;
+				if (backendOnline) setStatus('Pronto');
 			}
 			if (message.type === 'error') {
 				appendAssistant('Erro: ' + (message.message || 'falha desconhecida'));
-				if (sendBtn) sendBtn.disabled = false;
+				if (sendBtn) sendBtn.disabled = !backendOnline;
 				setStatus('Erro');
 			}
 		});
