@@ -914,7 +914,7 @@ export function buildChatPanelHtml(cspSource: string, nonce: string, styleUri?: 
 							<option value="codellama">CodeLlama</option>
 						</select>
 						<select id="segment" style="display:none" aria-hidden="true"><option value="">Auto</option></select>
-						<span class="chat-status" id="status">Pronto</span>
+						<span class="chat-status" id="status">A ligar…</span>
 					</div>
 					<div class="chat-toolbar-right">
 						<button type="button" class="chat-toolbar-btn" id="toggleContext" title="Atalhos @ e /">@</button>
@@ -948,6 +948,11 @@ function getChatPanelScript(): string {
 		const contextBar = document.getElementById('contextBar');
 		const mentionMenu = document.getElementById('mentionMenu');
 		const sendBtn = document.getElementById('send');
+		let backendOnline = false;
+		if (sendBtn) {
+			sendBtn.disabled = true;
+			sendBtn.title = 'A ligar ao backend…';
+		}
 		const historyList = document.getElementById('historyList');
 		let streamingNode = null;
 		let streamingBody = null;
@@ -1850,7 +1855,12 @@ function getChatPanelScript(): string {
 				}
 			}
 			if (message.type === 'backendStatus' && backendDot) {
-				backendDot.classList.toggle('online', Boolean(message.online));
+				backendOnline = Boolean(message.online);
+				if (sendBtn) {
+					sendBtn.disabled = !backendOnline;
+					sendBtn.title = backendOnline ? '' : 'Backend offline — use Reconectar ou aguarde';
+				}
+				backendDot.classList.toggle('online', backendOnline);
 				backendDot.title = (message.online ? 'Backend online' : 'Backend offline') + (message.endpoint ? ' — ' + message.endpoint : '');
 				const sub = document.getElementById('chatHeaderSub');
 				const banner = document.getElementById('offlineBanner');

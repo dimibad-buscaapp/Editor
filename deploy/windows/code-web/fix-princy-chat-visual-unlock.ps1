@@ -1,4 +1,4 @@
-# Corrige chat offline + visual r9: settings HTTPS, compile browser, PROD, sem VSCODE_DEV.
+# Corrige chat offline + visual r10: settings HTTPS, compile browser, PROD, sem VSCODE_DEV.
 # Admin VPS:
 #   pwsh -File deploy\windows\code-web\fix-princy-chat-visual-unlock.ps1 -ProjectRoot C:\Apps\Editor
 

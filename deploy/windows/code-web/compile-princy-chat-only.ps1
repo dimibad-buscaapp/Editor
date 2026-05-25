@@ -47,7 +47,7 @@ foreach ($m in $markers) {
 	if ($extText -notmatch [regex]::Escape($m)) { $missing += $m }
 }
 if ($missing.Count -gt 0) {
-	throw "extension.js sem marcadores r9: $($missing -join ', ') — codigo desatualizado?"
+	throw "extension.js sem marcadores $Rev : $($missing -join ', ') — codigo desatualizado?"
 }
 Write-Host "OK: $extJs ($([math]::Round((Get-Item $extJs).Length/1KB)) KB) rev $Rev" -ForegroundColor Green
 

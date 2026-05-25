@@ -4,10 +4,12 @@
 
 | Bloqueio | Correcao |
 |----------|----------|
-| Chat maximizado (esconde editor) | `forceMaximized: false` + `princyLayoutUnlock` (45s de retries) |
-| Startup maximiza se `defaultVisibility: maximized*` | `layout.ts` so maximiza se `forceMaximized === true` (antes era `!== false`) |
-| Cache webview (UI antiga) | `PRINCY_CHAT_UI_REVISION` + `princyai.ui.forceVisualUnlock` recarrega painel |
-| `dist/` nao vai no Git | `deploy-princy-after-pull.ps1` / `unlock-princy-visual-global.ps1` |
+| Chat maximizado (esconde editor) | `forceMaximized: false` + `princyLayoutUnlock` |
+| Startup maximiza se `defaultVisibility: maximized*` | `layout.ts` so maximiza se `forceMaximized === true` |
+| Cache webview (UI antiga) | `PRINCY_CHAT_UI_REVISION` (r10: `cursor-agent-2026.05.25-r10`) + reload uma vez por revisao |
+| Reset endpoint `/princy-api` relativo | `migrateWebAgentEndpoint` — nunca reposto por `princyVisualUnlock` |
+| Reconnect a cada 8s desconectava chat | Timers 60s/120s; reconnect so se health OK > 30s atras |
+| `dist/` nao vai no Git | `compile-princy-chat-only.ps1` / `deploy-princy-after-pull.ps1` |
 | Layout em `state.vscdb` | Script global apaga `workspaceStorage/**/state.vscdb` |
 | Editor readonly | `files.readonly*` vazio forcado |
 
@@ -15,21 +17,27 @@
 
 ```powershell
 cd C:\Apps\Editor
-git pull --no-rebase origin main
-powershell -ExecutionPolicy Bypass -File deploy\windows\code-web\unlock-princy-visual-global.ps1 -ProjectRoot "C:\Apps\Editor"
+pwsh -File deploy\windows\code-web\compile-princy-chat-only.ps1 -ProjectRoot C:\Apps\Editor
 ```
 
-Versao rapida (so extensao):
+Ou unlock completo:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File deploy\windows\code-web\deploy-princy-after-pull.ps1 -ProjectRoot "C:\Apps\Editor"
+pwsh -File deploy\windows\code-web\unlock-princy-visual-global.ps1 -ProjectRoot C:\Apps\Editor
 ```
 
-Depois **Ctrl+F5**. Confirmar: `document.body.dataset.princyUiRev` = `cursor-editor-2026.05.24-unlock`
+Depois **Ctrl+F5** no browser. Confirmar no painel chat:
+
+`document.body.dataset.princyUiRev` = `cursor-agent-2026.05.25-r10`
+
+Endpoint: `https://princyai.com/princy-api` (nao `:3210` nem `127.0.0.1` no fetch do worker).
 
 ## No editor
 
 - F1 -> **Force Visual Reload (chat + layout)**
 - F1 -> **Reset Princy Layout**
+- F1 -> **Reconnect Princy Backend**
 
-Setting: `princyai.ui.forceVisualUnlock` (default `true`) reaplica desbloqueio a cada 8s durante 3 min apos abrir.
+Settings: `princyai.ui.forceVisualUnlock` e `princyai.ui.neverLockLayout` (default `true`).
+
+**Nunca** correr `compile-incremental` **depois** de `bundle-server-web-out` em producao (pagina branca).

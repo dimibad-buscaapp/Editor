@@ -404,20 +404,34 @@ export class AgentClient {
 		return this.lastProbeNote;
 	}
 
-	private rememberEndpoint(base: string, note: string): string {
+	private rememberEndpoint(base: string, note: string, cache = true): string {
 		let endpoint = sanitizeWebAgentEndpoint(base.replace(/\/+$/, ''));
 		if (vscode.env.uiKind === vscode.UIKind.Web) {
 			endpoint = toAbsoluteAgentEndpoint(endpoint);
 		}
-		cachedAgentEndpoint = endpoint;
+		if (cache) {
+			cachedAgentEndpoint = endpoint;
+		}
 		this.lastProbeNote = note;
 		return endpoint;
+	}
+
+	private webFallbackEndpoint(relativeOrProxy: string): string {
+		const fallback = getPreferredWebApiBases()[0] ?? toAbsoluteAgentEndpoint(relativeOrProxy);
+		this.lastProbeNote = 'web fallback: todos os probes falharam (sem cache)';
+		return sanitizeWebAgentEndpoint(
+			vscode.env.uiKind === vscode.UIKind.Web ? toAbsoluteAgentEndpoint(fallback) : fallback
+		);
 	}
 
 	/** Detecta a melhor URL da API (proxy mesma origem, localhost ou config manual). */
 	public async resolveEndpoint(): Promise<string> {
 		if (cachedAgentEndpoint) {
-			return cachedAgentEndpoint;
+			const note = this.lastProbeNote ?? '';
+			if (note.includes('probe ok') || note.startsWith('configured')) {
+				return cachedAgentEndpoint;
+			}
+			cachedAgentEndpoint = undefined;
 		}
 
 		const configuration = vscode.workspace.getConfiguration('princyai');
@@ -434,15 +448,11 @@ export class AgentClient {
 					relative
 				];
 				for (const base of candidates) {
-					if (!shouldCacheWebEndpoint(base)) {
-						continue;
-					}
 					if (await this.probeEndpoint(base)) {
-						return this.rememberEndpoint(base, `probe ok: ${base}`);
+						return this.rememberEndpoint(base, `probe ok: ${base}`, shouldCacheWebEndpoint(base));
 					}
 				}
-				const fallback = getPreferredWebApiBases()[0] ?? toAbsoluteAgentEndpoint(relative);
-				return this.rememberEndpoint(fallback, 'web fallback apos probe (3200->3210 via /princy-api)');
+				return this.webFallbackEndpoint(relative);
 			}
 			return this.rememberEndpoint(relative, `configured relative: ${relative}`);
 		}
@@ -455,15 +465,11 @@ export class AgentClient {
 			if (useSameOrigin) {
 				const candidates = [...getPreferredWebApiBases(), ...buildWebApiCandidates()];
 				for (const base of candidates) {
-					if (!shouldCacheWebEndpoint(base)) {
-						continue;
-					}
 					if (await this.probeEndpoint(base)) {
-						return this.rememberEndpoint(base, `probe ok: ${base}`);
+						return this.rememberEndpoint(base, `probe ok: ${base}`, shouldCacheWebEndpoint(base));
 					}
 				}
-				const fallback = getPreferredWebApiBases()[0] ?? toAbsoluteAgentEndpoint(SAME_ORIGIN_PROXY_PATH);
-				return this.rememberEndpoint(fallback, 'web fallback HTTPS (proxy 3200->3210)');
+				return this.webFallbackEndpoint(SAME_ORIGIN_PROXY_PATH);
 			}
 		} else if (await this.probeEndpoint(DEFAULT_AGENT_ENDPOINT)) {
 			return this.rememberEndpoint(DEFAULT_AGENT_ENDPOINT, `probe ok: ${DEFAULT_AGENT_ENDPOINT}`);
@@ -983,6 +989,17 @@ function detectServerBasePath(): string {
 	return '';
 }
 
+let agentClientOutput: vscode.OutputChannel | undefined;
+
+function logAgentClientWarn(message: string): void {
+	try {
+		agentClientOutput ??= vscode.window.createOutputChannel('Princy Ai');
+		agentClientOutput.appendLine(message);
+	} catch {
+		// tests / early load
+	}
+}
+
 /** Code Web: asExternalUri para fetch no worker da extensao (mesmo dominio HTTPS). */
 async function toFetchableAgentUrl(endpoint: string, path: string): Promise<string> {
 	const url = `${endpoint.replace(/\/+$/, '')}${path.startsWith('/') ? path : `/${path}`}`;
@@ -992,7 +1009,9 @@ async function toFetchableAgentUrl(endpoint: string, path: string): Promise<stri
 	try {
 		const external = await vscode.env.asExternalUri(vscode.Uri.parse(url));
 		return external.toString(true);
-	} catch {
+	} catch (error) {
+		const detail = error instanceof Error ? error.message : String(error);
+		logAgentClientWarn(`asExternalUri falhou para ${url}: ${detail}`);
 		return url;
 	}
 }

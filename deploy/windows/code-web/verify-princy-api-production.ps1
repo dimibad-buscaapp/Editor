@@ -60,7 +60,7 @@ $userSettings = Join-Path $ProjectRoot ".princy-user-data\User\settings.json"
 # --- 1) .env producao vs teste ---
 Write-Host "[1] Backend .env (producao vs teste)" -ForegroundColor Cyan
 if (-not (Test-Path $envFile)) {
-	Add-Issue "Ausente apps\ai-dashboard\.env — copie princyai.env.production.example"
+	Add-Issue "Ausente apps\ai-dashboard\.env - copie princyai.env.production.example"
 } else {
 	Add-Ok ".env presente"
 	$envText = Get-Content $envFile -Raw
@@ -72,7 +72,7 @@ if (-not (Test-Path $envFile)) {
 	if ($appOrigin -match '^https://(princyai\.com|www\.princyai\.com)') {
 		Add-Ok "APP_ORIGIN producao: $appOrigin"
 	} elseif ($appOrigin -match '^http://127\.0\.0\.1|^http://localhost') {
-		Add-Issue "APP_ORIGIN parece TESTE/LOCAL: $appOrigin — use https://princyai.com em producao"
+		Add-Issue "APP_ORIGIN parece TESTE/LOCAL: $appOrigin - use https://princyai.com em producao"
 	} else {
 		Add-Warn "APP_ORIGIN incomum: $appOrigin (esperado https://princyai.com)"
 	}
@@ -84,7 +84,7 @@ if (-not (Test-Path $envFile)) {
 	}
 
 	if ($corsRelaxed -eq 'true') {
-		Add-Issue "PRINCY_CORS_RELAXED=true — modo desenvolvimento, desative em producao"
+		Add-Issue "PRINCY_CORS_RELAXED=true - modo desenvolvimento, desative em producao"
 	} else {
 		Add-Ok "PRINCY_CORS_RELAXED nao ativo (producao)"
 	}
@@ -99,7 +99,7 @@ if (-not (Test-Path $envFile)) {
 		Add-Issue ".env com NODE_ENV=development no agent"
 	}
 	if ($envText -match 'PRINCY_LIVE_MODE\s*=\s*"?1"?|PRINCY_LIVE_MODE\s*=\s*true') {
-		Add-Warn ".env com PRINCY_LIVE_MODE — rotas live/teste"
+		Add-Warn ".env com PRINCY_LIVE_MODE - rotas live/teste"
 	}
 }
 
@@ -110,7 +110,7 @@ $wbJs = Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench.js"
 if (Test-Path $wbJs) {
 	$bytes = (Get-Item $wbJs).Length
 	if ($bytes -ge 800000) { Add-Ok "workbench.js bundled ($([math]::Round($bytes/1MB,2)) MB)" }
-	else { Add-Issue "workbench.js pequeno ($bytes bytes) — modo teste/DEV, rode compile-princy-code-web-production.ps1" }
+	else { Add-Issue "workbench.js pequeno ($bytes bytes) - modo teste/DEV, rode compile-princy-code-web-production.ps1" }
 } else {
 	Add-Issue "workbench.js ausente em out\"
 }
@@ -119,7 +119,7 @@ $nssm = Join-Path $env:ProgramFiles "nssm\nssm.exe"
 if (Test-Path $nssm) {
 	$extra = & $nssm get PrincyAiCodeWeb AppEnvironmentExtra 2>$null
 	if ($extra -match 'VSCODE_DEV=1') {
-		Add-Issue "Servico PrincyAiCodeWeb com VSCODE_DEV=1 (modo teste — pagina branca/offline)"
+		Add-Issue "Servico PrincyAiCodeWeb com VSCODE_DEV=1 (modo teste - pagina branca/offline)"
 	} else {
 		Add-Ok "PrincyAiCodeWeb sem VSCODE_DEV"
 	}
@@ -130,7 +130,7 @@ if (Test-Path $nssm) {
 
 $listen3201 = netstat -ano 2>$null | Select-String "LISTENING" | Select-String ":3201 "
 if ($listen3201) {
-	Add-Warn "Porta 3201 (webeditor-live) em LISTEN — confirme que URL principal e /webeditor/ na 3200"
+	Add-Warn "Porta 3201 (webeditor-live) em LISTEN - confirme que URL principal e /webeditor/ na 3200"
 }
 
 # --- 3) Settings editor (endpoint HTTPS producao) ---
@@ -146,9 +146,9 @@ if (Test-Path $userSettings) {
 	if ($us -match '"princyai\.agentEndpoint"\s*:\s*"(https://[^"]+/princy-api)"') {
 		Add-Ok "agentEndpoint HTTPS: $($Matches[1])"
 	} elseif ($us -match '"princyai\.agentEndpoint"\s*:\s*"/princy-api"') {
-		Add-Warn 'agentEndpoint relativo "/princy-api" — use https://princyai.com/princy-api apos git pull'
+		Add-Warn 'agentEndpoint relativo "/princy-api" - use https://princyai.com/princy-api apos git pull'
 	} elseif ($us -match ':3210') {
-		Add-Issue "agentEndpoint aponta :3210 direto — falha no browser do utilizador"
+		Add-Issue "agentEndpoint aponta :3210 direto - falha no browser do utilizador"
 	}
 } else {
 	Add-Warn "Ausente .princy-user-data\User\settings.json"
@@ -170,7 +170,7 @@ $agentDirect = Test-HealthUrl "Agent :3210 /api/agent/health" "http://127.0.0.1:
 if ($agentDirect.ok -and $agentDirect.body -match '"environment"\s*:\s*"production"') {
 	Add-Ok 'Health reporta environment=production'
 } elseif ($agentDirect.ok -and $agentDirect.body -match '"environment"\s*:\s*"development"') {
-	Add-Issue 'Health reporta environment=development — ajuste APP_ORIGIN=https://princyai.com e PRINCY_CORS_RELAXED=false'
+	Add-Issue 'Health reporta environment=development - ajuste APP_ORIGIN=https://princyai.com e PRINCY_CORS_RELAXED=false'
 } elseif ($agentDirect.ok) {
 	Add-Warn 'Health sem campo environment (git pull + rebuild agent para versao nova)'
 }

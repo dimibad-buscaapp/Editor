@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { shouldSkipPeriodicReconnect } from './agentConnectivity';
 import { applyPrincySecondarySideBarVisibilitySetting, migrateWebAgentEndpoint, shouldOpenChatOnStartup } from './princyWorkbenchChat';
 import { enforcePrincyEditorUnlocked } from './workbenchUi';
 import type { PrincyChatViewProvider } from './chatView';
@@ -114,10 +115,12 @@ export async function runGlobalVisualUnlock(
 	if (showMessage) {
 		provider.forceReloadPanel();
 	}
-	try {
-		await vscode.commands.executeCommand('princyai.reconnectBackend');
-	} catch {
-		// reconnect optional during early activation
+	if (!shouldSkipPeriodicReconnect()) {
+		try {
+			await vscode.commands.executeCommand('princyai.reconnectBackend');
+		} catch {
+			// reconnect optional during early activation
+		}
 	}
 
 	if (showMessage) {

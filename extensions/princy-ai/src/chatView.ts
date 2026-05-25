@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { AgentClient, AgentDefinition, AgentModel, ComposerPlan, ProjectTemplateId, TerminalCommandResult } from './agentClient';
-import { checkAgentBackend } from './agentConnectivity';
+import { checkAgentBackend, markBackendConnectivity, type BackendStatus } from './agentConnectivity';
 import { runPrincyProjectCreate } from './princyProjectCreate';
 import { focusPrincyChatPanel, PRINCY_CHAT_VIEW_ID } from './princyWorkbenchChat';
 import { buildChatPanelHtml } from './chatPanelHtml';
@@ -432,28 +432,40 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 		void this.refreshBackendStatusLazy();
 	}
 
+	private postBackendStatus(status: BackendStatus): void {
+		const endpoint = status.endpoint;
+		markBackendConnectivity(status.online);
+		this.view?.webview.postMessage({
+			type: 'backendStatus',
+			online: status.online,
+			message: status.message,
+			endpoint
+		});
+		if (!status.online) {
+			void setPrincyAiStatus({ kind: 'offline', label: labelForPrincyAiStatus('offline'), detail: status.message });
+			this.view?.webview.postMessage({
+				type: 'status',
+				text: `Backend offline (${endpoint}) — use Reconectar ou verifique :3210 /princy-api`
+			});
+		} else {
+			void setPrincyAiStatus({ kind: 'ready', label: labelForPrincyAiStatus('ready'), detail: endpoint });
+			this.view?.webview.postMessage({ type: 'status', text: 'Pronto' });
+		}
+	}
+
 	private async refreshBackendStatusLazy(): Promise<void> {
 		try {
 			await this.client.resolveEndpoint();
-			const endpoint = this.client.getAgentEndpoint();
 			const status = await checkAgentBackend(this.client);
-			this.view?.webview.postMessage({
-				type: 'backendStatus',
-				online: status.online,
-				message: status.message,
-				endpoint
+			this.postBackendStatus(status);
+		} catch (error) {
+			const detail = error instanceof Error ? error.message : String(error);
+			const endpoint = this.client.getAgentEndpoint();
+			this.postBackendStatus({
+				online: false,
+				endpoint,
+				message: `Falha ao verificar backend: ${detail}`
 			});
-			if (!status.online) {
-				void setPrincyAiStatus({ kind: 'offline', label: labelForPrincyAiStatus('offline'), detail: status.message });
-				this.view?.webview.postMessage({
-					type: 'status',
-					text: `Backend offline (${endpoint}) — agent no servidor: porta 3210`
-				});
-			} else {
-				void setPrincyAiStatus({ kind: 'ready', label: labelForPrincyAiStatus('ready'), detail: endpoint });
-			}
-		} catch {
-			// ignore — user can still type; send will show error
 		}
 	}
 
@@ -617,10 +629,10 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 				role: 'assistant',
 				text: backend.message
 			});
-			this.view?.webview.postMessage({ type: 'status', text: 'Backend offline' });
-			this.view?.webview.postMessage({ type: 'backendStatus', online: false, message: backend.message, endpoint: backend.endpoint });
+			this.postBackendStatus(backend);
 			return;
 		}
+		this.postBackendStatus(backend);
 
 		try {
 			let cleanMessage = text;

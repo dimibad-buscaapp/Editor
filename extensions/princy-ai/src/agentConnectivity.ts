@@ -12,6 +12,19 @@ export interface BackendStatus {
 	readonly build?: string;
 }
 
+let lastBackendOnlineAt = 0;
+
+/** Evita reconnect periódico (clearEndpointCache) quando o último health foi OK há pouco. */
+export function markBackendConnectivity(online: boolean): void {
+	if (online) {
+		lastBackendOnlineAt = Date.now();
+	}
+}
+
+export function shouldSkipPeriodicReconnect(minIntervalMs = 30_000): boolean {
+	return lastBackendOnlineAt > 0 && Date.now() - lastBackendOnlineAt < minIntervalMs;
+}
+
 function isHealthOk(health: { readonly ok?: boolean } | undefined): boolean {
 	return health?.ok !== false;
 }

@@ -146,9 +146,22 @@ export function activate(context: vscode.ExtensionContext): void {
 				);
 			}
 			await provider.refreshBackendStatus();
-			provider.forceReloadPanel();
+			await ensureWebviewUiRevisionLoaded(context, provider);
 		})();
 	}
+}
+
+async function ensureWebviewUiRevisionLoaded(
+	context: vscode.ExtensionContext,
+	provider: PrincyChatViewProvider
+): Promise<void> {
+	const key = 'princyChatUiRevisionLoaded';
+	const loaded = context.globalState.get<string>(key);
+	if (loaded === PRINCY_CHAT_UI_REVISION) {
+		return;
+	}
+	provider.forceReloadPanel();
+	await context.globalState.update(key, PRINCY_CHAT_UI_REVISION);
 }
 
 export function deactivate(): void {

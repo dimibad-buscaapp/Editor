@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { labelForPrincyAiStatus, type PrincyAiStatusSnapshot } from './princyAiStatus';
 
 let statusBarItem: vscode.StatusBarItem | undefined;
-let current: PrincyAiStatusSnapshot = { kind: 'ready', label: labelForPrincyAiStatus('ready') };
+let current: PrincyAiStatusSnapshot = { kind: 'thinking', label: 'IA: A ligar…' };
 
 export function registerPrincyStatusBar(context: vscode.ExtensionContext): void {
 	statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 90);

@@ -44,10 +44,10 @@ $webClientJs = Join-Path $ProjectRoot "out\vs\server\node\webClientServer.js"
 
 Write-Host "[Build / marcadores]" -ForegroundColor Cyan
 if (-not $extJs) {
-	$issues += "princy-ai dist/browser/extension.js ausente — npm run compile-web (ou compile-princy-code-web-production)"
+	$issues += "princy-ai dist/browser/extension.js ausente - npm run compile-web (ou compile-princy-code-web-production)"
 	Write-Host "  dist/browser/extension.js: AUSENTE (extensions e out\extensions)" -ForegroundColor Red
 } elseif ($extJs -match '\\dist\\extension\.js$' -and $extJs -notmatch '\\browser\\') {
-	$issues += "so existe dist\extension.js (node) — Code Web precisa dist\browser\extension.js"
+	$issues += "so existe dist\extension.js (node) - Code Web precisa dist\browser\extension.js"
 	Write-Host "  AVISO: $($extJs) e node-only; rode compile-web" -ForegroundColor Yellow
 } else {
 	Write-Host "  bundle: $extJs" -ForegroundColor DarkGray
@@ -66,7 +66,7 @@ if (-not $extJs) {
 }
 
 if (-not (Test-Path $webClientJs)) {
-	$issues += "webClientServer.js ausente — npm run compile-incremental"
+	$issues += "webClientServer.js ausente - npm run compile-incremental"
 	Write-Host "  webClientServer.js: AUSENTE" -ForegroundColor Red
 } elseif ((Get-Content $webClientJs -Raw) -notmatch 'princy-deploy-strip') {
 	$issues += "webClientServer.js sem strip princy-deploy-strip"
@@ -131,7 +131,7 @@ if (Test-Path $prodSettings) {
 
 if (-not $SkipChatApi) {
 	Write-Host ""
-	Write-Host "[Chat API — delegar verify-princy-chat-api.ps1]" -ForegroundColor Cyan
+	Write-Host "[Chat API - delegar verify-princy-chat-api.ps1]" -ForegroundColor Cyan
 	$chatScript = Join-Path $PSScriptRoot "verify-princy-chat-api.ps1"
 	if (Test-Path $chatScript) {
 		& $chatScript -ProjectRoot $ProjectRoot -PublicHost $PublicHost -CodeWebPort $CodeWebPort -SkipBuildCenterSmoke
