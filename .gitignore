@@ -47,3 +47,7 @@ extensions/copilot/test/simulation/cache/
 .github/prompts/*.local.prompt.md
 .agents/skills/.local/
 .github/skills/.local/
+# VPS runtime (nao commitar)
+logs/
+.princy-user-data/
+.princy-user-data-live/
