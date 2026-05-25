@@ -3,11 +3,13 @@
 #   cd C:\Apps\Editor
 #   git pull --no-rebase origin main
 #   pwsh -ExecutionPolicy Bypass -File deploy\windows\code-web\deploy-princy-verdent-vps.ps1
+#
+# Rapido (~5 min, so chat): adicione -SkipFullCompile
 
 param(
 	[string]$ProjectRoot = "C:\Apps\Editor",
 	[switch]$SkipGitPull,
-	[switch]$SkipFullCompile,
+	[switch]$SkipFullCompile = $true,
 	[switch]$KeepUserCache
 )
 
@@ -47,18 +49,25 @@ if (-not (Test-Path $buildAgent)) { throw "Ausente $buildAgent" }
 if ($LASTEXITCODE -ne 0) { throw "build-princy-agent-backend falhou" }
 
 Write-Host "`n[3] Extensao princy-ai (chat r13 + swarm UI) ..." -ForegroundColor Cyan
-$afterPull = Join-Path $PSScriptRoot "deploy-princy-after-pull.ps1"
-$afterArgs = @{
-	ProjectRoot = $ProjectRoot
-	SkipRestart = $true
-}
-if ($SkipFullCompile) {
-	& pwsh -NoProfile -ExecutionPolicy Bypass -File $afterPull @afterArgs
+$chatOnly = Join-Path $PSScriptRoot "compile-princy-chat-only.ps1"
+if ($SkipFullCompile -or -not (Test-Path (Join-Path $PSScriptRoot "compile-princy-code-web-production.ps1"))) {
+	& pwsh -NoProfile -ExecutionPolicy Bypass -File $chatOnly -ProjectRoot $ProjectRoot -SkipGitPull -SkipRestart
+	if ($LASTEXITCODE -ne 0) { throw "compile-princy-chat-only falhou" }
 } else {
-	$afterArgs.FullCompile = $true
-	& pwsh -NoProfile -ExecutionPolicy Bypass -File $afterPull @afterArgs
+	$afterPull = Join-Path $PSScriptRoot "deploy-princy-after-pull.ps1"
+	try {
+		& pwsh -NoProfile -ExecutionPolicy Bypass -File $afterPull -ProjectRoot $ProjectRoot -SkipRestart -FullCompile
+		if ($LASTEXITCODE -ne 0) { throw "deploy-princy-after-pull exit $LASTEXITCODE" }
+	} catch {
+		Write-Host "  AVISO: FullCompile falhou ($_) - fallback compile-web chat ..." -ForegroundColor Yellow
+		& pwsh -NoProfile -ExecutionPolicy Bypass -File $chatOnly -ProjectRoot $ProjectRoot -SkipGitPull -SkipRestart
+		if ($LASTEXITCODE -ne 0) { throw "compile-princy-chat-only falhou" }
+	}
 }
-if ($LASTEXITCODE -ne 0) { throw "deploy-princy-after-pull falhou" }
+
+Write-Host "`n[3b] Reiniciar agent backend (build novo) ..." -ForegroundColor Cyan
+Restart-Service PrincyAiAgentBackend -Force -ErrorAction SilentlyContinue
+Start-Sleep -Seconds 5
 
 if (-not $KeepUserCache) {
 	Write-Host "`n[4] Limpar cache webview ..." -ForegroundColor Cyan
@@ -113,7 +122,7 @@ Write-Host ""
 if ($allOk) {
 	Write-Host "DEPLOY VERDENT CONCLUIDO (rev $RevMarker)" -ForegroundColor Green
 } else {
-	Write-Host "DEPLOY PARCIAL — corrija falhas acima" -ForegroundColor Yellow
+	Write-Host "DEPLOY PARCIAL - corrija falhas acima" -ForegroundColor Yellow
 }
 Write-Host ""
 Write-Host "Browser:" -ForegroundColor Yellow

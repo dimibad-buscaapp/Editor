@@ -125,7 +125,7 @@ if (Test-Path $patchMeta) {
 . (Join-Path $PSScriptRoot "..\princy-ui-revision.ps1")
 $RevMarker = Get-PrincyUiRevision
 if (-not (Select-String -Path $extJs -Pattern $RevMarker -SimpleMatch -Quiet)) {
-	throw "extension.js sem revisao $RevMarker — compile-web da extensao incompleto"
+	throw "extension.js sem revisao $RevMarker - compile-web da extensao incompleto"
 }
 Write-Host "OK: chat UI revisao $RevMarker" -ForegroundColor Green
 

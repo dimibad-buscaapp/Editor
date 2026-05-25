@@ -34,7 +34,7 @@ if (-not $SkipGitPull) {
 
 Write-Host "`n[1] npm run compile-web (princy-ai browser bundle) ..." -ForegroundColor Cyan
 npm run compile-web
-if ($LASTEXITCODE -ne 0) { throw "compile-web falhou — corrija erros TypeScript acima" }
+if ($LASTEXITCODE -ne 0) { throw "compile-web falhou - corrija erros TypeScript acima" }
 
 $extJs = Join-Path $ProjectRoot "extensions\princy-ai\dist\browser\extension.js"
 if (-not (Test-Path $extJs)) {
@@ -47,7 +47,7 @@ foreach ($m in $markers) {
 	if ($extText -notmatch [regex]::Escape($m)) { $missing += $m }
 }
 if ($missing.Count -gt 0) {
-	throw "extension.js sem marcadores $Rev : $($missing -join ', ') — codigo desatualizado?"
+	throw "extension.js sem marcadores $Rev : $($missing -join ', ') - codigo desatualizado?"
 }
 Write-Host "OK: $extJs ($([math]::Round((Get-Item $extJs).Length/1KB)) KB) rev $Rev" -ForegroundColor Green
 
