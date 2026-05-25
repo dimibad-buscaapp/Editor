@@ -16,34 +16,56 @@ function isHealthOk(health: { readonly ok?: boolean } | undefined): boolean {
 	return health?.ok !== false;
 }
 
-export async function checkAgentBackend(client: AgentClient): Promise<BackendStatus> {
-	await client.resolveEndpoint();
-	const endpoint = client.getAgentEndpoint();
-	let lastError: unknown;
+function delay(ms: number): Promise<void> {
+	return new Promise(resolve => setTimeout(resolve, ms));
+}
 
-	for (const probe of [
-		() => client.agentHealth(),
-		() => client.health()
-	]) {
-		try {
-			const health = await probe();
-			if (isHealthOk(health)) {
-				return {
-					online: true,
-					endpoint,
-					message: `Backend online (${endpoint})`,
-					build: health.build
-				};
-			}
-		} catch (error) {
-			lastError = error;
+export async function checkAgentBackend(client: AgentClient): Promise<BackendStatus> {
+	const retryDelaysMs = [0, 500, 1500];
+	let lastStatus: BackendStatus | undefined;
+
+	for (let attempt = 0; attempt < retryDelaysMs.length; attempt++) {
+		if (retryDelaysMs[attempt] > 0) {
+			await delay(retryDelaysMs[attempt]);
+			client.clearEndpointCache();
 		}
+
+		await client.resolveEndpoint();
+		const endpoint = client.getAgentEndpoint();
+		const probeNote = client.getLastProbeNote();
+		let lastError: unknown;
+
+		for (const probe of [
+			() => client.agentHealth(),
+			() => client.health()
+		]) {
+			try {
+				const health = await probe();
+				if (isHealthOk(health)) {
+					const note = probeNote ? ` — ${probeNote}` : '';
+					return {
+						online: true,
+						endpoint,
+						message: `Backend online (${endpoint})${note}`,
+						build: health.build
+					};
+				}
+			} catch (error) {
+				lastError = error;
+			}
+		}
+
+		lastStatus = {
+			online: false,
+			endpoint,
+			message: formatConnectivityError(endpoint, lastError)
+		};
 	}
 
-	return {
+	return lastStatus ?? {
 		online: false,
-		endpoint,
-		message: formatConnectivityError(endpoint, lastError)
+		endpoint: client.getAgentEndpoint(),
+		message: 'Backend indisponivel apos varias tentativas.'
 	};
 }
 

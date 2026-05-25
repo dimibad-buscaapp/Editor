@@ -33,7 +33,8 @@ export function activate(context: vscode.ExtensionContext): void {
 	output.appendLine('Activating Princy Ai extension.');
 	const client = new AgentClient();
 	void client.resolveEndpoint().then(endpoint => {
-		output.appendLine(`Agent API endpoint: ${endpoint}`);
+		const note = client.getLastProbeNote();
+		output.appendLine(`Agent API endpoint: ${endpoint}${note ? ` (${note})` : ''}`);
 	});
 	const shadowContext = new ShadowContextManager();
 	const terminalRunner = new TerminalRunner();
@@ -136,7 +137,8 @@ export function activate(context: vscode.ExtensionContext): void {
 			client.clearEndpointCache();
 			const endpoint = await client.resolveEndpoint();
 			const status = await checkAgentBackend(client);
-			output.appendLine(`Web boot: rev=${PRINCY_CHAT_UI_REVISION} endpoint=${endpoint} online=${status.online}`);
+			const note = client.getLastProbeNote();
+			output.appendLine(`Web boot: rev=${PRINCY_CHAT_UI_REVISION} endpoint=${endpoint} online=${status.online}${note ? ` probe=${note}` : ''}`);
 			if (!status.online) {
 				output.show(true);
 				void vscode.window.showErrorMessage(

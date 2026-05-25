@@ -241,9 +241,10 @@
       "chat.unifiedAgentsBar.enabled": false,
       "chat.restoreLastPanelSession": false,
       "chat.titleBar.signIn.enabled": false,
-      "workbench.secondarySideBar.defaultVisibility": "visible",
+      "workbench.secondarySideBar.defaultVisibility": "hidden",
       "workbench.secondarySideBar.forceMaximized": false,
-      "princyai.ui.openChatOnStartup": true,
+      "princyai.ui.openChatOnStartup": false,
+      "princyai.ui.panelOpenOnStartup": false,
       "princyai.ui.defaultChat": true,
       "princyai.useSameOriginApi": true,
       "princyai.agentEndpoint": "/princy-api",
@@ -364,8 +365,13 @@
         },
         "princyai.ui.openChatOnStartup": {
           "type": "boolean",
-          "default": true,
-          "description": "Open the Princy Chat panel in the right sidebar when the workbench loads (Cursor-like)."
+          "default": false,
+          "description": "Open the Princy Chat panel in the right sidebar when the workbench loads."
+        },
+        "princyai.ui.panelOpenOnStartup": {
+          "type": "boolean",
+          "default": false,
+          "description": "Open the bottom panel (terminal, problems) when the workbench loads."
         },
         "princyai.defaultAgent": {
           "type": "string",

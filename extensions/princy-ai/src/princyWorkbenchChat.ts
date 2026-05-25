@@ -9,6 +9,26 @@ export const PRINCY_CHAT_VIEW_ID = 'workbench.view.extension.princyai';
 const PRINCY_CHAT_VIEW = PRINCY_CHAT_VIEW_ID;
 const PLATFORM_CHAT_CONTAINER = 'workbench.panel.chat';
 
+export function shouldOpenChatOnStartup(): boolean {
+	return vscode.workspace.getConfiguration('princyai').get<boolean>('ui.openChatOnStartup', false);
+}
+
+export function shouldOpenPanelOnStartup(): boolean {
+	return vscode.workspace.getConfiguration('princyai').get<boolean>('ui.panelOpenOnStartup', false);
+}
+
+export function getPrincySecondarySideBarDefaultVisibility(): 'visible' | 'hidden' {
+	return shouldOpenChatOnStartup() ? 'visible' : 'hidden';
+}
+
+/** Aplica visibilidade default da barra direita conforme openChatOnStartup. */
+export async function applyPrincySecondarySideBarVisibilitySetting(): Promise<void> {
+	const target = vscode.ConfigurationTarget.Global;
+	const workbench = vscode.workspace.getConfiguration('workbench');
+	await workbench.update('secondarySideBar.defaultVisibility', getPrincySecondarySideBarDefaultVisibility(), target);
+	await workbench.update('secondarySideBar.forceMaximized', false, target);
+}
+
 /** Desativa UI de chat nativa e abre o painel Princy Ai (estilo Cursor). */
 export function registerPrincyDefaultChat(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(
@@ -40,9 +60,7 @@ async function applyPrincyDefaultChat(): Promise<void> {
 	await chat.update('titleBar.signIn.enabled', false, target);
 	await chat.update('agentHost.enabled', false, target);
 
-	const workbench = vscode.workspace.getConfiguration('workbench');
-	await workbench.update('secondarySideBar.defaultVisibility', 'visible', target);
-	await workbench.update('secondarySideBar.forceMaximized', false, target);
+	await applyPrincySecondarySideBarVisibilitySetting();
 	await workbench.update('layoutControl.enabled', true, target);
 	await workbench.update('startupEditor', 'none', target);
 	await workbench.update('welcomePage.experimentalOnboarding', false, target);
@@ -157,7 +175,7 @@ export function scheduleOpenPrincyChatOnStartup(): void {
 	const delays = [400, 1200, 2800, 5500];
 	for (const ms of delays) {
 		setTimeout(() => {
-			if (!vscode.workspace.getConfiguration('princyai').get<boolean>('ui.openChatOnStartup', true)) {
+			if (!shouldOpenChatOnStartup()) {
 				return;
 			}
 			void (async () => {

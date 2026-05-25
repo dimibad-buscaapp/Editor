@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { applyPrincySecondarySideBarVisibilitySetting, shouldOpenChatOnStartup } from './princyWorkbenchChat';
 import { enforcePrincyEditorUnlocked } from './workbenchUi';
 import type { PrincyChatViewProvider } from './chatView';
 
@@ -84,8 +85,7 @@ export async function runGlobalVisualUnlock(
 	const wb = vscode.workspace.getConfiguration('workbench');
 	const files = vscode.workspace.getConfiguration('files');
 
-	await wb.update('secondarySideBar.forceMaximized', false, target);
-	await wb.update('secondarySideBar.defaultVisibility', 'visible', target);
+	await applyPrincySecondarySideBarVisibilitySetting();
 	await files.update('readonlyInclude', {}, target);
 	await files.update('readonlyExclude', {}, target);
 	await files.update('readonlyFromPermissions', false, target);
@@ -105,6 +105,13 @@ export async function runGlobalVisualUnlock(
 		await vscode.commands.executeCommand('princy.unlockEditorLayout');
 	} catch {
 		// workbench command only in Code OSS build with contrib princy
+	}
+	if (shouldOpenChatOnStartup()) {
+		try {
+			await vscode.commands.executeCommand('workbench.action.restoreAuxiliaryBar');
+		} catch {
+			// optional
+		}
 	}
 	provider.forceReloadPanel();
 	try {

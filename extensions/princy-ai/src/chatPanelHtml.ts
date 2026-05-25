@@ -724,7 +724,10 @@ export function buildChatPanelHtml(cspSource: string, nonce: string, styleUri?: 
 			</div>
 		</header>
 		<div class="chat-offline-banner" id="offlineBanner" style="display:none" role="alert">
-			<span class="chat-offline-text" id="offlineBannerText">Backend offline</span>
+			<div class="chat-offline-copy">
+				<span class="chat-offline-text" id="offlineBannerText">Backend offline</span>
+				<span class="chat-offline-endpoint" id="offlineBannerEndpoint" hidden></span>
+			</div>
 			<button type="button" class="chat-offline-reconnect" id="reconnectBackend">Reconectar</button>
 		</div>
 		<div class="chat-mode-bar cursor-hidden-modes" aria-hidden="true">
@@ -1852,14 +1855,25 @@ function getChatPanelScript(): string {
 				const sub = document.getElementById('chatHeaderSub');
 				const banner = document.getElementById('offlineBanner');
 				const bannerText = document.getElementById('offlineBannerText');
+				const bannerEndpoint = document.getElementById('offlineBannerEndpoint');
 				if (sub) {
 					sub.textContent = message.online ? 'Online' : 'Offline';
 				}
 				if (banner) {
 					banner.style.display = message.online ? 'none' : 'flex';
 				}
-				if (bannerText && !message.online) {
-					bannerText.textContent = message.message || 'Backend offline — verifique /princy-api e porta 3210';
+				if (!message.online) {
+					const ep = (message.endpoint || '/princy-api').trim();
+					if (bannerText) {
+						bannerText.textContent = message.message || 'Backend offline';
+					}
+					if (bannerEndpoint) {
+						bannerEndpoint.hidden = false;
+						bannerEndpoint.textContent = 'Endpoint: ' + ep + ' — agent no servidor: porta 3210';
+					}
+				} else if (bannerEndpoint) {
+					bannerEndpoint.hidden = true;
+					bannerEndpoint.textContent = '';
 				}
 				if (status) {
 					status.textContent = message.online ? 'Pronto' : 'Offline';

@@ -9,7 +9,11 @@ PowerShell 7 na VPS:
 ```powershell
 cd C:\Apps\Editor
 git pull --no-rebase origin main
+pwsh -ExecutionPolicy Bypass -File .\deploy\windows\code-web\restore-princy-webeditor-route.ps1
 pwsh -ExecutionPolicy Bypass -File .\deploy\windows\code-web\compile-full-princy-webeditor.ps1 -ProjectRoot "C:\Apps\Editor" -SkipPull
+pwsh -ExecutionPolicy Bypass -File .\deploy\windows\code-web\fix-princy-browser-cache.ps1
+Restart-Service PrincyAiCodeWeb, PrincyAiAgentBackend, PrincyCaddy
+pwsh -ExecutionPolicy Bypass -File .\deploy\windows\code-web\verify-princy-visual-and-chat.ps1 -ProjectRoot "C:\Apps\Editor"
 ```
 
 Tempo: **15 a 45 minutos**.
@@ -27,14 +31,14 @@ Tempo: **15 a 45 minutos**.
 ```
 OK: Chat bundle (extension.js)
 OK: Chat UI track (extension.js)
-OK: extension.js com revisao cursor-agent-2026.05.25-r3
+OK: extension.js com revisao cursor-agent-2026.05.25-r8
 OK: princyLayoutUnlock em out/
 ```
 
 No browser (Ctrl+F5):
 
-- `document.body.dataset.princyUiRev` = **`cursor-agent-2026.05.25-r3`**
-- Editor visivel + chat a direita (nao fullscreen)
+- `document.body.dataset.princyUiRev` = **`cursor-agent-2026.05.25-r8`**
+- Painel inferior e chat **fechados** ao carregar; ao abrir o chat: visual Cursor (nao fullscreen)
 
 ## Forcar visual AGORA (browser ainda antigo)
 
@@ -50,7 +54,7 @@ Tempo: **1-3 minutos**. Depois **no browser**:
 2. Ctrl+F5 em https://princyai.com/webeditor/
 3. F1 → **Force Visual Reload**
 4. F1 → **Unlock Princy Editor Layout**
-5. F12 → Console **no painel chat** → `document.body.dataset.princyUiRev` = `cursor-agent-2026.05.25-r3`
+5. F12 → Console **no painel chat** → `document.body.dataset.princyUiRev` = `cursor-agent-2026.05.25-r8`
 
 ## Se falhar
 

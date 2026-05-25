@@ -310,4 +310,37 @@
 
 .chat-offline-banner {
 	font-size: 11px !important;
+	padding: 6px 10px !important;
+	background: #2d1f1f !important;
+	border-bottom: 1px solid #5a3030 !important;
+	color: #f48771 !important;
+}
+
+.chat-offline-endpoint {
+	display: block;
+	margin-top: 4px;
+	font-size: 10px;
+	color: #858585;
+	word-break: break-all;
+}
+
+.chat-message-row,
+.chat-msg {
+	animation: princyMsgIn 160ms ease-out;
+}
+
+@keyframes princyMsgIn {
+	from {
+		opacity: 0;
+		transform: translateY(4px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.chat-composer-wrap,
+.chat-composer {
+	transition: min-height 160ms ease-out, border-color 120ms ease;
 }

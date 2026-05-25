@@ -319,9 +319,34 @@ const SAME_ORIGIN_PROXY_PATH = '/princy-api';
 
 let cachedAgentEndpoint: string | undefined;
 
+function sanitizeWebAgentEndpoint(endpoint: string): string {
+	const trimmed = endpoint.replace(/\/+$/, '');
+	if (vscode.env.uiKind !== vscode.UIKind.Web) {
+		return trimmed;
+	}
+	if (/:(3210)(\/|$)/i.test(trimmed)) {
+		return SAME_ORIGIN_PROXY_PATH;
+	}
+	return trimmed;
+}
+
 export class AgentClient {
+	private lastProbeNote: string | undefined;
+
 	public clearEndpointCache(): void {
 		cachedAgentEndpoint = undefined;
+		this.lastProbeNote = undefined;
+	}
+
+	public getLastProbeNote(): string | undefined {
+		return this.lastProbeNote;
+	}
+
+	private rememberEndpoint(base: string, note: string): string {
+		const endpoint = sanitizeWebAgentEndpoint(base.replace(/\/+$/, ''));
+		cachedAgentEndpoint = endpoint;
+		this.lastProbeNote = note;
+		return endpoint;
 	}
 
 	/** Detecta a melhor URL da API (proxy mesma origem, localhost ou config manual). */
@@ -341,18 +366,15 @@ export class AgentClient {
 				const candidates = [relative, ...buildWebApiCandidates().filter(c => c.replace(/\/+$/, '') !== relative)];
 				for (const base of candidates) {
 					if (await this.probeEndpoint(base)) {
-						cachedAgentEndpoint = base.replace(/\/+$/, '');
-						return cachedAgentEndpoint;
+						return this.rememberEndpoint(base, `probe ok: ${base}`);
 					}
 				}
 			}
-			cachedAgentEndpoint = relative;
-			return cachedAgentEndpoint;
+			return this.rememberEndpoint(relative, `configured relative: ${relative}`);
 		}
 
 		if (configured && configured !== 'auto' && configured !== DEFAULT_AGENT_ENDPOINT) {
-			cachedAgentEndpoint = configured.replace(/\/+$/, '');
-			return cachedAgentEndpoint;
+			return this.rememberEndpoint(configured, `configured: ${configured}`);
 		}
 
 		if (vscode.env.uiKind === vscode.UIKind.Web) {
@@ -360,21 +382,18 @@ export class AgentClient {
 				const candidates = buildWebApiCandidates();
 				for (const base of candidates) {
 					if (await this.probeEndpoint(base)) {
-						cachedAgentEndpoint = base.replace(/\/+$/, '');
-						return cachedAgentEndpoint;
+						return this.rememberEndpoint(base, `probe ok: ${base}`);
 					}
 				}
 				// Mesmo se o probe falhar no boot, use proxy relativo (porta 3200 -> 3210 no servidor)
-				cachedAgentEndpoint = SAME_ORIGIN_PROXY_PATH;
-				return cachedAgentEndpoint;
+				return this.rememberEndpoint(SAME_ORIGIN_PROXY_PATH, 'web fallback: /princy-api (probe failed)');
 			}
 		} else if (await this.probeEndpoint(DEFAULT_AGENT_ENDPOINT)) {
-			cachedAgentEndpoint = DEFAULT_AGENT_ENDPOINT;
-			return cachedAgentEndpoint;
+			return this.rememberEndpoint(DEFAULT_AGENT_ENDPOINT, `probe ok: ${DEFAULT_AGENT_ENDPOINT}`);
 		}
 
-		cachedAgentEndpoint = (configured && configured !== 'auto' ? configured : DEFAULT_AGENT_ENDPOINT).replace(/\/+$/, '');
-		return cachedAgentEndpoint;
+		const fallback = (configured && configured !== 'auto' ? configured : DEFAULT_AGENT_ENDPOINT);
+		return this.rememberEndpoint(fallback, `fallback: ${fallback}`);
 	}
 
 	public getAgentEndpoint(): string {

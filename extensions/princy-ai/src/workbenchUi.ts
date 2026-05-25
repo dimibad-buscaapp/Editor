@@ -4,7 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { ensureCursorLayoutOnStartup, scheduleOpenPrincyChatOnStartup } from './princyWorkbenchChat';
+import {
+	applyPrincySecondarySideBarVisibilitySetting,
+	ensureCursorLayoutOnStartup,
+	getPrincySecondarySideBarDefaultVisibility,
+	scheduleOpenPrincyChatOnStartup,
+	shouldOpenChatOnStartup
+} from './princyWorkbenchChat';
 
 export function registerPrincyWorkbenchUi(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(
@@ -12,6 +18,7 @@ export function registerPrincyWorkbenchUi(context: vscode.ExtensionContext): voi
 			if (
 				event.affectsConfiguration('princyai.ui.minimalWorkbench')
 				|| event.affectsConfiguration('princyai.ui.openChatOnStartup')
+				|| event.affectsConfiguration('princyai.ui.panelOpenOnStartup')
 				|| event.affectsConfiguration('princyai.chat.dockedRight')
 				|| event.affectsConfiguration('workbench.secondarySideBar.forceMaximized')
 				|| event.affectsConfiguration('workbench.secondarySideBar.defaultVisibility')
@@ -44,8 +51,7 @@ export async function applyPremiumWorkbench(): Promise<void> {
 	const princy = vscode.workspace.getConfiguration('princyai');
 
 	// Desativa travas de layout / visual antigo
-	await wb.update('secondarySideBar.forceMaximized', false, target);
-	await wb.update('secondarySideBar.defaultVisibility', 'visible', target);
+	await applyPrincySecondarySideBarVisibilitySetting();
 	await wb.update('panel.opensMaximized', 'never', target);
 	await wb.update('startupEditor', 'none', target);
 	await wb.update('welcomePage.experimentalOnboarding', false, target);
@@ -63,11 +69,17 @@ export async function applyPremiumWorkbench(): Promise<void> {
 
 	await clearAuxiliaryBarFullscreen();
 
-	if (princy.get<boolean>('ui.openChatOnStartup', true)) {
+	if (shouldOpenChatOnStartup()) {
 		scheduleOpenPrincyChatOnStartup();
-	}
-	if (princy.get<boolean>('chat.dockedRight', true)) {
-		await ensureCursorLayoutOnStartup();
+		if (princy.get<boolean>('chat.dockedRight', true)) {
+			await ensureCursorLayoutOnStartup();
+		}
+	} else {
+		// Garante setting hidden mesmo se outro modulo gravou visible
+		const expected = getPrincySecondarySideBarDefaultVisibility();
+		if (wb.get<string>('secondarySideBar.defaultVisibility') !== expected) {
+			await wb.update('secondarySideBar.defaultVisibility', expected, target);
+		}
 	}
 }
 

@@ -449,7 +449,7 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 				void setPrincyAiStatus({ kind: 'offline', label: labelForPrincyAiStatus('offline'), detail: status.message });
 				this.view?.webview.postMessage({
 					type: 'status',
-					text: 'Backend offline — inicie o agent na porta 3210'
+					text: `Backend offline (${endpoint}) — agent no servidor: porta 3210`
 				});
 			} else {
 				void setPrincyAiStatus({ kind: 'ready', label: labelForPrincyAiStatus('ready'), detail: endpoint });
@@ -1285,11 +1285,9 @@ export class PrincyChatViewProvider implements vscode.WebviewViewProvider {
 		const nonce = getNonce();
 		const media = vscode.Uri.joinPath(this.extensionUri, 'media');
 		const rev = encodeURIComponent(PRINCY_CHAT_UI_REVISION);
-		const styleBase = webview.asWebviewUri(vscode.Uri.joinPath(media, 'chat-panel.css')).toString();
 		const cursorBase = webview.asWebviewUri(vscode.Uri.joinPath(media, 'chat-panel-cursor.css')).toString();
-		const styleUri = `${styleBase}${styleBase.includes('?') ? '&' : '?'}princyUi=${rev}`;
 		const cursorStyleUri = `${cursorBase}${cursorBase.includes('?') ? '&' : '?'}princyUi=${rev}`;
-		return buildChatPanelHtml(webview.cspSource, nonce, styleUri, cursorStyleUri);
+		return buildChatPanelHtml(webview.cspSource, nonce, undefined, cursorStyleUri);
 	}
 
 	private async replyFileDiff(message: Extract<WebviewMessage, { type: 'readFileForDiff' }>): Promise<void> {

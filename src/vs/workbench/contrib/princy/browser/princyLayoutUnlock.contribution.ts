@@ -13,6 +13,8 @@ import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser
 
 const AUXILIARYBAR_FORCE_MAXIMIZED = 'workbench.secondarySideBar.forceMaximized';
 const PRINCY_NEVER_LOCK_LAYOUT = 'princyai.ui.neverLockLayout';
+const PRINCY_OPEN_CHAT_ON_STARTUP = 'princyai.ui.openChatOnStartup';
+const PRINCY_PANEL_OPEN_ON_STARTUP = 'princyai.ui.panelOpenOnStartup';
 
 export function applyPrincyLayoutUnlock(
 	layoutService: IWorkbenchLayoutService,
@@ -33,10 +35,12 @@ export function applyPrincyLayoutUnlock(
 	if (!layoutService.isVisible(Parts.SIDEBAR_PART)) {
 		layoutService.setPartHidden(false, Parts.SIDEBAR_PART);
 	}
-	if (!layoutService.isVisible(Parts.AUXILIARYBAR_PART)) {
+	const openChatOnStartup = configurationService.getValue<boolean>(PRINCY_OPEN_CHAT_ON_STARTUP) === true;
+	const openPanelOnStartup = configurationService.getValue<boolean>(PRINCY_PANEL_OPEN_ON_STARTUP) === true;
+	if (openChatOnStartup && !layoutService.isVisible(Parts.AUXILIARYBAR_PART)) {
 		layoutService.setPartHidden(false, Parts.AUXILIARYBAR_PART);
 	}
-	if (!layoutService.isVisible(Parts.PANEL_PART)) {
+	if (openPanelOnStartup && !layoutService.isVisible(Parts.PANEL_PART)) {
 		layoutService.setPartHidden(false, Parts.PANEL_PART);
 	}
 	if (!layoutService.isVisible(Parts.STATUSBAR_PART, mainWindow)) {
