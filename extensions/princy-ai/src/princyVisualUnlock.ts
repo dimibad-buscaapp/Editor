@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { safeConfigUpdate } from './configSafe';
 import { applyPrincySecondarySideBarVisibilitySetting, migrateWebAgentEndpoint, shouldOpenChatOnStartup } from './princyWorkbenchChat';
 import { enforcePrincyEditorUnlocked } from './workbenchUi';
 import type { PrincyChatViewProvider } from './chatView';
@@ -95,10 +96,10 @@ export async function runGlobalVisualUnlock(
 	const files = vscode.workspace.getConfiguration('files');
 
 	await applyPrincySecondarySideBarVisibilitySetting();
-	await files.update('readonlyInclude', {}, target);
-	await files.update('readonlyExclude', {}, target);
-	await files.update('readonlyFromPermissions', false, target);
-	await vscode.workspace.getConfiguration('editor').update('centeredLayoutAutoResize', false, target);
+	await safeConfigUpdate('files', 'readonlyInclude', {}, target);
+	await safeConfigUpdate('files', 'readonlyExclude', {}, target);
+	await safeConfigUpdate('files', 'readonlyFromPermissions', false, target);
+	await safeConfigUpdate('workbench', 'editor.centeredLayoutAutoResize', false, target);
 
 	const princy = vscode.workspace.getConfiguration('princyai');
 	await princy.update('useSameOriginApi', true, target);

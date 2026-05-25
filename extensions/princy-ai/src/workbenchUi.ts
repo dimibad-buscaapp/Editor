@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { safeConfigUpdate } from './configSafe';
 import {
 	applyPrincySecondarySideBarVisibilitySetting,
 	ensureCursorLayoutOnStartup,
@@ -52,20 +53,20 @@ export async function applyPremiumWorkbench(): Promise<void> {
 
 	// Desativa travas de layout / visual antigo
 	await applyPrincySecondarySideBarVisibilitySetting();
-	await wb.update('panel.opensMaximized', 'never', target);
-	await wb.update('startupEditor', 'none', target);
-	await wb.update('welcomePage.experimentalOnboarding', false, target);
-	await vscode.workspace.getConfiguration('editor').update('centeredLayoutAutoResize', false, target);
-	await wb.update('activityBar.visible', true, target);
-	await wb.update('activityBar.location', 'default', target);
-	await wb.update('layoutControl.enabled', true, target);
-	await wb.update('statusBar.visible', true, target);
-	await win.update('commandCenter', true, target);
-	await win.update('menuBarVisibility', 'classic', target);
+	await safeConfigUpdate('workbench', 'panel.opensMaximized', 'never', target);
+	await safeConfigUpdate('workbench', 'startupEditor', 'none', target);
+	await safeConfigUpdate('workbench', 'welcomePage.experimentalOnboarding', false, target);
+	await safeConfigUpdate('workbench', 'editor.centeredLayoutAutoResize', false, target);
+	await safeConfigUpdate('workbench', 'activityBar.visible', true, target);
+	await safeConfigUpdate('workbench', 'activityBar.location', 'default', target);
+	await safeConfigUpdate('workbench', 'layoutControl.enabled', true, target);
+	await safeConfigUpdate('workbench', 'statusBar.visible', true, target);
+	await safeConfigUpdate('window', 'commandCenter', true, target);
+	await safeConfigUpdate('window', 'menuBarVisibility', 'classic', target);
 
-	await files.update('readonlyInclude', {}, target);
-	await files.update('readonlyExclude', {}, target);
-	await files.update('readonlyFromPermissions', false, target);
+	await safeConfigUpdate('files', 'readonlyInclude', {}, target);
+	await safeConfigUpdate('files', 'readonlyExclude', {}, target);
+	await safeConfigUpdate('files', 'readonlyFromPermissions', false, target);
 
 	await clearAuxiliaryBarFullscreen();
 
@@ -78,7 +79,7 @@ export async function applyPremiumWorkbench(): Promise<void> {
 		// Garante setting hidden mesmo se outro modulo gravou visible
 		const expected = getPrincySecondarySideBarDefaultVisibility();
 		if (wb.get<string>('secondarySideBar.defaultVisibility') !== expected) {
-			await wb.update('secondarySideBar.defaultVisibility', expected, target);
+			await safeConfigUpdate('workbench', 'secondarySideBar.defaultVisibility', expected, target);
 		}
 	}
 }
@@ -89,11 +90,11 @@ async function applyMinimalWorkbenchExtras(): Promise<void> {
 	const ed = vscode.workspace.getConfiguration('editor');
 	const bc = vscode.workspace.getConfiguration('breadcrumbs');
 
-	await ed.update('minimap.enabled', false, target);
-	await ed.update('glyphMargin', false, target);
-	await ed.update('scrollBeyondLastLine', false, target);
-	await ed.update('smoothScrolling', true, target);
-	await bc.update('enabled', true, target);
+	await safeConfigUpdate('editor', 'minimap.enabled', false, target);
+	await safeConfigUpdate('editor', 'glyphMargin', false, target);
+	await safeConfigUpdate('editor', 'scrollBeyondLastLine', false, target);
+	await safeConfigUpdate('editor', 'smoothScrolling', true, target);
+	await safeConfigUpdate('breadcrumbs', 'enabled', true, target);
 }
 
 /** Remove maximize da barra lateral direita (so restore; toggle cego maximizaria de novo). */

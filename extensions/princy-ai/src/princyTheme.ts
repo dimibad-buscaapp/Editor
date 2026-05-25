@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { safeConfigUpdate } from './configSafe';
 
 const PRINCY_BLACK_THEME = 'Princy Black';
 
@@ -31,11 +32,12 @@ async function applyPrincyBlackTheme(): Promise<void> {
 		return;
 	}
 
-	await workbench.update('colorTheme', PRINCY_BLACK_THEME, vscode.ConfigurationTarget.Global);
+	await safeConfigUpdate('workbench', 'colorTheme', PRINCY_BLACK_THEME, vscode.ConfigurationTarget.Global);
 
 	const editor = vscode.workspace.getConfiguration('editor');
 	if (!editor.get<string>('fontFamily')?.includes('JetBrains')) {
-		await editor.update(
+		await safeConfigUpdate(
+			'editor',
 			'fontFamily',
 			"'JetBrains Mono', 'Cascadia Code', Consolas, monospace",
 			vscode.ConfigurationTarget.Global

@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { clearAgentEndpointCache } from './agentClient';
+import { safeConfigUpdate } from './configSafe';
 
 export const PRINCY_CHAT_VIEW_ID = 'workbench.view.extension.princyai';
 const PRINCY_CHAT_VIEW = PRINCY_CHAT_VIEW_ID;
@@ -26,8 +27,8 @@ export function getPrincySecondarySideBarDefaultVisibility(): 'visible' | 'hidde
 export async function applyPrincySecondarySideBarVisibilitySetting(): Promise<void> {
 	const target = vscode.ConfigurationTarget.Global;
 	const workbench = vscode.workspace.getConfiguration('workbench');
-	await workbench.update('secondarySideBar.defaultVisibility', getPrincySecondarySideBarDefaultVisibility(), target);
-	await workbench.update('secondarySideBar.forceMaximized', false, target);
+	await safeConfigUpdate('workbench', 'secondarySideBar.defaultVisibility', getPrincySecondarySideBarDefaultVisibility(), target);
+	await safeConfigUpdate('workbench', 'secondarySideBar.forceMaximized', false, target);
 }
 
 /** Desativa UI de chat nativa e abre o painel Princy Ai (estilo Cursor). */
@@ -51,27 +52,24 @@ async function applyPrincyDefaultChat(): Promise<void> {
 
 	const target = vscode.ConfigurationTarget.Global;
 
-	const chat = vscode.workspace.getConfiguration('chat');
-	await chat.update('disableAIFeatures', true, target);
-	await chat.update('agentsControl.enabled', 'hidden', target);
-	await chat.update('agent.enabled', false, target);
-	await chat.update('viewSessions.enabled', false, target);
-	await chat.update('unifiedAgentsBar.enabled', false, target);
-	await chat.update('restoreLastPanelSession', false, target);
-	await chat.update('titleBar.signIn.enabled', false, target);
-	await chat.update('agentHost.enabled', false, target);
+	await safeConfigUpdate('chat', 'disableAIFeatures', true, target);
+	await safeConfigUpdate('chat', 'agentsControl.enabled', 'hidden', target);
+	await safeConfigUpdate('chat', 'agent.enabled', false, target);
+	await safeConfigUpdate('chat', 'viewSessions.enabled', false, target);
+	await safeConfigUpdate('chat', 'unifiedAgentsBar.enabled', false, target);
+	await safeConfigUpdate('chat', 'restoreLastPanelSession', false, target);
+	await safeConfigUpdate('chat', 'titleBar.signIn.enabled', false, target);
+	await safeConfigUpdate('chat', 'agentHost.enabled', false, target);
 
-	const workbench = vscode.workspace.getConfiguration('workbench');
 	await applyPrincySecondarySideBarVisibilitySetting();
-	await workbench.update('layoutControl.enabled', true, target);
-	await workbench.update('startupEditor', 'none', target);
-	await workbench.update('welcomePage.experimentalOnboarding', false, target);
-	await workbench.update('editor.centeredLayoutAutoResize', false, target);
-	await workbench.update('activityBar.visible', true, target);
+	await safeConfigUpdate('workbench', 'layoutControl.enabled', true, target);
+	await safeConfigUpdate('workbench', 'startupEditor', 'none', target);
+	await safeConfigUpdate('workbench', 'welcomePage.experimentalOnboarding', false, target);
+	await safeConfigUpdate('workbench', 'editor.centeredLayoutAutoResize', false, target);
+	await safeConfigUpdate('workbench', 'activityBar.visible', true, target);
 
-	const files = vscode.workspace.getConfiguration('files');
-	await files.update('readonlyInclude', {}, target);
-	await files.update('readonlyFromPermissions', false, target);
+	await safeConfigUpdate('files', 'readonlyInclude', {}, target);
+	await safeConfigUpdate('files', 'readonlyFromPermissions', false, target);
 
 	const princy = vscode.workspace.getConfiguration('princyai');
 	if (princy.get<string>('defaultAgent') !== 'princy') {
