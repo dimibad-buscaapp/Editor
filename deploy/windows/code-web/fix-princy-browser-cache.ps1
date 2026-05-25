@@ -22,20 +22,10 @@ $env:PRINCY_UI_REVISION = $RevMarker
 Write-Host "=== Fix cache browser (workbench + princy-ai) ===" -ForegroundColor Cyan
 Write-Host "Rev UI: $RevMarker" -ForegroundColor DarkGray
 
-Write-Host "`n[1] compile-web (chat bundle) ..." -ForegroundColor Cyan
-npm run compile-web
-if ($LASTEXITCODE -ne 0) { throw "compile-web falhou" }
-
-Write-Host "`n[2] compile-incremental (servidor cache headers) ..." -ForegroundColor Cyan
-npm run compile-incremental
-if ($LASTEXITCODE -ne 0) { throw "compile-incremental falhou" }
-
-$wbJs = Join-Path $ProjectRoot "out\vs\code\browser\workbench\workbench.js"
-if (Test-Path $wbJs) {
-	Write-Host "`n[3] bundle-server-web-out ..." -ForegroundColor Cyan
-	npm run bundle-server-web-out
-	if ($LASTEXITCODE -ne 0) { throw "bundle-server-web-out falhou" }
-}
+Write-Host "`n[1] compile PROD (incremental -> compile-web -> bundle; bundle por ultimo) ..." -ForegroundColor Cyan
+$prodScript = Join-Path $PSScriptRoot "compile-princy-code-web-production.ps1"
+& pwsh -NoProfile -ExecutionPolicy Bypass -File $prodScript -ProjectRoot $ProjectRoot -SkipRestart
+if ($LASTEXITCODE -ne 0) { throw "compile-princy-code-web-production falhou" }
 
 Invoke-PrincyDeployScript -ScriptPath (Join-Path $PSScriptRoot "sync-princy-ai-out-extensions.ps1") -ScriptArgs @{ ProjectRoot = $ProjectRoot } | Out-Null
 
@@ -58,7 +48,7 @@ Start-Sleep -Seconds 5
 Write-Host "`n[5] Headers HTTP (devem ser no-cache ou ?v=$RevMarker) ..." -ForegroundColor Cyan
 $urls = @(
 	"http://127.0.0.1:3200/webeditor/",
-	"http://127.0.0.1:3200/webeditor/out/vs/code/browser/workbench/workbench.js"
+	"http://127.0.0.1:3200/webeditor/static/out/vs/code/browser/workbench/workbench.js"
 )
 foreach ($u in $urls) {
 	try {

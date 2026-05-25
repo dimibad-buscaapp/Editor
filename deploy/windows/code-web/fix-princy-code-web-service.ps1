@@ -218,8 +218,17 @@ if ($line) {
 
 try {
 	$r = Invoke-WebRequest "http://127.0.0.1:$Port$base/" -UseBasicParsing -TimeoutSec 25
-	$wb = $r.Content -match 'WORKBENCH_WEB_CONFIGURATION'
-	Write-Host "HTTP 127.0.0.1:$Port$base/ -> $($r.StatusCode) workbench=$wb ($($r.Content.Length) bytes)" -ForegroundColor $(if ($wb) { 'Green' } else { 'Yellow' })
+	$wb = $r.Content -match 'vscode-workbench-web-configuration|serverBasePath'
+	Write-Host "HTTP 127.0.0.1:$Port$base/ -> $($r.StatusCode) workbench_html=$wb ($($r.Content.Length) bytes)" -ForegroundColor $(if ($wb) { 'Green' } else { 'Yellow' })
+	$staticJs = "http://127.0.0.1:$Port$base/static/out/vs/code/browser/workbench/workbench.js"
+	try {
+		$js = Invoke-WebRequest $staticJs -UseBasicParsing -TimeoutSec 20
+		Write-Host "  workbench.js -> HTTP $($js.StatusCode) ($([int]($js.Content.Length/1KB)) KB)" -ForegroundColor Green
+	}
+	catch {
+		Write-Host "  workbench.js FALHOU (pagina em branco no browser): $_" -ForegroundColor Red
+		Write-Host "  Rode: deploy\windows\code-web\fix-webeditor-blank-page.ps1" -ForegroundColor Yellow
+	}
 }
 catch {
 	Write-Host "HTTP local falhou: $($_.Exception.Message)" -ForegroundColor Red
