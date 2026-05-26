@@ -8,6 +8,7 @@ param(
 	[int]$Port = 3200,
 	[string]$ServerBasePath = "/webeditor",
 	[string]$UserDataDirName = ".princy-user-data",
+	[string]$ServerDataDir = "",
 	[switch]$LiveMode
 )
 
@@ -123,6 +124,11 @@ if (Test-Path $productionSettings) {
 	Copy-Item $productionSettings (Join-Path $userDataDir "User\settings.json") -Force
 }
 
+if (-not $ServerDataDir) {
+	$ServerDataDir = Join-Path $ProjectRoot ".princy-ai-server"
+}
+New-Item -ItemType Directory -Force $ServerDataDir | Out-Null
+
 $base = $ServerBasePath.Trim()
 if (-not $base.StartsWith('/')) { $base = "/$base" }
 
@@ -154,6 +160,7 @@ $appParams = @(
 	'--without-connection-token',
 	'--disable-workspace-trust',
 	'--user-data-dir', $userDataDir,
+	'--server-data-dir', $ServerDataDir,
 	'--server-base-path', $base,
 	'--builtin-extensions-dir', $builtinExtDir
 )
@@ -185,6 +192,7 @@ if (Test-Path $revScript) {
 $envExtra = @(
 	"VSCODE_SKIP_PRELAUNCH=1",
 	"NODE_OPTIONS=--max-old-space-size=8192",
+	"VSCODE_AGENT_FOLDER=$ServerDataDir",
 	"PRINCY_EDITOR_ROOT=$ProjectRoot",
 	"PRINCY_UI_REVISION=$uiRev"
 )
